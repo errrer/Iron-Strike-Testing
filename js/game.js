@@ -70,6 +70,7 @@ export class Game {
       if (e.code === 'Digit1') this.switchWeapon(p, 0);
       if (e.code === 'Digit2') this.switchWeapon(p, 1);
       if (e.code === 'KeyQ') this.switchWeapon(p, 1 - p.cur);
+      if (e.code === 'KeyV') this.toggleView();
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
     document.addEventListener('keyup', (e) => { this.keys[e.code] = false; if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
@@ -139,7 +140,11 @@ export class Game {
       for (let i = 1; i < mode.count; i++) this.actors.push(mk(i, names[i], i, false));
     }
     for (const a of this.actors) {
-      if (!a.isPlayer) {
+      if (a.isPlayer) {
+        // visible only in third-person view
+        a.mesh = this.makeBotMesh(mode.team ? 0x4aa3ff : 0x27ae60, a.weapons[0], null);
+        a.mesh.root.visible = false; this.scene.add(a.mesh.root);
+      } else {
         const color = mode.team ? TEAM_COLORS[a.team] : FFA_COLORS[a.team % FFA_COLORS.length];
         a.mesh = this.makeBotMesh(color, a.weapons[0], mode.team && a.team === 0 ? a.name : null);
         this.scene.add(a.mesh.root);
@@ -204,7 +209,7 @@ export class Game {
     a.ammo = a.weapons.map((w) => ({ mag: w.mag, res: w.reserve })); a.crouch = false; a.h = 1.8; a.eye = 1.65; a.heat = 0; a.recoilDebt = 0; a.ads = 0;
     a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99;
     if (a.brain) { a.brain.reset(); a.mesh.root.visible = true; a.mesh.body.rotation.x = 0; }
-    if (a.isPlayer) { this.setPlayerVm(); this.hud.onRespawn(); if (!first) this.sound.spawn(); }
+    if (a.isPlayer) { if (a.mesh) { a.mesh.body.rotation.x = 0; this.setActorGun(a); } this.setPlayerVm(); this.hud.onRespawn(); if (!first) this.sound.spawn(); }
   }
 
   // ------------------------------------------------------------------ meshes
@@ -229,7 +234,33 @@ export class Game {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
       sp.scale.set(1.3, 0.33, 1); sp.position.set(0, 2.15, 0); root.add(sp);
     }
-    return { root, body, legs };
+    return { root, body, legs, gun, gunId: weapon.id };
+  }
+
+  // swap the gun model held by an actor's third-person body
+  setActorGun(a) {
+    const m = a.mesh; if (!m || m.gunId === a.weapon.id) return;
+    const old = m.gun, pos = old.position.clone();
+    m.body.remove(old);
+    m.gun = buildGun(a.weapon); m.gun.position.copy(pos); m.body.add(m.gun); m.gunId = a.weapon.id;
+  }
+
+  toggleView(view) {
+    this.settings.view = view || (this.settings.view === 'third' ? 'first' : 'third');
+    if (this.state === 'playing') this.hud.center(this.settings.view === 'third' ? 'THIRD PERSON' : 'FIRST PERSON', 0.7);
+    if (this.onViewChange) this.onViewChange(this.settings.view);
+  }
+
+  // distance to the first thing (world or enemy) hit by a ray - used to aim from the third-person camera
+  aimDistance(o, d, self, maxD) {
+    let best = this.col.ray(o.x, o.y, o.z, d.x, d.y, d.z, maxD);
+    for (const e of this.actors) {
+      if (!e.alive || e === self || e.team === self.team) continue;
+      const th = raySphere(o.x, o.y, o.z, d.x, d.y, d.z, e.pos.x, e.pos.y + e.h - 0.2, e.pos.z, 0.21);
+      const tb = rayAABB(o.x, o.y, o.z, d.x, d.y, d.z, e.pos.x - 0.32, e.pos.y, e.pos.z - 0.32, e.pos.x + 0.32, e.pos.y + e.h - 0.4, e.pos.z + 0.32);
+      best = Math.min(best, th, tb);
+    }
+    return best;
   }
 
   setPlayerVm() {
@@ -400,7 +431,7 @@ export class Game {
   switchWeapon(a, idx) {
     if (!a.alive || idx === a.cur || a.switchT > 0.1) return;
     a.cur = idx; a.weapon = a.weapons[idx]; a.reloading = false; a.switchT = 0.38; a.ads = 0;
-    if (a.isPlayer) { this.setPlayerVm(); this.sound.switchGun(); }
+    if (a.isPlayer) { this.setPlayerVm(); this.setActorGun(a); this.sound.switchGun(); }
   }
 
   los(a, e) {
@@ -565,7 +596,13 @@ export class Game {
     let spread = lerp(w.spread, w.adsSpread, p.ads);
     spread *= 1 + moveF * 0.9 * (1 - p.ads * 0.5) + (p.onGround ? 0 : 2) + p.heat * 0.7;
     if (p.crouch) spread *= 0.75;
-    const dir = this.dirFrom(p.yaw, p.pitch, new V3());
+    let dir = this.dirFrom(p.yaw, p.pitch, new V3());
+    if (this.tp) {
+      // third person: bullets leave the player's eye but must land where the (offset) camera crosshair points
+      const cp = this.camera.position, t = this.aimDistance(cp, dir, p, 150);
+      const ex = p.pos.x, ey = p.pos.y + p.eye, ez = p.pos.z;
+      dir = new V3(cp.x + dir.x * t - ex, cp.y + dir.y * t - ey, cp.z + dir.z * t - ez).normalize();
+    }
     this.fireShot(p, dir, spread, 1);
     p.heat = Math.min(1, p.heat + 0.12);
     const kick = w.recoil * (0.8 + Math.random() * 0.4) * (1 - p.ads * 0.3);
@@ -610,10 +647,25 @@ export class Game {
     let bob = 0, roll = 0, eye = p.eye;
     if (!p.alive) { eye = Math.max(0.35, p.eye - p.deathT * 1.6); roll = Math.min(0.9, p.deathT * 2); }
     else if (p.onGround) { p.bobT = (p.bobT || 0) + (p.speed2 || 0) * dt * 1.5; bob = Math.sin(p.bobT) * 0.018 * Math.min(1, (p.speed2 || 0) / 5) * (1 - p.ads); }
-    cam.position.set(p.pos.x, p.pos.y + eye + bob, p.pos.z);
-    cam.rotation.set(p.pitch, p.yaw, roll, 'YXZ');
     const w = p.weapon;
-    const zoom = lerp(1, w.zoom, p.ads);
+    const scoped = w.scope && p.ads > 0.88 && p.alive;
+    this.tp = this.settings.view === 'third' && !scoped;
+    cam.position.set(p.pos.x, p.pos.y + eye + bob, p.pos.z);
+    if (this.tp) {
+      // over-the-shoulder camera, pulled in when a wall is in the way
+      const cp = Math.cos(p.pitch), fx = -Math.sin(p.yaw) * cp, fy = Math.sin(p.pitch), fz = -Math.cos(p.yaw) * cp;
+      const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
+      const back = lerp(3.0, 1.9, p.ads), side = lerp(0.6, 0.45, p.ads), up = 0.25;
+      const ox = p.pos.x, oy = p.pos.y + eye, oz = p.pos.z;
+      let dx = -fx * back + rx * side, dy = -fy * back + up, dz = -fz * back + rz * side;
+      const len = Math.hypot(dx, dy, dz); dx /= len; dy /= len; dz /= len;
+      const hit = this.col.ray(ox, oy, oz, dx, dy, dz, len);
+      const dist = hit < len ? Math.max(0.25, hit - 0.3) : len;
+      cam.position.set(ox + dx * dist, Math.max(0.15, oy + dy * dist), oz + dz * dist);
+    }
+    cam.rotation.set(p.pitch, p.yaw, roll, 'YXZ');
+    if (p.mesh) p.mesh.root.visible = this.tp && p.mesh.root.visible;
+    const zoom = lerp(1, this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
     const fov = this.settings.fov / zoom;
     if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
     this.world.update(dt, cam.position);
@@ -627,7 +679,7 @@ export class Game {
     const p = this.player, vm = this.vm, w = p.weapon;
     if (!vm) return;
     const scoped = w.scope && p.ads > 0.88 && p.alive;
-    this.vmRoot.visible = p.alive && !scoped;
+    this.vmRoot.visible = p.alive && !scoped && !this.tp;
     this.hud.setScope(scoped);
     // kick decay, look sway
     this.vmKick = Math.max(0, (this.vmKick || 0) - dt * 9);

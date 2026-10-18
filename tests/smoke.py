@@ -14,8 +14,8 @@ stub = open('tests/three-stub.js').read()
 
 errors = []
 SIM = """
-async ([mode, map, prim, sec, seconds, diff]) => {
-  const g = window.__game;
+async ([mode, map, prim, sec, seconds, diff, view]) => {
+  const g = window.__game; g.settings.view = view || 'first';
   g.start({mode, map, mapName: map, primary: prim, secondary: sec, difficulty: diff});
   g.state = 'playing'; document.getElementById('pause').classList.add('hidden');
   const dt = 1/60; const p = g.player; const out = {errors: []};
@@ -64,7 +64,8 @@ with sync_playwright() as pw:
     pg.click('#btnStart'); pg.wait_for_timeout(300)
     print('after deploy: hud visible =', pg.evaluate("() => !document.getElementById('hud').classList.contains('hidden')"), 'state =', pg.evaluate('() => window.__game.state'))
     runs = [('tdm','warehouse','vmp','g18',150,'normal'), ('1v1','dust','m4a1','m1911',120,'hard'), ('ffa','skyline','ak47','magnum',150,'normal'),
-            ('tdm','frostbite','kar98k','g18',120,'easy'), ('ffa','warehouse','m680','m1911',100,'hard'), ('1v1','frostbite','vmp','g18',90,'normal'), ('tdm','dust','ak47','magnum',100,'hard'), ('ffa','frostbite','m4a1','g18',100,'normal'), ('tdm','skyline','m680','m1911',100,'normal')]
+            ('tdm','frostbite','kar98k','g18',120,'easy'), ('ffa','warehouse','m680','m1911',100,'hard'), ('1v1','frostbite','vmp','g18',90,'normal'), ('tdm','dust','ak47','magnum',100,'hard'), ('ffa','frostbite','m4a1','g18',100,'normal'), ('tdm','skyline','m680','m1911',100,'normal'),
+            ('tdm','warehouse','vmp','g18',100,'normal','third'), ('ffa','dust','kar98k','magnum',100,'normal','third'), ('1v1','frostbite','m680','g18',80,'hard','third')]
     for r in runs:
         res = pg.evaluate(SIM, list(r))
         bad = res['errors'] or res['nanPos'] or res['outOfBounds']
@@ -77,6 +78,12 @@ with sync_playwright() as pw:
     print('forced end ->', pg.evaluate("() => ({state: window.__game.state, title: document.getElementById('endTitle').textContent, rows: document.querySelectorAll('#endTable tr').length})"))
     pg.click('#btnAgain'); pg.wait_for_timeout(200)
     print('play again state =', pg.evaluate('() => window.__game.state'))
+    # toggle controls: pause-menu button + V key
+    pg.evaluate("() => { window.__game.state = 'playing'; }")
+    pg.keyboard.press('KeyV'); pg.wait_for_timeout(100)
+    print('after V key view =', pg.evaluate('() => window.__game.settings.view'), 'buttons sel =', pg.evaluate("() => [...document.querySelectorAll('.viewseg .sel')].map(b => b.dataset.view)"))
+    pg.evaluate("() => document.querySelectorAll('.viewseg button[data-view=first]')[1].click()")
+    print('after pause-menu click view =', pg.evaluate('() => window.__game.settings.view'), 'saved =', pg.evaluate("() => JSON.parse(localStorage.getItem('ironstrike')).view"))
     b.close()
 print('\nRUNTIME ERRORS:', errors if errors else 'none')
 sys.exit(1 if errors else 0)

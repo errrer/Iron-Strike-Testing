@@ -41,7 +41,14 @@
     <h2>PAUSED</h2>
     <button id="btnResume" class="btn primary">Resume</button>
     <button id="btnQuit" class="btn">Quit to menu</button>
-    <p class="hint">WASD move - Shift sprint - C crouch - Space jump - LMB fire - RMB aim - R reload - 1/2/Q/wheel switch - Tab scoreboard</p>
+    <div class="settings">
+      <h3>Settings</h3>
+      <div class="viewrow"><span>Camera view</span><div class="seg viewseg"></div></div>
+      <label>Mouse sensitivity <input id="sens2" type="range" min="0.2" max="3" step="0.05" value="1"><output id="sensOut2">1.0</output></label>
+      <label>Field of view <input id="fov2" type="range" min="60" max="110" step="1" value="80"><output id="fovOut2">80</output></label>
+      <label>Volume <input id="vol2" type="range" min="0" max="1" step="0.05" value="0.55"><output id="volOut2">0.55</output></label>
+    </div>
+    <p class="hint">WASD move - Shift sprint - C crouch - Space jump - LMB fire - RMB aim - R reload - 1/2/Q/wheel switch - V switch camera - Tab scoreboard</p>
   </div>
 </div>
 
@@ -93,6 +100,7 @@
         <div id="difficulty" class="seg"></div>
       </div>
       <div class="sliders">
+        <div class="viewrow"><span>Camera view</span><div class="seg viewseg"></div></div>
         <label>Mouse sensitivity <input id="sens" type="range" min="0.2" max="3" step="0.05" value="1"><output id="sensOut">1.0</output></label>
         <label>Field of view <input id="fov" type="range" min="60" max="110" step="1" value="80"><output id="fovOut">80</output></label>
         <label>Volume <input id="vol" type="range" min="0" max="1" step="0.05" value="0.55"><output id="volOut">0.55</output></label>
@@ -101,7 +109,7 @@
 
     <div class="startrow">
       <button id="btnStart" class="btn primary big">DEPLOY</button>
-      <div class="controls">WASD move &middot; Shift sprint &middot; C crouch &middot; Space jump &middot; LMB fire &middot; RMB aim &middot; R reload &middot; 1/2/Q/wheel swap weapon &middot; Tab scoreboard &middot; Esc pause</div>
+      <div class="controls">WASD move &middot; Shift sprint &middot; C crouch &middot; Space jump &middot; LMB fire &middot; RMB aim &middot; R reload &middot; 1/2/Q/wheel swap weapon &middot; V first/third person &middot; Tab scoreboard &middot; Esc pause</div>
     </div>
     <footer>Fan-made, non-commercial project. Not affiliated with or endorsed by any game publisher. Weapon names are used descriptively.</footer>
   </div>

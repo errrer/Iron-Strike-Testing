@@ -8,13 +8,14 @@ import { MAP_IDS, MAP_INFO } from './maps.js';
 const $ = (id) => document.getElementById(id);
 
 // ---------------- settings (persisted) ----------------
-const DEFAULTS = { mode: 'tdm', map: 'warehouse', primary: 'vmp', secondary: 'g18', difficulty: 'normal', sens: 1, fov: 80, vol: 0.55 };
+const DEFAULTS = { mode: 'tdm', map: 'warehouse', primary: 'vmp', secondary: 'g18', difficulty: 'normal', sens: 1, fov: 80, vol: 0.55, view: 'first' };
 let cfg = { ...DEFAULTS };
 try { Object.assign(cfg, JSON.parse(localStorage.getItem('ironstrike') || '{}')); } catch (e) { /* ignore */ }
 if (!MODES[cfg.mode]) cfg.mode = DEFAULTS.mode;
 if (!MAP_IDS.includes(cfg.map)) cfg.map = DEFAULTS.map;
 if (!PRIMARIES.includes(cfg.primary)) cfg.primary = DEFAULTS.primary;
 if (!SECONDARIES.includes(cfg.secondary)) cfg.secondary = DEFAULTS.secondary;
+if (cfg.view !== 'first' && cfg.view !== 'third') cfg.view = 'first';
 const save = () => { try { localStorage.setItem('ironstrike', JSON.stringify(cfg)); } catch (e) { /* ignore */ } };
 
 function showFatal(msg) {
@@ -26,7 +27,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -63,14 +64,28 @@ for (const d of ['easy', 'normal', 'hard']) {
   $('difficulty').appendChild(b);
 }
 
-function slider(id, outId, key, fmt, apply) {
-  const el = $(id), out = $(outId);
-  el.value = cfg[key]; out.textContent = fmt(cfg[key]); apply(cfg[key]);
-  el.addEventListener('input', () => { cfg[key] = parseFloat(el.value); out.textContent = fmt(cfg[key]); apply(cfg[key]); save(); });
+// each setting has a control in the main menu and one in the pause menu; they stay in sync
+function slider(ids, key, fmt, apply) {
+  const sync = () => { for (const [id, outId] of ids) { $(id).value = cfg[key]; $(outId).textContent = fmt(cfg[key]); } };
+  sync(); apply(cfg[key]);
+  for (const [id] of ids) $(id).addEventListener('input', () => { cfg[key] = parseFloat($(id).value); sync(); apply(cfg[key]); save(); });
 }
-slider('sens', 'sensOut', 'sens', (v) => v.toFixed(2), (v) => { game.settings.sens = v; });
-slider('fov', 'fovOut', 'fov', (v) => String(Math.round(v)), (v) => { game.settings.fov = v; });
-slider('vol', 'volOut', 'vol', (v) => v.toFixed(2), (v) => { sound.volume = v; if (sound.master) sound.master.gain.value = v; });
+slider([['sens', 'sensOut'], ['sens2', 'sensOut2']], 'sens', (v) => v.toFixed(2), (v) => { game.settings.sens = v; });
+slider([['fov', 'fovOut'], ['fov2', 'fovOut2']], 'fov', (v) => String(Math.round(v)), (v) => { game.settings.fov = v; });
+slider([['vol', 'volOut'], ['vol2', 'volOut2']], 'vol', (v) => v.toFixed(2), (v) => { sound.volume = v; if (sound.master) sound.master.gain.value = v; });
+
+// camera view toggle (main menu + pause menu + V key in game)
+const viewBtns = [];
+for (const seg of document.querySelectorAll('.viewseg')) {
+  for (const [v, label] of [['first', 'First person'], ['third', 'Third person']]) {
+    const b = document.createElement('button'); b.textContent = label; b.dataset.view = v;
+    b.addEventListener('click', () => game.toggleView(v));
+    seg.appendChild(b); viewBtns.push(b);
+  }
+}
+function showView(v) { cfg.view = v; for (const b of viewBtns) b.classList.toggle('sel', b.dataset.view === v); save(); }
+game.onViewChange = showView;
+showView(cfg.view);
 
 // ---------------- models ----------------
 // Weapons with an `asset` (assets/models/<id>.json, baked from FBX) are loaded before the first match.

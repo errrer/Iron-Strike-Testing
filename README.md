@@ -41,6 +41,7 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 | Right mouse | Aim down sights |
 | R | Reload |
 | 1 / 2 / Q / mouse wheel | Switch weapon |
+| V | Toggle first / third person camera (also in the menu and pause settings) |
 | Tab (hold) | Scoreboard |
 | Esc | Pause |
 

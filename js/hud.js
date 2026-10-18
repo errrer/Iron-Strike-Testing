@@ -124,7 +124,7 @@ export class HUD {
     const sp = lerp(w.spread, w.adsSpread, p.ads) * (1 + moveF * 0.9 + p.heat * 0.7 + (p.onGround ? 0 : 2));
     const px = Math.min(80, 4 + sp * (window.innerHeight / 2) / Math.tan((game.camera.fov * Math.PI / 180) / 2));
     e.crosshair.style.setProperty('--gap', `${px.toFixed(1)}px`);
-    e.crosshair.style.opacity = p.ads > 0.3 || !p.alive ? '0' : '1';
+    e.crosshair.style.opacity = (p.ads > 0.3 && !game.tp) || !p.alive ? '0' : '1';
     // dead
     if (!p.alive) this.set('deadSub', `${this.deadWeapon || ''}  -  respawning in ${Math.max(0, Math.ceil(p.respawnT))}`);
     // scoreboard

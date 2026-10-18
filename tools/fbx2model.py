@@ -87,6 +87,37 @@ def load(path):
         parts.append(dict(name=name, tris=tris, color=mat[0] if mat else [0.3, 0.3, 0.3]))
     return parts
 
+def fix_inside_out(P, N):
+    """Some meshes contain closed pieces (e.g. cubes) whose faces point inward - they look fine in Blender
+    (back-faces are shown) but render inside-out in a game engine. Find every closed piece with negative
+    signed volume and flip its winding + normals. P, N: (3*T, 3) arrays, 3 corners per triangle."""
+    T = len(P) // 3
+    key = {}
+    ids = np.array([key.setdefault(tuple(np.round(p, 4)), len(key)) for p in P]).reshape(-1, 3)
+    parent = list(range(len(key)))
+    def find(x):
+        while parent[x] != x: parent[x] = parent[parent[x]]; x = parent[x]
+        return x
+    for t in ids:
+        parent[find(t[0])] = find(t[1]); parent[find(t[1])] = find(t[2])
+    comp = {}
+    for ti, t in enumerate(ids): comp.setdefault(find(t[0]), []).append(ti)
+    flipped = 0
+    for tris in comp.values():
+        edges = {}
+        for ti in tris:
+            a, b, c = ids[ti]
+            for e in ((a, b), (b, c), (c, a)): edges[tuple(sorted(e))] = edges.get(tuple(sorted(e)), 0) + 1
+        if any(n != 2 for n in edges.values()): continue          # open piece: leave alone
+        vol = sum(np.dot(P[3 * ti], np.cross(P[3 * ti + 1], P[3 * ti + 2])) for ti in tris) / 6
+        if vol < 0:
+            for ti in tris:
+                i = 3 * ti
+                P[[i + 1, i + 2]] = P[[i + 2, i + 1]]; N[[i + 1, i + 2]] = N[[i + 2, i + 1]]
+                N[i:i + 3] = -N[i:i + 3]
+            flipped += 1
+    return flipped
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('fbx'); ap.add_argument('id')
@@ -143,6 +174,8 @@ def main():
     for part in parts:
         P = (R @ np.array([p for p, _ in part['tris']]).T).T * sc + shift
         Nn = (R @ np.array([n for _, n in part['tris']]).T).T
+        nfix = fix_inside_out(P, Nn)
+        if nfix: print(f"   fixed {nfix} inside-out piece(s) in '{part['name']}'")
         allf.append(P)
         key = {}; pos = []; nor = []; ind = []
         for p, n in zip(P, Nn):
