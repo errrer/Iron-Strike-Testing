@@ -45,6 +45,23 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 | Tab (hold) | Scoreboard |
 | Esc | Pause |
 
+## Multiplayer (V0.3)
+
+Click **MULTIPLAYER** on the main menu.
+
+- **Host a game** - creates a room and shows a **6-letter code**. Pick the mode, map and your loadout in the lobby, then press START MATCH.
+- **Join a game** - type the host's code. You can also join a match that is already running.
+- Up to **18 players** per room (1v1 Duel is limited to 2). All 3 modes and all 4 maps work online; Team Deathmatch auto-balances the teams.
+- Pause does not stop the match online. Esc / "Leave match" takes you out of the room.
+
+How it works: there is no game server. Players connect directly to each other with WebRTC (via [PeerJS](https://peerjs.com), loaded from a CDN, using its free public signalling server). The host's browser runs the match and streams the state to everyone else, with lag compensation for hits. So it keeps working on GitHub Pages, but:
+
+- The host needs a decent connection (an 18-player room uploads roughly 1.5-2 Mbit/s). If the host closes the tab, the room ends.
+- Movement is trusted from each client, so it is made for playing with friends, not for ranked/anti-cheat play.
+- Very strict firewalls / some mobile networks can block WebRTC; the free PeerJS relay usually gets around that.
+
+Tests: `python3 tests/mp-test.py` runs a host plus up to 18 simulated clients over a fake in-memory network.
+
 ## Run locally
 
 ES modules need a web server (opening `index.html` directly from disk will not work):
@@ -126,3 +143,7 @@ Fan-made, non-commercial hobby project. It is not affiliated with, endorsed by, 
 ## License
 
 MIT (see `LICENSE`). Three.js is MIT licensed by its authors.
+
+## Easter egg
+
+Type `richtofen` anywhere (menu or in a match) and every soldier turns into the Richtofen model; type it again to turn it off. The model lives in `assets/models/richtofen.json`, baked from an OBJ with `python3 tools/obj2model.py model.obj richtofen`. It only changes your own screen, also in multiplayer.
