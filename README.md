@@ -45,6 +45,13 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 | Tab (hold) | Scoreboard |
 | Esc | Pause |
 
+## Handling (V0.4)
+
+- **Random recoil** - every shot rolls its own climb (with the occasional big jolt) and a sideways drift that random-walks through a burst, plus a little camera shake. The viewmodel kicks in a random direction too.
+- **Tac stance** (`Z`, toggle) - gun raised and canted across the chest: tighter than hip fire, faster than ADS. Sprinting drops it.
+- **Weapon animations** in the style of the 2010-2015 Call of Duty games: gun swings up on draw, swung-across sprint with arm pump, strafe tilt, landing dip, jump float, look sway, and full reloads where the support hand goes for the mag, the old mag drops, a new one is seated (mag slap) and the gun is charged. Pistol slides recoil and lock back when empty, the Kar98k works its bolt after every shot and on reload, the pump shotgun pumps after every shot and loads shells one by one. `F` inspects the weapon.
+- The animated parts are tagged in `js/gunmodels.js` (`mag`, `slide`, `bolt`, `pump`); the VMP's `Mag` part is animated automatically.
+
 ## Attachments
 
 Pick them on the main menu (or in the multiplayer lobby) under each weapon. They are remembered per weapon.
@@ -53,9 +60,9 @@ Pick them on the main menu (or in the multiplayer lobby) under each weapon. They
 |---|---|---|
 | Red Dot Sight | VMP, M4A1, AK-47, Model 680, and all pistols | ADS accuracy +20%; aiming down sights lines you up with the dot instead of the iron sights |
 | Vertical Grip | all primaries | recoil -20%, hip spread -10%; your support hand moves to the grip |
-| Laser Sight | pistols | hip spread -30%, ADS +5%; shows a red dot where you point |
+| Laser Sight | all weapons (pistols: under the barrel, primaries: side of the handguard) | hip spread -30%, ADS +5%; shows a red dot where you point |
 
-The Kar98k keeps its own scope (grip only). Attachment models are built from the gun's `mount` / `under` anchors in `js/gunmodels.js`, so your own models just need those two anchor points (see `asset.mount` / `asset.under` in `js/weapons.js`).
+The Kar98k keeps its own scope (grip and laser only). Attachment models are built from the gun's `mount` / `under` anchors in `js/gunmodels.js`, so your own models just need those two anchor points (see `asset.mount` / `asset.under` in `js/weapons.js`).
 
 ## Multiplayer (V0.3)
 

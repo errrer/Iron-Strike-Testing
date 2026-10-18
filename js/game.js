@@ -60,6 +60,7 @@ export class Game {
     this.actors = []; this.player = null; this.world = null; this.scene = null;
     this.tracers = []; this.particles = [];
     this.net = null; this.hist = []; this.richtofen = false;
+    this.vmS = { sprint: 0, strafe: 0, land: 0, slide: 0, cycle: 0, inspectT: 0, lastVy: 0, wasGround: true, rand: 0, shake: 0 };
     this.vmCache = {};
     this.resize();
     this.bindEvents();
@@ -81,6 +82,8 @@ export class Game {
       if (e.code === 'Digit2') this.switchWeapon(p, 1);
       if (e.code === 'KeyQ') this.switchWeapon(p, 1 - p.cur);
       if (e.code === 'KeyV') this.toggleView();
+      if (e.code === 'KeyZ' && p.alive) { p.tacOn = !p.tacOn; this.hud.center(p.tacOn ? 'TAC STANCE' : 'TAC STANCE OFF', 0.6); }
+      if (e.code === 'KeyF' && p.alive && !p.reloading && !p.sprint && this.vmS.inspectT <= 0) this.vmS.inspectT = 2.8;
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
     document.addEventListener('keyup', (e) => { this.keys[e.code] = false; if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
@@ -101,7 +104,7 @@ export class Game {
       const s = 0.0021 * this.settings.sens * zoomFactor;
       p.yaw -= e.movementX * s;
       p.pitch = clamp(p.pitch - e.movementY * s, -1.5, 1.5);
-      this.mouseDX += e.movementX;
+      this.mouseDX += e.movementX; this.mouseDY = (this.mouseDY || 0) + e.movementY;
     });
     document.addEventListener('wheel', (e) => { if (this.state === 'playing' && this.player) this.switchWeapon(this.player, 1 - this.player.cur); }, { passive: true });
     document.addEventListener('pointerlockchange', () => {
@@ -190,7 +193,7 @@ export class Game {
       hp: 100, alive: true, kills: 0, deaths: 0, streak: 0, weapons, weapon: weapons[0], cur: 0,
       ammo: weapons.map((w) => ({ mag: w.mag, res: w.reserve })), fireCd: 0, reloading: false, reloadT: 0, switchT: 0,
       lastShot: -99, lastHurt: -99, respawnT: 0, protT: 0, deathT: 0, stepT: 0, heat: 0, recoilDebt: 0, walkPhase: 0, crouch: false,
-      ads: 0, mesh: null, brain: null, recoilKick: 0,
+      ads: 0, mesh: null, brain: null, recoilKick: 0, tac: 0, tacOn: false, recoilBias: 0,
     };
   }
 
@@ -224,7 +227,7 @@ export class Game {
     a.yaw = yaw; a.pitch = 0; a.ibuf = [];
     a.hp = 100; a.alive = true; a.reloading = false; a.reloadT = 0; a.switchT = 0.4; a.fireCd = 0.3; a.cur = 0; a.weapon = a.weapons[0];
     a.ammo = a.weapons.map((w) => ({ mag: w.mag, res: w.reserve })); a.crouch = false; a.h = 1.8; a.eye = 1.65; a.heat = 0; a.recoilDebt = 0; a.ads = 0;
-    a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99;
+    a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99; a.tac = 0; a.tacOn = false; a.recoilBias = 0;
     if (a.brain) a.brain.reset();
     if (a.mesh) { a.mesh.root.visible = !a.isPlayer; a.mesh.body.rotation.x = 0; this.setActorGun(a); }
     if (a.isPlayer) { this.setPlayerVm(); this.hud.onRespawn(); if (!first) this.sound.spawn(); }
@@ -532,7 +535,8 @@ export class Game {
     const u = gun.userData, G = u.grip, F = u.fore;
     const glove = new THREE.MeshStandardMaterial({ color: 0x2a2f29, roughness: 0.9 });
     const sleeve = new THREE.MeshStandardMaterial({ color: 0x3b4a3a, roughness: 0.95 });
-    const add = (w_, h_, d_, mt, x, y, z, rx = 0, ry = 0, rz = 0) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w_, h_, d_), mt); me.position.set(x, y, z); me.rotation.set(rx, ry, rz); gun.add(me); };
+    const lh = new THREE.Group(); gun.add(lh);                      // support hand: animated separately (reloads, pumping, inspecting)
+    const add = (w_, h_, d_, mt, x, y, z, rx = 0, ry = 0, rz = 0, parent = gun) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w_, h_, d_), mt); me.position.set(x, y, z); me.rotation.set(rx, ry, rz); parent.add(me); };
     // trigger hand: palm on the grip, thumb, trigger finger, forearm back towards the camera
     add(0.048, 0.07, 0.055, glove, G.x + 0.004, G.y + 0.005, G.z);
     add(0.014, 0.026, 0.05, glove, G.x - 0.03, G.y + 0.02, G.z - 0.005, 0, 0, 0.2);          // thumb
@@ -540,17 +544,28 @@ export class Game {
     add(0.07, 0.07, 0.36, sleeve, G.x + 0.045, G.y - 0.07, G.z + 0.24, 0.5, 0.18, 0);
     // support hand
     if (u.pistol) {
-      add(0.05, 0.06, 0.05, glove, F.x - 0.004, F.y + 0.01, F.z);
-      add(0.07, 0.07, 0.34, sleeve, F.x - 0.09, F.y - 0.08, F.z + 0.22, 0.5, -0.4, 0);
+      add(0.05, 0.06, 0.05, glove, F.x - 0.004, F.y + 0.01, F.z, 0, 0, 0, lh);
+      add(0.07, 0.07, 0.34, sleeve, F.x - 0.09, F.y - 0.08, F.z + 0.22, 0.5, -0.4, 0, lh);
     } else {
-      add(0.075, 0.05, 0.1, glove, F.x, F.y - 0.045, F.z);                                    // palm under the handguard
-      add(0.016, 0.05, 0.09, glove, F.x + 0.04, F.y - 0.015, F.z, 0, 0, -0.2);               // fingers around the side
-      add(0.016, 0.05, 0.07, glove, F.x - 0.04, F.y - 0.015, F.z, 0, 0, 0.2);                // thumb side
-      add(0.075, 0.07, 0.42, sleeve, F.x - 0.075, F.y - 0.1, F.z + 0.3, 0.38, -0.28, 0);
+      add(0.075, 0.05, 0.1, glove, F.x, F.y - 0.045, F.z, 0, 0, 0, lh);                       // palm under the handguard
+      add(0.016, 0.05, 0.09, glove, F.x + 0.04, F.y - 0.015, F.z, 0, 0, -0.2, lh);            // fingers around the side
+      add(0.016, 0.05, 0.07, glove, F.x - 0.04, F.y - 0.015, F.z, 0, 0, 0.2, lh);             // thumb side
+      add(0.075, 0.07, 0.42, sleeve, F.x - 0.075, F.y - 0.1, F.z + 0.3, 0.38, -0.28, 0, lh);
     }
     const flash = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: this.flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     flash.position.copy(u.muzzle); flash.visible = false; gun.add(flash);
-    return { root, gun, flash, sightY: u.sightY };
+    // moving parts the animations drive (tagged in gunmodels.js)
+    const mags = [], slides = [], bolts = [], pumps = [];
+    gun.traverse((o) => {
+      const d = o.userData; if (!d || o === gun) return;
+      const e = { m: o, p: o.position.clone() };
+      if (d.mag) mags.push(e); if (d.slide) slides.push(e); if (d.bolt) bolts.push(e); if (d.pump) pumps.push(e);
+    });
+    // where the support hand goes to reload: the magazine, or the receiver for shotguns / bolt guns / revolvers
+    let tgt = new V3(0, -0.04, 0.0);
+    if (mags.length && w.cls !== 'shotgun' && w.cls !== 'sniper') { tgt = new V3(); for (const e of mags) tgt.add(e.p); tgt.multiplyScalar(1 / mags.length); }
+    const reach = new V3(tgt.x - F.x, tgt.y - F.y + (u.pistol ? 0.04 : 0.05), tgt.z - F.z);
+    return { root, gun, flash, sightY: u.sightY, lh, mags, slides, bolts, pumps, reach, cls: w.cls, id: w.id, pistol: u.pistol };
   }
 
   flashTexture() {
@@ -838,7 +853,9 @@ export class Game {
     const wantCrouch = !!(k.KeyC || k.ControlLeft);
     const ads = this.adsHeld && !frozen && p.switchT <= 0 && !p.reloading;
     const sprint = !!k.ShiftLeft && fwd > 0 && !ads && !wantCrouch && !this.fireHeld;
-    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? 0.62 : 1);
+    if (sprint) p.tacOn = false;
+    p.tac += ((p.tacOn && !sprint ? 1 : 0) - p.tac) * Math.min(1, dt * 9);
+    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? 0.62 : 1) * (1 - 0.1 * p.tac);
     const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
     let wx = fx * fwd + rx * str, wz = fz * fwd + rz * str;
     const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
@@ -851,6 +868,8 @@ export class Game {
 
     // recoil recovery
     const firing = this.fireHeld && p.fireCd > -0.05;
+    if (!firing) p.recoilBias *= Math.max(0, 1 - dt * 2.5);
+    if (this.vmS.inspectT > 0 && (this.fireHeld || ads || sprint || p.reloading)) this.vmS.inspectT = 0;
     if (!firing && p.recoilDebt > 0) { const rec = Math.min(p.recoilDebt, dt * (0.1 + p.recoilDebt * 4)); p.pitch -= rec; p.recoilDebt -= rec; }
 
     // firing
@@ -864,12 +883,19 @@ export class Game {
     this.fireEdge = false;
   }
 
+  // current bullet spread (radians): hip -> tac stance -> ADS blend, then movement / heat / air penalties
+  currentSpread(p) {
+    const w = p.weapon, moveF = clamp((p.speed2 || 0) / 6, 0, 1);
+    const tacS = lerp(w.spread, Math.min(w.adsSpread, w.spread * 0.9), 0.55);
+    let spread = lerp(lerp(w.spread, tacS, p.tac), w.adsSpread, p.ads);
+    spread *= 1 + moveF * 0.9 * (1 - p.ads * 0.5) * (1 - p.tac * 0.3) + (p.onGround ? 0 : 2) + p.heat * 0.7;
+    if (p.crouch) spread *= 0.75;
+    return spread;
+  }
+
   playerShoot(p, ads) {
     const w = p.weapon;
-    const moveF = clamp(p.speed2 / 6, 0, 1);
-    let spread = lerp(w.spread, w.adsSpread, p.ads);
-    spread *= 1 + moveF * 0.9 * (1 - p.ads * 0.5) + (p.onGround ? 0 : 2) + p.heat * 0.7;
-    if (p.crouch) spread *= 0.75;
+    const spread = this.currentSpread(p);
     let dir = this.dirFrom(p.yaw, p.pitch, new V3());
     if (this.tp) {
       // third person: bullets leave the player's eye but must land where the (offset) camera crosshair points
@@ -879,10 +905,16 @@ export class Game {
     }
     this.fireShot(p, dir, spread, 1);
     p.heat = Math.min(1, p.heat + 0.12);
-    const kick = w.recoil * (0.8 + Math.random() * 0.4) * (1 - p.ads * 0.3);
+    // every shot rolls its own recoil: random climb (sometimes a big jolt), and a horizontal drift that random-walks through a burst
+    const big = Math.random() < 0.12 ? 1.5 : 1;
+    const kick = w.recoil * (0.5 + Math.random() * 1.0) * big * (1 - p.ads * 0.3) * (1 - p.tac * 0.1);
+    p.recoilBias = clamp(p.recoilBias + (Math.random() - 0.5) * 1.1, -1.3, 1.3);
+    const yawKick = ((Math.random() - 0.5) * 2 + p.recoilBias * 0.55) * w.recoilYaw * big * (1 - p.ads * 0.3);
     p.pitch = clamp(p.pitch + kick, -1.5, 1.5); p.recoilDebt += kick * 0.85;
-    p.yaw += (Math.random() - 0.5) * 2 * w.recoilYaw * (1 - p.ads * 0.3);
-    this.vmKick = Math.min(1.5, (this.vmKick || 0) + (w.cls === 'sniper' ? 1.5 : w.cls === 'shotgun' ? 1.2 : 0.55));
+    p.yaw += yawKick;
+    const S = this.vmS; S.slide = 1; S.cycle = 1; S.rand = (Math.random() - 0.5) * 2 + p.recoilBias * 0.4;
+    S.shake = Math.min(1, S.shake + 0.35 * big * (w.cls === 'sniper' || w.cls === 'shotgun' ? 2 : 1));
+    this.vmKick = Math.min(1.5, (this.vmKick || 0) + (w.cls === 'sniper' ? 1.5 : w.cls === 'shotgun' ? 1.2 : 0.55) * (0.75 + Math.random() * 0.5));
     if (this.vm) { this.vm.flash.visible = true; this.vm.flash.rotation.z = Math.random() * 6.28; const s = 0.7 + Math.random() * 0.6; this.vm.flash.scale.set(s, s, 1); }
     this.flashLight.intensity = 6; this.flashT = 0.045;
   }
@@ -938,9 +970,10 @@ export class Game {
       const dist = hit < len ? Math.max(0.25, hit - 0.3) : len;
       cam.position.set(ox + dx * dist, Math.max(0.15, oy + dy * dist), oz + dz * dist);
     }
-    cam.rotation.set(p.pitch, p.yaw, roll, 'YXZ');
+    const S = this.vmS; S.shake = Math.max(0, S.shake - dt * 5);
+    cam.rotation.set(p.pitch + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + (Math.random() - 0.5) * 0.004 * S.shake, roll + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
     if (p.mesh) p.mesh.root.visible = this.tp && p.mesh.root.visible;
-    const zoom = lerp(1, this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
+    const zoom = lerp(1 + 0.08 * p.tac, this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
     const fov = this.settings.fov / zoom;
     if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
     this.world.update(dt, cam.position);
@@ -963,26 +996,117 @@ export class Game {
   }
 
   updateViewmodel(dt) {
-    const p = this.player, vm = this.vm, w = p.weapon;
+    const p = this.player, vm = this.vm, w = p.weapon, S = this.vmS;
     if (!vm) return;
     const scoped = w.scope && p.ads > 0.88 && p.alive;
     this.vmRoot.visible = p.alive && !scoped && !this.tp;
     this.hud.setScope(scoped);
-    // kick decay, look sway
+    const clampf = clamp, sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+    const a = p.ads, tac = p.tac * (1 - a), t = this.time, sp = p.speed2 || 0;
+    const am = p.ammo[p.cur];
+    // --- smoothed inputs --------------------------------------------------------------------------
     this.vmKick = Math.max(0, (this.vmKick || 0) - dt * 9);
     this.swayX += ((-this.mouseDX * 0.0006) - this.swayX) * Math.min(1, dt * 8); this.mouseDX = 0;
-    const a = p.ads;
-    const hip = [0.17, -0.19, -0.45], adsP = [0, -vm.sightY, -0.38 + (w.cls === 'pistol' ? 0.06 : 0)];
-    let x = lerp(hip[0], adsP[0], a), y = lerp(hip[1], adsP[1], a), z = lerp(hip[2], adsP[2], a);
-    let rx = 0, ry = 0, rz = 0;
-    const sp = p.speed2 || 0, t = this.time;
-    if (p.onGround && sp > 0.5) { const f = Math.min(1, sp / 5) * (1 - a * 0.8) * (p.sprint ? 1.4 : 1); x += Math.sin(t * (p.sprint ? 12 : 8)) * 0.006 * f; y += Math.abs(Math.cos(t * (p.sprint ? 12 : 8))) * 0.008 * f; }
-    else { y += Math.sin(t * 1.6) * 0.0015; }   // idle breathing
-    z += this.vmKick * 0.035; rx += this.vmKick * 0.045 + 0;
-    x += this.swayX * (1 - a * 0.6); ry += this.swayX * 0.8;
-    if (p.sprint) { y -= 0.05; rx -= 0.25; ry += 0.55; x += 0.03; }
-    if (p.reloading) { const ph = 1 - p.reloadT / w.reload, s = Math.sin(clamp(ph, 0, 1) * Math.PI); y -= s * 0.16; rx -= s * 0.55; rz += s * 0.35; x -= s * 0.04; }
-    if (p.switchT > 0) { const s = clamp(p.switchT / 0.38, 0, 1); y -= s * 0.3; rx -= s * 0.6; }
+    this.swayY = (this.swayY || 0) + (((this.mouseDY || 0) * 0.0005) - (this.swayY || 0)) * Math.min(1, dt * 8); this.mouseDY = 0;
+    S.sprint += ((p.sprint ? 1 : 0) - S.sprint) * Math.min(1, dt * (p.sprint ? 8 : 12));
+    const rx_ = Math.cos(p.yaw), rz_ = -Math.sin(p.yaw);
+    S.strafe += (clamp((p.vel.x * rx_ + p.vel.z * rz_) / 5, -1, 1) - S.strafe) * Math.min(1, dt * 7);
+    if (!p.onGround) S.lastVy = p.vel.y;
+    if (p.onGround && !S.wasGround) S.land = clamp(-S.lastVy / 9, 0, 1);   // landing dip
+    S.wasGround = p.onGround; S.land = Math.max(0, S.land - dt * 5);
+    S.slide = Math.max(0, S.slide - dt * 14);
+    S.cycle = Math.max(0, S.cycle - dt / (w.cls === 'sniper' ? 1.2 : 0.8));
+    if (S.inspectT > 0) S.inspectT = Math.max(0, S.inspectT - dt);
+    if (p.switchT > 0 || !p.alive) S.inspectT = 0;
+
+    // --- base pose: hip -> tac stance -> ADS ------------------------------------------------------
+    const hip = [0.17, -0.19, -0.45], tacP = [0.1, -0.165, -0.43], adsP = [0, -vm.sightY, -0.38 + (w.cls === 'pistol' ? 0.06 : 0)];
+    let x = lerp(lerp(hip[0], tacP[0], tac), adsP[0], a), y = lerp(lerp(hip[1], tacP[1], tac), adsP[1], a), z = lerp(lerp(hip[2], tacP[2], tac), adsP[2], a);
+    let rx = 0.03 * tac, ry = 0.17 * tac, rz = -0.1 * tac;
+    const free = 1 - a * 0.85;                                   // motion is damped while aiming
+
+    // --- walk / idle -----------------------------------------------------------------------------
+    if (p.onGround && sp > 0.5 && !p.sprint) {
+      const f = Math.min(1, sp / 5) * free * (1 - tac * 0.4), ph = t * 8;
+      x += Math.sin(ph) * 0.007 * f; y += Math.abs(Math.cos(ph)) * 0.009 * f - 0.002 * f; rz += Math.sin(ph) * 0.012 * f; ry += Math.sin(ph * 0.5) * 0.01 * f;
+    } else { y += Math.sin(t * 1.6) * 0.0015; x += Math.sin(t * 0.9) * 0.0008; }
+    if (!p.onGround) { y += clamp(p.vel.y * 0.004, -0.03, 0.03) * free; rx += clamp(-p.vel.y * 0.006, -0.06, 0.06) * free; }
+    y -= S.land * 0.05 * free; rx -= S.land * 0.1 * free;
+    rz -= S.strafe * 0.05 * free; x -= S.strafe * 0.01 * free;
+
+    // --- sprint: gun dropped and swung across the body, arms pumping (2010-2015 style) ------------
+    const sprint = S.sprint * (1 - a);
+    if (sprint > 0.001) {
+      const ph = t * 11;
+      x += 0.05 * sprint + Math.sin(ph) * 0.012 * sprint; y += -0.055 * sprint + Math.abs(Math.cos(ph)) * 0.016 * sprint; z += 0.05 * sprint;
+      rx += -0.25 * sprint; ry += (0.62 + Math.sin(ph * 0.5) * 0.04) * sprint; rz += (0.06 + Math.sin(ph) * 0.035) * sprint;
+    }
+
+    // --- look sway + recoil kick -----------------------------------------------------------------
+    x += this.swayX * free; ry += this.swayX * 0.8 * free; y += (this.swayY || 0) * free; rx += (this.swayY || 0) * 0.6 * free;
+    const kick = this.vmKick;
+    z += kick * 0.035; rx += kick * 0.045; x += S.rand * kick * 0.012; rz += S.rand * kick * 0.04; ry += S.rand * kick * 0.015;
+
+    // --- draw / weapon switch: gun swings up from below ------------------------------------------
+    if (p.switchT > 0) {
+      const s = clamp(p.switchT / 0.38, 0, 1), e = s * s;
+      y -= e * 0.32; rx -= e * 0.75; rz += e * 0.3; x += e * 0.06;
+    }
+
+    // --- reload ----------------------------------------------------------------------------------
+    let hand = 0, handDy = 0, handDz = 0;
+    let slideT = Math.max(S.slide, am.mag <= 0 && !p.reloading ? 1 : 0);            // pistol slide locks back on an empty gun
+    let boltOpen = 0, pumpBack = 0;
+    for (const e of vm.mags) { e.m.position.copy(e.p); e.m.visible = true; }
+    if (S.cycle > 0 && vm.cls === 'sniper') { const pr = 1 - S.cycle; boltOpen = Math.sin(Math.PI * clamp((pr - 0.2) / 0.6, 0, 1)); }
+    if (S.cycle > 0 && vm.cls === 'shotgun') { const pr = 1 - S.cycle; pumpBack = Math.sin(Math.PI * clamp((pr - 0.25) / 0.55, 0, 1)); }
+    if (p.reloading) {
+      const ph = clamp(1 - p.reloadT / w.reload, 0, 1), env = sm(0, 0.14, ph) * (1 - sm(0.86, 1, ph));
+      const revolver = vm.id === 'magnum';
+      let tilt = env, rk = 0;
+      if (vm.cls === 'shotgun') {                                                   // shells pushed in one by one, then a pump
+        const cyc = clamp((ph - 0.1) / 0.72, 0, 1) * 5, f = cyc - Math.floor(cyc);
+        hand = sm(0.04, 0.12, ph) * (1 - sm(0.84, 0.92, ph)); handDy = -0.03 * Math.sin(Math.PI * f) * hand; handDz = 0.02 * Math.sin(Math.PI * f) * hand;
+        tilt = env * 1.1; if (ph > 0.1 && ph < 0.82) rk = Math.sin(Math.PI * f) * 0.025;
+        pumpBack = Math.max(pumpBack, Math.sin(Math.PI * clamp((ph - 0.86) / 0.12, 0, 1)));
+      } else if (vm.cls === 'sniper') {                                             // open bolt, load the clip, close bolt
+        hand = sm(0.18, 0.3, ph) * (1 - sm(0.62, 0.74, ph)); handDy = -0.02 * Math.sin(ph * 30) * hand * 0.3;
+        boltOpen = Math.max(boltOpen, sm(0.06, 0.18, ph) * (1 - sm(0.74, 0.86, ph)));
+        tilt = env * 0.9; if (ph > 0.74 && ph < 0.82) rk = 0.03;
+      } else {
+        hand = sm(0.02, 0.16, ph) * (1 - sm(0.72, 0.9, ph));
+        const pouch = Math.sin(Math.PI * clamp((ph - 0.3) / 0.2, 0, 1));            // hand goes down to fetch a fresh mag
+        handDy = -0.16 * pouch; handDz = 0.04 * pouch;
+        if (vm.mags.length) {
+          const drop = clamp((ph - 0.16) / 0.18, 0, 1), rise = clamp((ph - 0.46) / 0.2, 0, 1);
+          for (const e of vm.mags) {
+            if (ph < 0.16) continue;
+            if (ph < 0.34) { e.m.position.y = e.p.y - drop * drop * 0.34; e.m.position.z = e.p.z + drop * 0.03; }
+            else if (ph < 0.46) e.m.visible = false;
+            else { const k = 1 - (1 - rise) * (1 - rise); e.m.position.y = e.p.y - (1 - k) * 0.17; }
+          }
+        }
+        if (ph > 0.64 && ph < 0.72) rk = Math.sin(Math.PI * (ph - 0.64) / 0.08) * 0.035;         // mag slap
+        if (ph > 0.8 && ph < 0.9 && !vm.pistol) { handDz -= Math.sin(Math.PI * (ph - 0.8) / 0.1) * 0.07; rk += 0.012; }   // charging handle
+        if (am.mag <= 0 && vm.slides.length) slideT = ph < 0.72 ? 1 : 1 - sm(0.72, 0.78, ph);   // slide drops when the mag seats
+      }
+      const k = revolver ? 1.5 : vm.pistol ? 0.8 : 1;
+      y -= tilt * 0.08 * k; x -= tilt * 0.06 * k; rz += tilt * (revolver ? 0.75 : 0.45) * k * (1 - a); rx += (-tilt * 0.35 * k + rk) * (1 - a * 0.7); ry += tilt * 0.22 * k;
+    }
+    // melee-free "inspect": gun turned over in front of you (F)
+    let insp = 0;
+    if (S.inspectT > 0) {
+      const u2 = 1 - S.inspectT / 2.8; insp = Math.sin(Math.PI * u2);
+      x -= 0.09 * insp; y += 0.03 * insp; z += 0.06 * insp;
+      ry -= (0.9 * insp + Math.sin(u2 * Math.PI * 2) * 0.35); rz += Math.sin(u2 * Math.PI * 2) * 0.7 * insp; rx += 0.12 * insp * Math.sin(u2 * Math.PI * 3);
+      hand = Math.max(hand, 0); handDy -= 0.02 * insp;
+    }
+
+    // --- apply ----------------------------------------------------------------------------------
     this.vmRoot.position.set(x, y, z); this.vmRoot.rotation.set(rx, ry, rz);
+    vm.lh.position.set(vm.reach.x * hand, vm.reach.y * hand + handDy, vm.reach.z * hand + handDz + pumpBack * 0.08 * (vm.cls === 'shotgun' ? 1 : 0));
+    for (const e of vm.slides) e.m.position.z = e.p.z + 0.032 * slideT;
+    for (const e of vm.bolts) { e.m.position.z = e.p.z + 0.07 * boltOpen; e.m.position.y = e.p.y + 0.012 * boltOpen; }
+    for (const e of vm.pumps) e.m.position.z = e.p.z + 0.085 * pumpBack;
   }
 }

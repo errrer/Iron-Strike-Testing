@@ -120,8 +120,7 @@ export class HUD {
     if (this.msgT > 0) { this.msgT -= game.dt || 1 / 60; if (this.msgT <= 0) e.msg.classList.remove('show'); }
     if (p.reloading && !(this.msgT > 0)) { e.msg.textContent = 'RELOADING'; e.msg.classList.add('show'); this.msgT = 0.05; }
     // crosshair
-    const moveF = Math.min(1, (p.speed2 || 0) / 6);
-    const sp = lerp(w.spread, w.adsSpread, p.ads) * (1 + moveF * 0.9 + p.heat * 0.7 + (p.onGround ? 0 : 2));
+    const sp = game.currentSpread(p);
     const px = Math.min(80, 4 + sp * (window.innerHeight / 2) / Math.tan((game.camera.fov * Math.PI / 180) / 2));
     e.crosshair.style.setProperty('--gap', `${px.toFixed(1)}px`);
     e.crosshair.style.opacity = (p.ads > 0.3 && !game.tp) || !p.alive ? '0' : '1';

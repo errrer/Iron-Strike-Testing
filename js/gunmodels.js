@@ -58,7 +58,8 @@ class B {
   done(u) { Object.assign(this.g.userData, u); return this.g; }
 }
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const iron = (m) => { m.userData.iron = true; return m; };   // iron sights: hidden when a red dot is fitted
+const mark = (m, ...ks) => { for (const k of ks) m.userData[k] = true; return m; };   // tags used by attachments + animations
+const iron = (m) => mark(m, 'iron');   // iron sights: hidden when a red dot is fitted
 
 // small repeated details ----------------------------------------------------------------------
 function railTeeth(b, z0, z1, y, w, step = 0.026) {
@@ -78,9 +79,9 @@ function buildAR() {                 // M4A1
   b.box(0.046, 0.052, 0.3, 0, 0.026, -0.02, M.blued());                         // upper receiver
   b.box(0.044, 0.05, 0.22, 0, -0.026, 0.035, M.blued());                        // lower receiver
   b.box(0.04, 0.045, 0.07, 0, -0.04, -0.075, M.blued());                        // magwell
-  b.box(0.034, 0.07, 0.056, 0, -0.1, -0.075, M.black(), 0.06);                  // mag (curved: two segments)
-  b.box(0.034, 0.06, 0.056, 0, -0.158, -0.082, M.black(), 0.16);
-  b.box(0.036, 0.008, 0.06, 0, -0.19, -0.088, M.steel(), 0.16);
+  mark(b.box(0.034, 0.07, 0.056, 0, -0.1, -0.075, M.black(), 0.06), 'mag');     // mag (curved: two segments)
+  mark(b.box(0.034, 0.06, 0.056, 0, -0.158, -0.082, M.black(), 0.16), 'mag');
+  mark(b.box(0.036, 0.008, 0.06, 0, -0.19, -0.088, M.steel(), 0.16), 'mag');
   b.box(0.03, 0.1, 0.045, 0, -0.1, 0.115, M.poly(), -0.38);                     // pistol grip
   triggerGroup(b, 0, -0.04, 0.0);
   b.box(0.054, 0.056, 0.22, 0, 0.022, -0.26, M.poly());                         // handguard
@@ -100,7 +101,7 @@ function buildAR() {                 // M4A1
   b.tube(0.016, 0.2, 0, 0.002, 0.23, M.blued());                                // buffer tube
   b.box(0.04, 0.08, 0.13, 0, -0.012, 0.31, M.poly(), 0.05);                     // stock
   b.box(0.042, 0.09, 0.014, 0, -0.016, 0.38, M.rubber(), 0.05);                 // butt pad
-  return b.done({ muzzle: V(0, 0.022, -0.515), sightY: 0.092, grip: V(0, -0.105, 0.11), fore: V(0, -0.015, -0.26), pistol: false, mount: V(0, 0.0645, 0.02), under: V(0, -0.006, -0.26) });
+  return b.done({ muzzle: V(0, 0.022, -0.515), sightY: 0.092, grip: V(0, -0.105, 0.11), fore: V(0, -0.015, -0.26), pistol: false, side: V(0.027, 0.022, -0.3), mount: V(0, 0.0645, 0.02), under: V(0, -0.006, -0.26) });
 }
 
 function buildAK() {                 // AK-47
@@ -117,7 +118,7 @@ function buildAK() {                 // AK-47
   b.tube(0.0125, 0.045, 0, 0.012, -0.53, M.steel());                            // muzzle device
   iron(b.box(0.024, 0.014, 0.07, 0, 0.056, -0.1, M.steel()));                   // rear sight leaf
   iron(b.box(0.006, 0.01, 0.01, 0, 0.066, -0.075, M.black()));
-  for (let k = 0; k < 4; k++) b.box(0.036, 0.075, 0.058, 0, -0.07 - k * 0.062, -0.03 - k * 0.006 - k * k * 0.0035, M.steel(), 0.12 + k * 0.09);   // banana mag
+  for (let k = 0; k < 4; k++) mark(b.box(0.036, 0.075, 0.058, 0, -0.07 - k * 0.062, -0.03 - k * 0.006 - k * k * 0.0035, M.steel(), 0.12 + k * 0.09), 'mag');   // banana mag
   b.box(0.032, 0.1, 0.045, 0, -0.1, 0.12, M.woodDark(), -0.32);                 // grip
   triggerGroup(b, 0, -0.038, 0.03);
   b.rod(0.006, 0.03, 0.036, 0.02, 0.005, M.steel());                            // charging handle
@@ -125,7 +126,7 @@ function buildAK() {                 // AK-47
   b.box(0.038, 0.07, 0.2, 0, -0.012, 0.25, M.wood(), 0.04);                     // stock
   b.box(0.036, 0.04, 0.1, 0, 0.0, 0.16, M.wood());                              // stock wrist
   b.box(0.04, 0.1, 0.012, 0, -0.02, 0.35, M.steel(), 0.06);                     // butt plate
-  return b.done({ muzzle: V(0, 0.012, -0.555), sightY: 0.068, grip: V(0, -0.1, 0.12), fore: V(0, -0.025, -0.31), pistol: false, mount: V(0, 0.051, 0.03), under: V(0, -0.027, -0.31) });
+  return b.done({ muzzle: V(0, 0.012, -0.555), sightY: 0.068, grip: V(0, -0.1, 0.12), fore: V(0, -0.025, -0.31), pistol: false, side: V(0.028, -0.006, -0.37), mount: V(0, 0.051, 0.03), under: V(0, -0.027, -0.31) });
 }
 
 function buildBolt() {               // Kar98k + scope
@@ -140,8 +141,8 @@ function buildBolt() {               // Kar98k + scope
   b.box(0.034, 0.06, 0.34, 0, -0.04, 0.2, M.wood(), -0.06);                     // stock body
   b.box(0.034, 0.05, 0.1, 0, -0.022, 0.06, M.wood());                           // wrist
   b.box(0.038, 0.11, 0.014, 0, -0.06, 0.375, M.rubber(), -0.1);                 // butt plate
-  b.rod(0.0045, 0.075, 0.04, 0.022, 0.07, M.steel());                           // bolt handle
-  b.ball(0.011, 0.082, 0.022, 0.07, M.steel());                                 // bolt knob
+  mark(b.rod(0.0045, 0.075, 0.04, 0.022, 0.07, M.steel()), 'bolt');             // bolt handle
+  mark(b.ball(0.011, 0.082, 0.022, 0.07, M.steel()), 'bolt');                   // bolt knob
   b.box(0.03, 0.02, 0.07, 0, -0.04, -0.01, M.steel());                          // magazine box
   triggerGroup(b, 0, -0.03, 0.03, 0.06);
   // scope
@@ -153,7 +154,7 @@ function buildBolt() {               // Kar98k + scope
   b.tube(0.0185, 0.004, 0, 0.082, 0.166, M.lens());                             // eyepiece lens
   b.post(0.009, 0.02, 0, 0.108, -0.01, M.steel());                              // elevation turret
   b.rod(0.009, 0.02, 0.022, 0.082, -0.01, M.steel());                           // windage turret
-  return b.done({ muzzle: V(0, 0.016, -0.635), sightY: 0.082, grip: V(0, -0.03, 0.09), fore: V(0, -0.01, -0.2), pistol: false, under: V(0, -0.021, -0.24) });
+  return b.done({ muzzle: V(0, 0.016, -0.635), sightY: 0.082, grip: V(0, -0.03, 0.09), fore: V(0, -0.01, -0.2), pistol: false, side: V(0.02, 0.0, -0.3), under: V(0, -0.021, -0.24) });
 }
 
 function buildPump() {               // Model 680 pump shotgun
@@ -164,14 +165,14 @@ function buildPump() {               // Model 680 pump shotgun
   b.box(0.012, 0.004, 0.5, 0, 0.0365, -0.34, M.black());                        // vent rib
   iron(b.ball(0.005, 0, 0.042, -0.6, M.brass()));                               // bead sight
   b.tube(0.0145, 0.03, 0, -0.006, -0.52, M.steel());                            // mag cap
-  b.box(0.05, 0.048, 0.17, 0, -0.012, -0.25, M.poly());                         // pump fore-end
-  for (let i = 0; i < 6; i++) b.box(0.054, 0.052, 0.008, 0, -0.012, -0.18 - i * 0.026, M.black());   // grip ridges
+  mark(b.box(0.05, 0.048, 0.17, 0, -0.012, -0.25, M.poly()), 'pump');           // pump fore-end
+  for (let i = 0; i < 6; i++) mark(b.box(0.054, 0.052, 0.008, 0, -0.012, -0.18 - i * 0.026, M.black()), 'pump');   // grip ridges
   b.box(0.034, 0.075, 0.28, 0, -0.03, 0.25, M.poly(), 0.04);                    // stock
   b.box(0.034, 0.07, 0.07, 0, -0.025, 0.12, M.poly());                          // grip area
   b.box(0.038, 0.1, 0.016, 0, -0.035, 0.395, M.rubber(), 0.04);                 // recoil pad
   b.box(0.002, 0.026, 0.07, 0.0205, 0.012, 0.0, M.black());                     // ejection port
   triggerGroup(b, 0, -0.03, 0.03, 0.06);
-  return b.done({ muzzle: V(0, 0.02, -0.615), sightY: 0.048, grip: V(0, -0.045, 0.125), fore: V(0, -0.012, -0.25), pistol: false, mount: V(0, 0.031, 0.0), under: V(0, -0.036, -0.25) });
+  return b.done({ muzzle: V(0, 0.02, -0.615), sightY: 0.048, grip: V(0, -0.045, 0.125), fore: V(0, -0.012, -0.25), pistol: false, side: V(0.026, -0.012, -0.3), mount: V(0, 0.031, 0.0), under: V(0, -0.036, -0.25) });
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -179,43 +180,43 @@ function buildPump() {               // Model 680 pump shotgun
 // ------------------------------------------------------------------------------------------------
 function buildGlock() {              // G18 (extended mag, compensator cuts)
   const b = new B();
-  b.box(0.03, 0.034, 0.195, 0, 0.02, 0, M.blued());                             // slide
-  for (let i = 0; i < 5; i++) { b.box(0.032, 0.026, 0.004, 0, 0.02, 0.06 + i * 0.01, M.black()); }   // rear serrations
-  b.box(0.012, 0.004, 0.03, 0, 0.0375, -0.075, M.black());                      // comp cut
-  b.box(0.002, 0.012, 0.045, 0.0155, 0.026, 0.0, M.black());                    // ejection port
+  mark(b.box(0.03, 0.034, 0.195, 0, 0.02, 0, M.blued()), 'slide');              // slide
+  for (let i = 0; i < 5; i++) { mark(b.box(0.032, 0.026, 0.004, 0, 0.02, 0.06 + i * 0.01, M.black()), 'slide'); }   // rear serrations
+  mark(b.box(0.012, 0.004, 0.03, 0, 0.0375, -0.075, M.black()), 'slide');       // comp cut
+  mark(b.box(0.002, 0.012, 0.045, 0.0155, 0.026, 0.0, M.black()), 'slide');     // ejection port
   b.box(0.028, 0.02, 0.15, 0, -0.004, 0.012, M.poly());                         // frame
   b.box(0.02, 0.008, 0.04, 0, -0.02, -0.045, M.poly());                         // rail
   b.box(0.03, 0.09, 0.042, 0, -0.05, 0.062, M.poly(), -0.32);                   // grip
   b.box(0.0305, 0.01, 0.045, 0, -0.1, 0.075, M.black(), -0.32);                 // grip texture band
-  b.box(0.024, 0.07, 0.036, 0, -0.14, 0.088, M.black(), -0.32);                 // extended magazine
-  b.box(0.026, 0.008, 0.04, 0, -0.18, 0.1, M.steel(), -0.32);
+  mark(b.box(0.024, 0.07, 0.036, 0, -0.14, 0.088, M.black(), -0.32), 'mag');    // extended magazine
+  mark(b.box(0.026, 0.008, 0.04, 0, -0.18, 0.1, M.steel(), -0.32), 'mag');
   b.box(0.007, 0.004, 0.058, 0, -0.027, -0.005, M.poly());                      // trigger guard bottom
   b.box(0.007, 0.024, 0.005, 0, -0.016, -0.034, M.poly());                      // trigger guard front
   b.box(0.006, 0.02, 0.008, 0, -0.012, -0.003, M.black(), 0.25);                // trigger
-  iron(b.box(0.016, 0.01, 0.008, 0, 0.042, 0.088, M.black()));                  // rear sight
-  iron(b.box(0.006, 0.01, 0.008, 0, 0.042, -0.088, M.black()));                 // front sight
+  mark(b.box(0.016, 0.01, 0.008, 0, 0.042, 0.088, M.black()), 'iron', 'slide'); // rear sight
+  mark(b.box(0.006, 0.01, 0.008, 0, 0.042, -0.088, M.black()), 'iron', 'slide');// front sight
   b.tube(0.0055, 0.008, 0, 0.02, -0.099, M.steel());                            // barrel tip
   return b.done({ muzzle: V(0, 0.022, -0.103), sightY: 0.047, grip: V(0, -0.05, 0.06), fore: V(-0.014, -0.075, 0.05), pistol: true, mount: V(0, 0.037, 0.02), under: V(0, -0.024, -0.05) });
 }
 
 function build1911() {
   const b = new B();
-  b.box(0.028, 0.034, 0.205, 0, 0.022, 0, M.silver());                          // slide
-  for (let i = 0; i < 6; i++) b.box(0.03, 0.026, 0.003, 0, 0.022, 0.065 + i * 0.008, M.steel());
-  b.tube(0.0095, 0.02, 0, 0.018, -0.108, M.silver());                           // barrel bushing
+  mark(b.box(0.028, 0.034, 0.205, 0, 0.022, 0, M.silver()), 'slide');           // slide
+  for (let i = 0; i < 6; i++) mark(b.box(0.03, 0.026, 0.003, 0, 0.022, 0.065 + i * 0.008, M.steel()), 'slide');
+  mark(b.tube(0.0095, 0.02, 0, 0.018, -0.108, M.silver()), 'slide');            // barrel bushing
   b.box(0.026, 0.024, 0.19, 0, -0.008, 0.0, M.silver());                        // frame
   b.box(0.03, 0.09, 0.044, 0, -0.058, 0.065, M.silver(), -0.22);                // grip frame
   b.box(0.004, 0.08, 0.04, 0.0165, -0.058, 0.065, M.woodDark(), -0.22);         // grip panels
   b.box(0.004, 0.08, 0.04, -0.0165, -0.058, 0.065, M.woodDark(), -0.22);
-  b.box(0.026, 0.01, 0.045, 0, -0.104, 0.078, M.steel(), -0.22);                // mag base
+  mark(b.box(0.026, 0.01, 0.045, 0, -0.104, 0.078, M.steel(), -0.22), 'mag');   // mag base
   b.box(0.008, 0.024, 0.014, 0, 0.044, 0.1, M.steel(), 0.5);                    // hammer
   b.box(0.008, 0.03, 0.02, 0, -0.03, 0.098, M.silver());                        // grip safety
   b.box(0.008, 0.012, 0.03, 0.018, 0.005, 0.07, M.steel());                     // thumb safety
   b.box(0.007, 0.004, 0.062, 0, -0.03, -0.005, M.silver());                     // trigger guard
   b.box(0.007, 0.024, 0.005, 0, -0.018, -0.036, M.silver());
   b.box(0.005, 0.024, 0.007, 0, -0.012, 0.0, M.steel(), 0.15);                  // trigger
-  iron(b.box(0.014, 0.01, 0.008, 0, 0.043, 0.09, M.black()));
-  iron(b.box(0.005, 0.01, 0.01, 0, 0.043, -0.09, M.black()));
+  mark(b.box(0.014, 0.01, 0.008, 0, 0.043, 0.09, M.black()), 'iron', 'slide');
+  mark(b.box(0.005, 0.01, 0.01, 0, 0.043, -0.09, M.black()), 'iron', 'slide');
   return b.done({ muzzle: V(0, 0.022, -0.118), sightY: 0.048, grip: V(0, -0.055, 0.065), fore: V(-0.014, -0.075, 0.055), pistol: true, mount: V(0, 0.039, 0.03), under: V(0, -0.021, -0.075) });
 }
 
@@ -246,11 +247,11 @@ function buildSmg() {
   b.box(0.05, 0.06, 0.16, 0, -0.005, -0.2, M.poly());
   b.tube(0.012, 0.14, 0, 0.008, -0.27, M.steel());
   b.box(0.03, 0.1, 0.04, 0, -0.085, 0.09, M.poly(), -0.3);
-  b.box(0.036, 0.17, 0.036, 0, -0.12, -0.03, M.black(), 0.08);
+  mark(b.box(0.036, 0.17, 0.036, 0, -0.12, -0.03, M.black(), 0.08), 'mag');
   b.box(0.04, 0.07, 0.17, 0, -0.01, 0.255, M.poly());
   b.box(0.03, 0.03, 0.04, 0, 0.05, -0.02, M.black());
   triggerGroup(b, 0, -0.035, 0.0);
-  return b.done({ muzzle: V(0, 0.008, -0.34), sightY: 0.066, grip: V(0, -0.085, 0.09), fore: V(0, -0.04, -0.2), pistol: false, mount: V(0, 0.035, 0.0), under: V(0, -0.035, -0.2) });
+  return b.done({ muzzle: V(0, 0.008, -0.34), sightY: 0.066, grip: V(0, -0.085, 0.09), fore: V(0, -0.04, -0.2), pistol: false, side: V(0.03, -0.005, -0.22), mount: V(0, 0.035, 0.0), under: V(0, -0.035, -0.2) });
 }
 
 const BUILDERS = { smg: buildSmg, ar: buildAR, ak: buildAK, bolt: buildBolt, pump: buildPump, glock: buildGlock, m1911: build1911, revolver: buildRevolver };
@@ -266,14 +267,16 @@ function buildFromAsset(w, data) {
     geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(part.normals), 3));
     geo.setIndex(part.indices);
     const color = parseInt(part.color.slice(1), 16);
-    g.add(new THREE.Mesh(geo, mat(color, 0.35, 0.55)));
+    const me = new THREE.Mesh(geo, mat(color, 0.35, 0.55));
+    if (/^mag$/i.test(part.name || '')) me.userData.mag = true;
+    g.add(me);
   }
   const anc = data.anchors || {};
   const p = (name, off = [0, 0, 0]) => { const c = anc[name] || [0, -0.05, 0]; return V(c[0] + off[0], c[1] + off[1], c[2] + off[2]); };
   g.userData = {
     muzzle: V(...data.muzzle), sightY: data.sightY,
     grip: p(a.grip, a.gripOffset), fore: p(a.fore, a.foreOffset), pistol: false,
-    mount: V(...(a.mount || [0, data.sightY - 0.008, 0])), under: V(...(a.under || [0, -0.05, -0.1])),
+    mount: V(...(a.mount || [0, data.sightY - 0.008, 0])), under: V(...(a.under || [0, -0.05, -0.1])), side: V(...(a.side || [0.025, -0.02, -0.2])),
   };
   return g;
 }
@@ -289,11 +292,12 @@ function addAttachments(g, w) {
     const m = u.mount, z = m.z;
     if (u.pistol) {                                         // compact slide-mounted reflex sight
       const cy = m.y + 0.014;
-      b.box(0.024, 0.004, 0.042, 0, m.y + 0.002, z, M.black());
-      b.box(0.024, 0.004, 0.042, 0, m.y + 0.0255, z, M.black());
-      b.box(0.004, 0.024, 0.042, 0.0105, cy, z, M.black()); b.box(0.004, 0.024, 0.042, -0.0105, cy, z, M.black());
-      b.box(0.017, 0.018, 0.002, 0, cy, z + 0.015, mat(0x7fb6d8, 0.1, 0.05, { transparent: true, opacity: 0.16 }));
-      b.ball(0.0012, 0, cy, z, dotRed());
+      const S = (o) => mark(o, 'slide');           // the sight rides on the slide
+      S(b.box(0.024, 0.004, 0.042, 0, m.y + 0.002, z, M.black()));
+      S(b.box(0.024, 0.004, 0.042, 0, m.y + 0.0255, z, M.black()));
+      S(b.box(0.004, 0.024, 0.042, 0.0105, cy, z, M.black())); S(b.box(0.004, 0.024, 0.042, -0.0105, cy, z, M.black()));
+      S(b.box(0.017, 0.018, 0.002, 0, cy, z + 0.015, mat(0x7fb6d8, 0.1, 0.05, { transparent: true, opacity: 0.16 })));
+      S(b.ball(0.0012, 0, cy, z, dotRed()));
       u.sightY = cy;
     } else {                                                // tube-less open reflex sight on the top rail
       const cy = m.y + 0.026, h0 = cy - 0.018 - m.y;
@@ -320,6 +324,13 @@ function addAttachments(g, w) {
     b.box(0.012, 0.012, 0.004, 0, cy, m.z - 0.027, dotRed());                       // emitter
     b.box(0.006, 0.006, 0.014, 0.0125, cy + 0.004, m.z + 0.01, M.steel());           // switch
     u.laser = V(0, cy, m.z - 0.029);
+  } else if ((mask & 4) && !u.pistol && u.side) {                                    // rifles: clamped to the right side of the handguard
+    const m = u.side, x = m.x + 0.011;
+    b.box(0.006, 0.02, 0.04, m.x + 0.002, m.y, m.z, M.blued());                    // side rail clamp
+    b.box(0.02, 0.02, 0.056, x + 0.004, m.y, m.z, M.black());                       // body
+    b.box(0.012, 0.012, 0.004, x + 0.004, m.y, m.z - 0.03, dotRed());              // emitter
+    b.box(0.012, 0.006, 0.016, x + 0.004, m.y + 0.013, m.z + 0.01, M.steel());      // adjustment block
+    u.laser = V(x + 0.004, m.y, m.z - 0.032);
   }
 }
 
