@@ -100,7 +100,7 @@ with sync_playwright() as pw:
         const rec = [];
         for (const slot of [0, 1]) {
           p.switchT = 0; if (p.cur !== slot) g.switchWeapon(p, slot); p.switchT = 0;
-          const w = p.weapon, vm = g.vm; let bad = false;
+          const w = p.weapon, vm = g.vm; let bad = false, base = [];
           // fire 12 shots (or as many as the mag allows), record the pitch kick of each
           const kicks = [];
           for (let n = 0; n < Math.min(12, w.mag); n++) { p.fireCd = 0; p.switchT = 0; const before = p.pitch; g.playerShoot(p, false); kicks.push(p.pitch - before); for (let f = 0; f < 6; f++) { try { g.frame(1/60); } catch (e) { out.errors.push(String(e.stack || e)); } } p.recoilDebt = 0; p.pitch = 0; }
@@ -108,29 +108,40 @@ with sync_playwright() as pw:
           p.ammo[p.cur].mag = 0; g.startReload(p);
           for (let f = 0; f < Math.ceil(w.reload * 60) + 10; f++) {
             try { g.frame(1/60); } catch (e) { out.errors.push(String(e.stack || e)); break; }
+            // everything the player should see during a reload must stay inside the view (vmCam: fov 58, 16:9)
+            { const r = g.vmRoot, T = Math.tan(29 * Math.PI / 180), asp = 1280 / 720, u = vm.gun.userData;
+              const toNdc = (v) => { let [x, y, z] = v;
+                let c = Math.cos(r.rotation.z), sn = Math.sin(r.rotation.z); [x, y] = [x * c - y * sn, x * sn + y * c];
+                c = Math.cos(r.rotation.y); sn = Math.sin(r.rotation.y); [x, z] = [x * c + z * sn, -x * sn + z * c];
+                c = Math.cos(r.rotation.x); sn = Math.sin(r.rotation.x); [y, z] = [y * c - z * sn, y * sn + z * c];
+                x += r.position.x; y += r.position.y; z += r.position.z; return [x / -z / (T * asp), y / -z / T]; };
+              const pts = [[0, 0, 0], [u.fore.x + vm.lh.position.x, u.fore.y + vm.lh.position.y, u.fore.z + vm.lh.position.z]];
+              // the support hand of a pistol already rests low at the hip, so a point may not go further out of frame than it started
+              if (f === 0) base = pts.map(q => Math.min(-0.93, toNdc(q)[1]));
+              for (const [qi, q] of pts.entries()) { const [nx, ny] = toNdc(q); if (Math.abs(nx) > 0.98 || ny < base[qi] - 0.03 || ny > 0.95) { bad = true; out.offscreen = (out.offscreen || []).concat([[w.id, qi, +nx.toFixed(2), +ny.toFixed(2), +base[qi].toFixed(2)]]).slice(0, 5); } } }
             const r = g.vmRoot; if (![r.position.x, r.position.y, r.position.z, r.rotation.x, r.rotation.y, r.rotation.z, vm.lh.position.x, vm.lh.position.y, vm.lh.position.z].every(isFinite)) bad = true;
           }
           for (const e of vm.mags) if (Math.abs(e.m.position.y - e.p.y) > 1e-6 || !e.m.visible) bad = true;      // mags must end up back in the gun
           g.vmS.inspectT = 2.8; for (let f = 0; f < 200; f++) g.frame(1/60);
-          p.tacOn = true; for (let f = 0; f < 40; f++) g.frame(1/60); const tacSpread = g.currentSpread(p), tacV = p.tac; p.tacOn = false; for (let f = 0; f < 40; f++) g.frame(1/60);
+          p.tacOn = true; g.adsHeld = true; for (let f = 0; f < 40; f++) g.frame(1/60); const tacSpread = g.currentSpread(p), tacV = p.tac, adsInTac = p.ads, rz = g.vmRoot.rotation.z, crossHidden = g.hud.el.crosshair && g.hud.el.crosshair.style.opacity; g.adsHeld = false; p.tacOn = false; for (let f = 0; f < 40; f++) g.frame(1/60);
           const hipSpread = g.currentSpread(p);
-          rec.push({w: w.id, bad, kicks: kicks.length, distinct: new Set(kicks.map(k => k.toFixed(5))).size, tac: +tacV.toFixed(2), tacBetter: tacSpread < hipSpread, lasers: !!(w.attMask & 4), dot: !!(w.attMask & 1), slides: vm.slides.length, mags: vm.mags.length, bolts: vm.bolts.length, pumps: vm.pumps.length});
+          rec.push({w: w.id, bad, kicks: kicks.length, distinct: new Set(kicks.map(k => k.toFixed(5))).size, tac: +tacV.toFixed(2), tacBetter: tacSpread < hipSpread, adsInTac: +adsInTac.toFixed(2), tacRoll: +rz.toFixed(2), crossHidden, lasers: !!(w.attMask & 4), dot: !!(w.attMask & 1), slides: vm.slides.length, mags: vm.mags.length, bolts: vm.bolts.length, pumps: vm.pumps.length});
         }
         out.weapons[prim + '/' + sec] = rec;
       }
       return out; }""")
-    bad = [r for k, v in ANIM['weapons'].items() for r in v if r['bad'] or not r['tacBetter'] or r['tac'] < 0.95 or (r['kicks'] > 3 and r['distinct'] < 3)]
+    bad = [r for k, v in ANIM['weapons'].items() for r in v if r['bad'] or not r['tacBetter'] or r['tac'] < 0.95 or r['adsInTac'] > 0.05 or abs(r['tacRoll']) < 1.0 or r['crossHidden'] == '0' or (r['kicks'] > 3 and r['distinct'] < 3)]
     for k, v in ANIM['weapons'].items(): print('anim', k, [(r['w'], 'mags', r['mags'], 'slides', r['slides'], 'bolt', r['bolts'], 'pump', r['pumps'], 'distinct kicks', r['distinct']) for r in v])
-    print('anim problems:', bad, 'errors:', ANIM['errors'][:2])
+    print('offscreen:', ANIM.get('offscreen')); print('anim problems:', bad, 'errors:', ANIM['errors'][:2])
     assert not bad and not ANIM['errors'], (bad, ANIM['errors'])
     # attachments: stats + models + laser dot
     A = pg.evaluate("""() => { const g = window.__game;
       g.start({mode:'tdm',map:'dust',mapName:'Dust',primary:'m4a1',secondary:'g18',attP:3,attS:5,difficulty:'normal'}); g.state='playing';
-      const p = g.player; g.adsHeld = false; g.fireHeld = false; g.keys = {};
+      const p = g.player; p.protT = 99; g.adsHeld = false; g.fireHeld = false; g.keys = {};
       const w0 = p.weapons[0], w1 = p.weapons[1];
       const out = {m4a1: [w0.attMask, +w0.recoil.toFixed(4), +w0.adsSpread.toFixed(4), +w0.spread.toFixed(4)], g18: [w1.attMask, +w1.spread.toFixed(4), +w1.adsSpread.toFixed(4)], sightY: g.vm.sightY};
       p.switchT = 0; g.switchWeapon(p, 1); p.switchT = 0; for (let i = 0; i < 90; i++) g.frame(1/60);
-      out.sightY2 = g.vm.sightY; p.yaw = 0; p.pitch = -0.1; g.frame(1/60); out.laser = g.laserDot.visible;
+      out.sightY2 = g.vm.sightY; p.yaw = 0; p.pitch = -0.6; g.frame(1/60); out.laser = g.laserDot.visible;
       p.switchT = 0; g.switchWeapon(p, 0); p.switchT = 0; g.frame(1/60); out.laserOff = g.laserDot.visible;
       return out; }""")
     print('attachments:', A)

@@ -82,7 +82,7 @@ export class Game {
       if (e.code === 'Digit2') this.switchWeapon(p, 1);
       if (e.code === 'KeyQ') this.switchWeapon(p, 1 - p.cur);
       if (e.code === 'KeyV') this.toggleView();
-      if (e.code === 'KeyZ' && p.alive) { p.tacOn = !p.tacOn; this.hud.center(p.tacOn ? 'TAC STANCE' : 'TAC STANCE OFF', 0.6); }
+      if (e.code === 'KeyZ' && p.alive) { p.tacOn = !p.tacOn; this.hud.center(p.tacOn ? 'TAC STANCE ON' : 'TAC STANCE OFF', 0.7); }
       if (e.code === 'KeyF' && p.alive && !p.reloading && !p.sprint && this.vmS.inspectT <= 0) this.vmS.inspectT = 2.8;
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
@@ -853,16 +853,16 @@ export class Game {
     const wantCrouch = !!(k.KeyC || k.ControlLeft);
     const ads = this.adsHeld && !frozen && p.switchT <= 0 && !p.reloading;
     const sprint = !!k.ShiftLeft && fwd > 0 && !ads && !wantCrouch && !this.fireHeld;
-    if (sprint) p.tacOn = false;
-    p.tac += ((p.tacOn && !sprint ? 1 : 0) - p.tac) * Math.min(1, dt * 9);
-    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? 0.62 : 1) * (1 - 0.1 * p.tac);
+    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? (p.tacOn ? 0.86 : 0.62) : 1);
     const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
     let wx = fx * fwd + rx * str, wz = fz * fwd + rz * str;
     const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
     if (frozen) { wx = 0; wz = 0; }
     this.moveActor(p, wx, wz, speed, dt, !!k.Space && !frozen, wantCrouch);
     p.eye += ((p.crouch ? 1.12 : 1.65) - p.eye) * Math.min(1, dt * 12);
-    p.ads += ((ads ? 1 : 0) - p.ads) * Math.min(1, dt * 11);
+    // with tac stance on, the aim button turns the gun on its side (p.tac) instead of looking down the sights (p.ads)
+    p.ads += ((ads && !p.tacOn ? 1 : 0) - p.ads) * Math.min(1, dt * 11);
+    p.tac += ((ads && p.tacOn ? 1 : 0) - p.tac) * Math.min(1, dt * 10);
     p.sprint = sprint;
     p.speed2 = Math.hypot(p.vel.x, p.vel.z);
 
@@ -886,9 +886,10 @@ export class Game {
   // current bullet spread (radians): hip -> tac stance -> ADS blend, then movement / heat / air penalties
   currentSpread(p) {
     const w = p.weapon, moveF = clamp((p.speed2 || 0) / 6, 0, 1);
-    const tacS = lerp(w.spread, Math.min(w.adsSpread, w.spread * 0.9), 0.55);
+    const laser = (w.attMask & ATT_LASER) ? 1 : 0;           // tac stance is aimed with the laser: much tighter with one fitted
+    const tacS = lerp(w.spread, Math.min(w.adsSpread, w.spread * 0.9), laser ? 0.85 : 0.5);
     let spread = lerp(lerp(w.spread, tacS, p.tac), w.adsSpread, p.ads);
-    spread *= 1 + moveF * 0.9 * (1 - p.ads * 0.5) * (1 - p.tac * 0.3) + (p.onGround ? 0 : 2) + p.heat * 0.7;
+    spread *= 1 + moveF * 0.9 * (1 - p.ads * 0.5) * (1 - p.tac * 0.5) + (p.onGround ? 0 : 2) + p.heat * 0.7;
     if (p.crouch) spread *= 0.75;
     return spread;
   }
@@ -973,7 +974,7 @@ export class Game {
     const S = this.vmS; S.shake = Math.max(0, S.shake - dt * 5);
     cam.rotation.set(p.pitch + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + (Math.random() - 0.5) * 0.004 * S.shake, roll + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
     if (p.mesh) p.mesh.root.visible = this.tp && p.mesh.root.visible;
-    const zoom = lerp(1 + 0.08 * p.tac, this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
+    const zoom = lerp(lerp(1, 1.12, p.tac), this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
     const fov = this.settings.fov / zoom;
     if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
     this.world.update(dt, cam.position);
@@ -988,7 +989,9 @@ export class Game {
   updateLaser(p, cam, scoped) {
     const ld = this.laserDot; if (!ld) return;
     if (!(p.weapon.attMask & ATT_LASER) || !p.alive || scoped || p.ads > 0.85) { ld.visible = false; return; }
-    const d = this.dirFrom(p.yaw, p.pitch, new V3()), t = this.aimDistance(cam.position, d, p, 90);
+    const d = this.dirFrom(p.yaw, p.pitch, new V3());
+    let t = this.aimDistance(cam.position, d, p, 90);
+    if (d.y < -0.02) t = Math.min(t, -cam.position.y / d.y);                 // the ground plane counts too
     if (!(t < 90)) { ld.visible = false; return; }
     const r = Math.max(0.012, t * 0.0032), back = Math.min(0.04, t * 0.01);
     ld.position.set(cam.position.x + d.x * (t - back), cam.position.y + d.y * (t - back), cam.position.z + d.z * (t - back));
@@ -1002,7 +1005,7 @@ export class Game {
     this.vmRoot.visible = p.alive && !scoped && !this.tp;
     this.hud.setScope(scoped);
     const clampf = clamp, sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
-    const a = p.ads, tac = p.tac * (1 - a), t = this.time, sp = p.speed2 || 0;
+    const a = p.ads, tac = p.tac, t = this.time, sp = p.speed2 || 0;
     const am = p.ammo[p.cur];
     // --- smoothed inputs --------------------------------------------------------------------------
     this.vmKick = Math.max(0, (this.vmKick || 0) - dt * 9);
@@ -1020,10 +1023,10 @@ export class Game {
     if (p.switchT > 0 || !p.alive) S.inspectT = 0;
 
     // --- base pose: hip -> tac stance -> ADS ------------------------------------------------------
-    const hip = [0.17, -0.19, -0.45], tacP = [0.1, -0.165, -0.43], adsP = [0, -vm.sightY, -0.38 + (w.cls === 'pistol' ? 0.06 : 0)];
+    const hip = [0.17, -0.19, -0.45], tacP = [0.045, -0.15, -0.4], adsP = [0, -vm.sightY, -0.38 + (w.cls === 'pistol' ? 0.06 : 0)];
     let x = lerp(lerp(hip[0], tacP[0], tac), adsP[0], a), y = lerp(lerp(hip[1], tacP[1], tac), adsP[1], a), z = lerp(lerp(hip[2], tacP[2], tac), adsP[2], a);
-    let rx = 0.03 * tac, ry = 0.17 * tac, rz = -0.1 * tac;
-    const free = 1 - a * 0.85;                                   // motion is damped while aiming
+    let rx = 0.05 * tac, ry = 0.08 * tac, rz = -1.2 * tac;               // tac stance: gun rolled onto its side, laser does the aiming
+    const free = 1 - a * 0.85 - tac * 0.5;                                   // motion is damped while aiming
 
     // --- walk / idle -----------------------------------------------------------------------------
     if (p.onGround && sp > 0.5 && !p.sprint) {
@@ -1076,22 +1079,23 @@ export class Game {
       } else {
         hand = sm(0.02, 0.16, ph) * (1 - sm(0.72, 0.9, ph));
         const pouch = Math.sin(Math.PI * clamp((ph - 0.3) / 0.2, 0, 1));            // hand goes down to fetch a fresh mag
-        handDy = -0.16 * pouch; handDz = 0.04 * pouch;
+        handDy = (vm.pistol ? -0.012 : -0.02) * pouch; handDz = 0.02 * pouch;
         if (vm.mags.length) {
           const drop = clamp((ph - 0.16) / 0.18, 0, 1), rise = clamp((ph - 0.46) / 0.2, 0, 1);
           for (const e of vm.mags) {
             if (ph < 0.16) continue;
-            if (ph < 0.34) { e.m.position.y = e.p.y - drop * drop * 0.34; e.m.position.z = e.p.z + drop * 0.03; }
+            if (ph < 0.34) { e.m.position.y = e.p.y - drop * drop * 0.12; e.m.position.z = e.p.z + drop * 0.02; }
             else if (ph < 0.46) e.m.visible = false;
-            else { const k = 1 - (1 - rise) * (1 - rise); e.m.position.y = e.p.y - (1 - k) * 0.17; }
+            else { const k = 1 - (1 - rise) * (1 - rise); e.m.position.y = e.p.y - (1 - k) * 0.08; }
           }
         }
         if (ph > 0.64 && ph < 0.72) rk = Math.sin(Math.PI * (ph - 0.64) / 0.08) * 0.035;         // mag slap
         if (ph > 0.8 && ph < 0.9 && !vm.pistol) { handDz -= Math.sin(Math.PI * (ph - 0.8) / 0.1) * 0.07; rk += 0.012; }   // charging handle
         if (am.mag <= 0 && vm.slides.length) slideT = ph < 0.72 ? 1 : 1 - sm(0.72, 0.78, ph);   // slide drops when the mag seats
       }
-      const k = revolver ? 1.5 : vm.pistol ? 0.8 : 1;
-      y -= tilt * 0.08 * k; x -= tilt * 0.06 * k; rz += tilt * (revolver ? 0.75 : 0.45) * k * (1 - a); rx += (-tilt * 0.35 * k + rk) * (1 - a * 0.7); ry += tilt * 0.22 * k;
+      // the gun turns and dips for the reload but always stays well inside the frame (nudged up and pushed away from the camera)
+      const k = revolver ? 1.3 : vm.pistol ? 0.8 : 1;
+      y += tilt * (vm.pistol ? 0.07 : 0.05); x -= tilt * 0.03 * k; z -= tilt * 0.05; rz += tilt * (revolver ? 0.6 : 0.38) * k * (1 - a); rx += (-tilt * 0.22 * k + rk) * (1 - a * 0.7); ry += tilt * 0.15 * k;
     }
     // melee-free "inspect": gun turned over in front of you (F)
     let insp = 0;

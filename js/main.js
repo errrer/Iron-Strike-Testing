@@ -1,7 +1,7 @@
 import { Game, MODES, mpMode } from './game.js';
 import { Net, cleanCode, cleanName } from './net.js';
 import { watchForEgg } from './easter.js';
-import { HUD } from './hud.js';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js';
 import { Sound } from './audio.js';
 import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js';
 import { loadModels } from './gunmodels.js';
@@ -10,13 +10,14 @@ import { MAP_IDS, MAP_INFO } from './maps.js';
 const $ = (id) => document.getElementById(id);
 
 // ---------------- settings (persisted) ----------------
-const DEFAULTS = { mode: 'tdm', map: 'warehouse', primary: 'vmp', secondary: 'g18', difficulty: 'normal', sens: 1, fov: 80, vol: 0.55, view: 'first', name: '', att: {} };
+const DEFAULTS = { mode: 'tdm', map: 'warehouse', primary: 'vmp', secondary: 'g18', difficulty: 'normal', sens: 1, fov: 80, vol: 0.55, view: 'first', name: '', att: {}, xh: null };
 let cfg = { ...DEFAULTS };
 try { Object.assign(cfg, JSON.parse(localStorage.getItem('ironstrike') || '{}')); } catch (e) { /* ignore */ }
 if (!MODES[cfg.mode]) cfg.mode = DEFAULTS.mode;
 if (!MAP_IDS.includes(cfg.map)) cfg.map = DEFAULTS.map;
 if (!PRIMARIES.includes(cfg.primary)) cfg.primary = DEFAULTS.primary;
 if (!SECONDARIES.includes(cfg.secondary)) cfg.secondary = DEFAULTS.secondary;
+cfg.xh = cleanXh(cfg.xh);
 if (!cfg.att || typeof cfg.att !== 'object') cfg.att = {};
 if (!cfg.name) cfg.name = 'Player' + Math.floor(100 + Math.random() * 900);
 if (cfg.view !== 'first' && cfg.view !== 'third') cfg.view = 'first';
@@ -101,6 +102,43 @@ function slider(ids, key, fmt, apply) {
 slider([['sens', 'sensOut'], ['sens2', 'sensOut2']], 'sens', (v) => v.toFixed(2), (v) => { game.settings.sens = v; });
 slider([['fov', 'fovOut'], ['fov2', 'fovOut2']], 'fov', (v) => String(Math.round(v)), (v) => { game.settings.fov = v; });
 slider([['vol', 'volOut'], ['vol2', 'volOut2']], 'vol', (v) => v.toFixed(2), (v) => { sound.volume = v; if (sound.master) sound.master.gain.value = v; });
+
+// ---------------- crosshair changer (main menu + pause menu share one config) ----------------
+const XH_COLORS = ['#ffffff', '#39ff14', '#ff3b30', '#00e5ff', '#ffd23a', '#ff4fd8'];
+const xhSync = [];
+function applyXh() { cfg.xh = cleanXh(cfg.xh); hud.setCrosshair(cfg.xh); for (const el of document.querySelectorAll('.xhprev .xh')) styleCrosshair(el, cfg.xh); for (const f of xhSync) f(); save(); }
+function buildXh(box) {
+  const prev = document.createElement('div'); prev.className = 'xhprev';
+  prev.innerHTML = '<div class="xh"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i><i class="dot"></i><i class="ring"></i></div>';
+  const ctl = document.createElement('div'); ctl.className = 'xhctl';
+  const row1 = document.createElement('div'); row1.className = 'xhrow'; row1.append('Style ');
+  const sel = document.createElement('select'); for (const [id, name] of XH_STYLES) { const o = document.createElement('option'); o.value = id; o.textContent = name; sel.appendChild(o); }
+  sel.addEventListener('change', () => { cfg.xh.style = sel.value; applyXh(); }); row1.appendChild(sel); ctl.appendChild(row1);
+  const row2 = document.createElement('div'); row2.className = 'xhrow'; row2.append('Colour ');
+  const sws = XH_COLORS.map((col) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'sw'; b.style.background = col; b.addEventListener('click', () => { cfg.xh.color = col; applyXh(); }); row2.appendChild(b); return [col, b]; });
+  const pick = document.createElement('input'); pick.type = 'color'; pick.addEventListener('input', () => { cfg.xh.color = pick.value; applyXh(); }); row2.appendChild(pick); ctl.appendChild(row2);
+  const sliders = [['size', 'Length', 2, 30, 1], ['thick', 'Thickness', 1, 8, 1], ['gap', 'Gap', 0, 30, 1], ['alpha', 'Opacity', 0.2, 1, 0.05]].map(([key, label, min, max, step]) => {
+    const l = document.createElement('label'), r = document.createElement('input'), o = document.createElement('output');
+    r.type = 'range'; r.min = min; r.max = max; r.step = step; l.append(label, r, o);
+    r.addEventListener('input', () => { cfg.xh[key] = parseFloat(r.value); applyXh(); }); ctl.appendChild(l); return [key, r, o];
+  });
+  const row3 = document.createElement('div'); row3.className = 'xhrow';
+  const chks = [['outline', 'Outline'], ['dyn', 'Spreads when moving / firing']].map(([key, label]) => {
+    const l = document.createElement('label'); l.className = 'chk'; const c = document.createElement('input'); c.type = 'checkbox';
+    c.addEventListener('change', () => { cfg.xh[key] = c.checked; applyXh(); }); l.append(c, label); row3.appendChild(l); return [key, c];
+  });
+  const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'btn small'; reset.textContent = 'Reset';
+  reset.addEventListener('click', () => { cfg.xh = cleanXh(null); applyXh(); }); row3.appendChild(reset); ctl.appendChild(row3);
+  box.append(prev, ctl);
+  xhSync.push(() => {
+    const c = cfg.xh; sel.value = c.style; pick.value = c.color;
+    for (const [col, b] of sws) b.classList.toggle('sel', col.toLowerCase() === c.color.toLowerCase());
+    for (const [key, r, o] of sliders) { r.value = c[key]; o.textContent = key === 'alpha' ? c[key].toFixed(2) : String(Math.round(c[key])); }
+    for (const [key, ck] of chks) ck.checked = !!c[key];
+    styleCrosshair(prev.firstChild, c);
+  });
+}
+buildXh($('xhMenu')); buildXh($('xhPause')); applyXh();
 
 // camera view toggle (main menu + pause menu + V key in game)
 const viewBtns = [];

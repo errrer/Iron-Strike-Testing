@@ -1,15 +1,35 @@
 const $ = (id) => document.getElementById(id);
+export const XH_DEFAULT = { style: 'crossdot', color: '#ffffff', size: 9, thick: 2, gap: 4, alpha: 1, outline: true, dyn: true };
+export const XH_STYLES = [['cross', 'Cross'], ['crossdot', 'Cross + dot'], ['dot', 'Dot'], ['circle', 'Circle'], ['tee', 'T-shape'], ['x', 'X']];
+export function cleanXh(c) {
+  const o = { ...XH_DEFAULT, ...(c && typeof c === 'object' ? c : {}) };
+  if (!XH_STYLES.some(([id]) => id === o.style)) o.style = XH_DEFAULT.style;
+  if (!/^#[0-9a-f]{6}$/i.test(o.color)) o.color = XH_DEFAULT.color;
+  o.size = Math.min(30, Math.max(2, +o.size || XH_DEFAULT.size)); o.thick = Math.min(8, Math.max(1, +o.thick || XH_DEFAULT.thick));
+  o.gap = Math.min(30, Math.max(0, +o.gap)); if (!isFinite(o.gap)) o.gap = XH_DEFAULT.gap;
+  o.alpha = Math.min(1, Math.max(0.2, +o.alpha || 1)); o.outline = !!o.outline; o.dyn = !!o.dyn;
+  return o;
+}
+// paints any crosshair element (the HUD one or a menu preview) from a crosshair config
+export function styleCrosshair(el, c, gap) {
+  el.className = `xh xs-${c.style}${c.outline ? ' xo' : ''}`;
+  el.style.setProperty('--xc', c.color); el.style.setProperty('--xl', `${c.size}px`); el.style.setProperty('--xt', `${c.thick}px`);
+  el.style.setProperty('--xa', String(c.alpha)); el.style.setProperty('--gap', `${gap == null ? c.gap : gap}px`);
+}
 const lerp = (a, b, t) => a + (b - a) * t;
 
 export class HUD {
   constructor() {
     this.el = {};
     for (const id of ['hud', 'sbL', 'sbR', 'timer', 'radar', 'killfeed', 'crosshair', 'hitmarker', 'dmgind', 'vignette', 'hpfill', 'hptxt',
-      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo']) this.el[id] = $(id);
+      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'stance']) this.el[id] = $(id);
     this.rctx = this.el.radar.getContext('2d');
     this.cache = {};
     this.msgT = 0; this.sbT = 0;
+    this.xh = { ...XH_DEFAULT };
   }
+
+  setCrosshair(c) { this.xh = cleanXh(c); styleCrosshair(this.el.crosshair, this.xh); this.xhGap = null; }
 
   set(id, text) { if (this.cache[id] !== text) { this.cache[id] = text; this.el[id].textContent = text; } }
 
@@ -122,7 +142,8 @@ export class HUD {
     // crosshair
     const sp = game.currentSpread(p);
     const px = Math.min(80, 4 + sp * (window.innerHeight / 2) / Math.tan((game.camera.fov * Math.PI / 180) / 2));
-    e.crosshair.style.setProperty('--gap', `${px.toFixed(1)}px`);
+    const gap = this.xh.gap + (this.xh.dyn ? Math.max(0, px - 4) : 0);
+    if (this.xhGap !== gap.toFixed(1)) { this.xhGap = gap.toFixed(1); e.crosshair.style.setProperty('--gap', `${this.xhGap}px`); }
     e.crosshair.style.opacity = (p.ads > 0.3 && !game.tp) || !p.alive ? '0' : '1';
     // dead
     if (!p.alive) this.set('deadSub', `${this.deadWeapon || ''}  -  respawning in ${Math.max(0, Math.ceil(p.respawnT))}`);
@@ -131,6 +152,7 @@ export class HUD {
     e.scoreboard.classList.toggle('hidden', !game.showScore);
     if (game.showScore && this.sbT <= 0) { this.sbT = 0.25; this.buildTable(game, e.scoreboard.querySelector('table')); }
     if (game.net) this.set('netinfo', game.net.role === 'host' ? `HOST - ${game.actors.length} players` : `PING ${Math.round(game.net.ping)} ms - ${game.actors.length} players`);
+    this.el.stance.classList.toggle('hidden', !(p.tacOn && p.alive));
     this.drawRadar(game);
   }
 

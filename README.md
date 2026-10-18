@@ -48,7 +48,9 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 ## Handling (V0.4)
 
 - **Random recoil** - every shot rolls its own climb (with the occasional big jolt) and a sideways drift that random-walks through a burst, plus a little camera shake. The viewmodel kicks in a random direction too.
-- **Tac stance** (`Z`, toggle) - gun raised and canted across the chest: tighter than hip fire, faster than ADS. Sprinting drops it.
+- **Tac stance** (`Z` toggles it, then hold the aim button) - the gun turns on its side and you aim with the laser dot instead of the sights. The crosshair stays on screen. Faster than ADS, tighter than hip fire (best with a laser). Sprinting drops it.
+- **Crosshair changer** - pick a style (cross, cross + dot, dot, circle, T, X), colour, size, thickness, gap, opacity and outline from the main menu or the pause menu. Saved in your browser.
+- **Reload** - the gun and your hands stay inside the frame for the whole reload on every weapon.
 - **Weapon animations** in the style of the 2010-2015 Call of Duty games: gun swings up on draw, swung-across sprint with arm pump, strafe tilt, landing dip, jump float, look sway, and full reloads where the support hand goes for the mag, the old mag drops, a new one is seated (mag slap) and the gun is charged. Pistol slides recoil and lock back when empty, the Kar98k works its bolt after every shot and on reload, the pump shotgun pumps after every shot and loads shells one by one. `F` inspects the weapon.
 - The animated parts are tagged in `js/gunmodels.js` (`mag`, `slide`, `bolt`, `pump`); the VMP's `Mag` part is animated automatically.
 
