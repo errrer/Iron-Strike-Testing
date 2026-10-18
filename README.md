@@ -45,6 +45,18 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 | Tab (hold) | Scoreboard |
 | Esc | Pause |
 
+## Attachments
+
+Pick them on the main menu (or in the multiplayer lobby) under each weapon. They are remembered per weapon.
+
+| Attachment | Fits | Effect |
+|---|---|---|
+| Red Dot Sight | VMP, M4A1, AK-47, Model 680, and all pistols | ADS accuracy +20%; aiming down sights lines you up with the dot instead of the iron sights |
+| Vertical Grip | all primaries | recoil -20%, hip spread -10%; your support hand moves to the grip |
+| Laser Sight | pistols | hip spread -30%, ADS +5%; shows a red dot where you point |
+
+The Kar98k keeps its own scope (grip only). Attachment models are built from the gun's `mount` / `under` anchors in `js/gunmodels.js`, so your own models just need those two anchor points (see `asset.mount` / `asset.under` in `js/weapons.js`).
+
 ## Multiplayer (V0.3)
 
 Click **MULTIPLAYER** on the main menu.

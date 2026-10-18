@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WEAPONS, PRIMARIES, SECONDARIES } from './weapons.js';
+import { WEAPONS, PRIMARIES, SECONDARIES, withAtt, ATT_LASER } from './weapons.js';
 import { buildGun } from './gunmodels.js';
 import { buildMap } from './maps.js';
 import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js';
@@ -140,9 +140,9 @@ export class Game {
     // actors
     this.actors = [];
     const mode = this.mode;
-    const mk = (id, name, team, isPlayer, prim, sec) => this.makeActor(id, name, team, isPlayer, prim, sec);
+    const mk = (id, name, team, isPlayer, prim, sec, ap, as) => this.makeActor(id, name, team, isPlayer, prim, sec, ap, as);
     const names = CALLSIGNS.slice().sort(() => Math.random() - 0.5);
-    this.player = mk(0, 'You', 0, true, cfg.primary, cfg.secondary);
+    this.player = mk(0, 'You', 0, true, cfg.primary, cfg.secondary, cfg.attP | 0, cfg.attS | 0);
     this.actors.push(this.player);
     if (mode.team) {
       for (let i = 0; i < mode.perSide * 2 - 1; i++) this.actors.push(mk(i + 1, names[i], i < mode.perSide - 1 ? 0 : 1, false));
@@ -181,10 +181,10 @@ export class Game {
     this.actors = [];
   }
 
-  makeActor(id, name, team, isPlayer, prim, sec) {
+  makeActor(id, name, team, isPlayer, prim, sec, ap = 0, as = 0) {
     if (!prim) prim = BOT_PRIMARY_POOL[Math.floor(Math.random() * BOT_PRIMARY_POOL.length)];
     if (!sec) sec = SECONDARIES[Math.floor(Math.random() * SECONDARIES.length)];
-    const weapons = [WEAPONS[prim], WEAPONS[sec]];
+    const weapons = [withAtt(WEAPONS[prim], ap), withAtt(WEAPONS[sec], as)];
     return {
       id, name, team, isPlayer, pos: new V3(), vel: new V3(), yaw: 0, pitch: 0, hw: 0.35, h: 1.8, eye: 1.65, onGround: true,
       hp: 100, alive: true, kills: 0, deaths: 0, streak: 0, weapons, weapon: weapons[0], cur: 0,
@@ -265,7 +265,7 @@ export class Game {
   }
 
   addNetActor(p, isLocal, batch) {
-    const a = this.makeActor(p.id, String(p.name).replace(/[<>&"'`]/g, '').slice(0, 14), p.team, isLocal, p.prim, p.sec);
+    const a = this.makeActor(p.id, String(p.name).replace(/[<>&"'`]/g, '').slice(0, 14), p.team, isLocal, p.prim, p.sec, p.ap | 0, p.as | 0);
     a.remote = !isLocal; a.alive = false; a.ibuf = []; a.sseq = 0;
     const team = this.mode.team;
     const color = team ? TEAM_COLORS[p.team % 2] : FFA_COLORS[p.id % FFA_COLORS.length];
@@ -521,8 +521,9 @@ export class Game {
     const p = this.player; if (!p) return;
     for (const c of [...this.vmRoot.children]) this.vmRoot.remove(c);
     const w = p.weapon;
-    if (!this.vmCache[w.id]) this.vmCache[w.id] = this.buildVm(w);
-    this.vm = this.vmCache[w.id];
+    const key = `${w.id}:${w.attMask || 0}`;
+    if (!this.vmCache[key]) this.vmCache[key] = this.buildVm(w);
+    this.vm = this.vmCache[key];
     this.vmRoot.add(this.vm.root);
   }
 
@@ -573,6 +574,8 @@ export class Game {
       const m = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color: 0xffffff }));
       m.visible = false; m.life = 0; m.vel = new V3(); this.fxGroup.add(m); this.particles.push(m);
     }
+    this.laserDot = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a, fog: false }));
+    this.laserDot.visible = false; this.fxGroup.add(this.laserDot);
     this.tracerI = 0; this.partI = 0;
   }
 
@@ -941,10 +944,22 @@ export class Game {
     const fov = this.settings.fov / zoom;
     if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
     this.world.update(dt, cam.position);
+    this.updateLaser(p, cam, scoped);
     this.updateViewmodel(dt);
     this.renderer.clear();
     this.renderer.render(this.scene, cam);
     if (this.vmRoot.visible) { this.renderer.clearDepth(); this.renderer.render(this.vmScene, this.vmCam); }
+  }
+
+  // laser sight: a red dot where the crosshair ray lands (what the bullet will hit, spread aside)
+  updateLaser(p, cam, scoped) {
+    const ld = this.laserDot; if (!ld) return;
+    if (!(p.weapon.attMask & ATT_LASER) || !p.alive || scoped || p.ads > 0.85) { ld.visible = false; return; }
+    const d = this.dirFrom(p.yaw, p.pitch, new V3()), t = this.aimDistance(cam.position, d, p, 90);
+    if (!(t < 90)) { ld.visible = false; return; }
+    const r = Math.max(0.012, t * 0.0032), back = Math.min(0.04, t * 0.01);
+    ld.position.set(cam.position.x + d.x * (t - back), cam.position.y + d.y * (t - back), cam.position.z + d.z * (t - back));
+    ld.scale.set(r, r, r); ld.visible = true;
   }
 
   updateViewmodel(dt) {

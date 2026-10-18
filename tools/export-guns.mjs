@@ -6,12 +6,12 @@ const stub = pathToFileURL(path.join(root, 'tests/three-stub.js')).href;
 fs.writeFileSync(path.join(tmp, 'gunmodels.mjs'), fs.readFileSync(path.join(root, 'js/gunmodels.js'), 'utf8').replace("from 'three'", `from '${stub}'`));
 fs.copyFileSync(path.join(root, 'js/weapons.js'), path.join(tmp, 'weapons.mjs'));
 const { buildGun, MODEL_DATA } = await import(pathToFileURL(path.join(tmp, 'gunmodels.mjs')).href);
-const { WEAPONS } = await import(pathToFileURL(path.join(tmp, 'weapons.mjs')).href);
-const useAssets = process.argv[2] !== '--no-assets';
+const { WEAPONS, withAtt } = await import(pathToFileURL(path.join(tmp, 'weapons.mjs')).href);
+const useAssets = !process.argv.includes('--no-assets'), allAtt = process.argv.includes('--att');
 if (useAssets) for (const w of Object.values(WEAPONS)) if (w.asset) { const f = path.join(root, 'assets/models', w.asset.id + '.json'); if (fs.existsSync(f)) MODEL_DATA[w.asset.id] = JSON.parse(fs.readFileSync(f, 'utf8')); }
 const out = {};
 for (const w of Object.values(WEAPONS)) {
-  const g = buildGun(w), meshes = [];
+  const g = buildGun(allAtt ? withAtt(w, 7) : w), meshes = [];
   g.traverse((o) => {
     if (!o.geometry) return;
     const geo = o.geometry;
@@ -22,5 +22,5 @@ for (const w of Object.values(WEAPONS)) {
   const u = g.userData, v = (x) => [x.x, x.y, x.z];
   out[w.id] = { meshes, muzzle: v(u.muzzle), sightY: u.sightY, grip: v(u.grip), fore: v(u.fore), pistol: u.pistol, name: w.name };
 }
-fs.writeFileSync(process.argv[3] || '/tmp/guns.json', JSON.stringify(out));
+fs.writeFileSync(process.argv.find((a) => a.endsWith('.json')) || '/tmp/guns.json', JSON.stringify(out));
 console.log('exported', Object.keys(out).join(', '), 'meshes:', Object.values(out).map((o) => o.meshes.length).join(','));

@@ -3,20 +3,21 @@ import { Net, cleanCode, cleanName } from './net.js';
 import { watchForEgg } from './easter.js';
 import { HUD } from './hud.js';
 import { Sound } from './audio.js';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars } from './weapons.js';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js';
 import { loadModels } from './gunmodels.js';
 import { MAP_IDS, MAP_INFO } from './maps.js';
 
 const $ = (id) => document.getElementById(id);
 
 // ---------------- settings (persisted) ----------------
-const DEFAULTS = { mode: 'tdm', map: 'warehouse', primary: 'vmp', secondary: 'g18', difficulty: 'normal', sens: 1, fov: 80, vol: 0.55, view: 'first', name: '' };
+const DEFAULTS = { mode: 'tdm', map: 'warehouse', primary: 'vmp', secondary: 'g18', difficulty: 'normal', sens: 1, fov: 80, vol: 0.55, view: 'first', name: '', att: {} };
 let cfg = { ...DEFAULTS };
 try { Object.assign(cfg, JSON.parse(localStorage.getItem('ironstrike') || '{}')); } catch (e) { /* ignore */ }
 if (!MODES[cfg.mode]) cfg.mode = DEFAULTS.mode;
 if (!MAP_IDS.includes(cfg.map)) cfg.map = DEFAULTS.map;
 if (!PRIMARIES.includes(cfg.primary)) cfg.primary = DEFAULTS.primary;
 if (!SECONDARIES.includes(cfg.secondary)) cfg.secondary = DEFAULTS.secondary;
+if (!cfg.att || typeof cfg.att !== 'object') cfg.att = {};
 if (!cfg.name) cfg.name = 'Player' + Math.floor(100 + Math.random() * 900);
 if (cfg.view !== 'first' && cfg.view !== 'third') cfg.view = 'first';
 const save = () => { try { localStorage.setItem('ironstrike', JSON.stringify(cfg)); } catch (e) { /* ignore */ } };
@@ -56,10 +57,34 @@ for (const id of MAP_IDS) {
 function weaponCard(parent, id, key) {
   const w = WEAPONS[id], bars = weaponBars(w);
   const barsHtml = Object.entries(bars).map(([k, v]) => `<div class="bar"><span>${k}</span><i><b style="width:${Math.round(v * 100)}%"></b></i></div>`).join('');
-  card(parent, `<span class="cls">${w.cls}</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars">${barsHtml}</div>`, cfg[key] === id, () => { cfg[key] = id; });
+  card(parent, `<span class="cls">${w.cls}</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars">${barsHtml}</div>`, cfg[key] === id, () => { cfg[key] = id; refreshAtt(); });
 }
+let net = null;
 for (const id of PRIMARIES) weaponCard($('primaries'), id, 'primary');
 for (const id of SECONDARIES) weaponCard($('secondaries'), id, 'secondary');
+// ---------------- attachments (equipped per weapon, remembered between sessions) ----------------
+const maskFor = (id) => cleanMask(WEAPONS[id], cfg.att[id] | 0);
+function renderAtt(el, slot) {
+  const id = cfg[slot], w = WEAPONS[id]; el.textContent = '';
+  const label = document.createElement('div'); label.className = 'attlabel'; label.textContent = `${w.name} attachments`; el.appendChild(label);
+  for (const key of w.attach || []) {
+    const a = ATT[key], b = document.createElement('button'); b.type = 'button';
+    b.className = 'chip' + (maskFor(id) & a.bit ? ' sel' : '');
+    for (const [tag, text] of [['b', a.name], ['span', a.desc], ['em', a.stats]]) { const x = document.createElement(tag); x.textContent = text; b.appendChild(x); }
+    b.addEventListener('click', () => {
+      cfg.att[id] = maskFor(id) ^ a.bit; save(); refreshAtt();
+      if (net) net.setLoadout(cfg.primary, cfg.secondary, maskFor(cfg.primary), maskFor(cfg.secondary));
+    });
+    el.appendChild(b);
+  }
+  if (!(w.attach || []).length) { const n = document.createElement('div'); n.className = 'none'; n.textContent = 'No attachments for this weapon.'; el.appendChild(n); }
+}
+function refreshAtt() {
+  renderAtt($('attP'), 'primary'); renderAtt($('attS'), 'secondary');
+  renderAtt($('mpAttP'), 'primary'); renderAtt($('mpAttS'), 'secondary');
+}
+refreshAtt();
+
 
 for (const d of ['easy', 'normal', 'hard']) {
   const b = document.createElement('button'); b.textContent = d; if (cfg.difficulty === d) b.classList.add('sel');
@@ -103,7 +128,7 @@ function deploy() {
   sound.init();
   if (sound.master) sound.master.gain.value = cfg.vol;
   $('menu').classList.add('hidden'); $('endscreen').classList.add('hidden'); $('pause').classList.add('hidden');
-  game.start({ mode: cfg.mode, map: cfg.map, mapName: MAP_INFO[cfg.map].name, primary: cfg.primary, secondary: cfg.secondary, difficulty: cfg.difficulty });
+  game.start({ mode: cfg.mode, map: cfg.map, mapName: MAP_INFO[cfg.map].name, primary: cfg.primary, secondary: cfg.secondary, attP: maskFor(cfg.primary), attS: maskFor(cfg.secondary), difficulty: cfg.difficulty });
 }
 function toMenu() {
   if (net) { net.leave(); net = null; resetMpUi(); }
@@ -125,7 +150,6 @@ $('btnResume').addEventListener('click', () => game.resume());
 document.addEventListener('keydown', (e) => { if (e.code === 'Enter' && game.state === 'menu' && !$('menu').classList.contains('hidden') && $('mp').classList.contains('hidden') && !startBtn.disabled) deploy(); });
 
 // ---------------- multiplayer ----------------
-let net = null;
 const mpShow = (w) => { $('mpHome').classList.toggle('hidden', w !== 'home'); $('mpLobby').classList.toggle('hidden', w !== 'lobby'); };
 function mpStatus(id, text, err) { const el = $(id); el.textContent = text || ''; el.classList.toggle('err', !!err); }
 function resetMpUi() { $('btnAgain').textContent = 'Play again'; $('pauseTitle').textContent = 'PAUSED'; $('btnQuit').textContent = 'Quit to menu'; }
@@ -152,7 +176,8 @@ function renderLobby(st) {
     const r = tbl.insertRow(); r.className = (team ? 't' + (p.team % 2) : '') + (p.id === net.myId ? ' me' : '');
     r.insertCell().textContent = p.name + (p.id === 0 ? ' (host)' : '') + (p.id === net.myId ? ' (you)' : '');
     r.insertCell().textContent = team ? (p.team % 2 === 0 ? 'Blue' : 'Red') : '-';
-    r.insertCell().textContent = `${(WEAPONS[p.prim] || {}).name} / ${(WEAPONS[p.sec] || {}).name}`;
+    const tag = (id, mask) => (WEAPONS[id] || {}).name + ((mask | 0) ? ` (${Object.values(ATT).filter((a) => mask & a.bit).map((a) => a.name.split(' ')[0]).join('+')})` : '');
+    r.insertCell().textContent = `${tag(p.prim, p.ap)} / ${tag(p.sec, p.as)}`;
   }
   $('mpStart').classList.toggle('hidden', !host);
   $('mpStart').disabled = st.players.length < 2;
@@ -172,10 +197,10 @@ const mpUi = {
     $('menu').classList.remove('hidden'); $('mp').classList.remove('hidden'); mpShow('home'); mpStatus('mpStatus', why, true);
   },
 };
-const loadout = () => ({ prim: cfg.primary, sec: cfg.secondary });
+const loadout = () => ({ prim: cfg.primary, sec: cfg.secondary, ap: maskFor(cfg.primary), as: maskFor(cfg.secondary) });
 const myName = () => { cfg.name = cleanName($('mpName').value); $('mpName').value = cfg.name; save(); return cfg.name; };
 
-$('btnMP').addEventListener('click', () => { $('mp').classList.remove('hidden'); mpShow(net ? 'lobby' : 'home'); mpStatus('mpStatus', ''); });
+$('btnMP').addEventListener('click', () => { $('mpPrim').value = cfg.primary; $('mpSec').value = cfg.secondary; refreshAtt(); $('mp').classList.remove('hidden'); mpShow(net ? 'lobby' : 'home'); mpStatus('mpStatus', ''); });
 $('mpBack').addEventListener('click', () => $('mp').classList.add('hidden'));
 $('mpCode').addEventListener('input', () => { $('mpCode').value = cleanCode($('mpCode').value); });
 $('mpCode').addEventListener('keydown', (e) => { if (e.code === 'Enter') $('mpJoinBtn').click(); });
@@ -196,7 +221,7 @@ $('mpJoinBtn').addEventListener('click', async () => {
 });
 $('mpMode').addEventListener('change', () => { const err = net && net.setMode($('mpMode').value); if (err) { mpStatus('mpLStatus', err, true); renderLobby(net.lobby); } });
 $('mpMap').addEventListener('change', () => net && net.setMap($('mpMap').value));
-for (const [id, key] of [['mpPrim', 'primary'], ['mpSec', 'secondary']]) $(id).addEventListener('change', () => { cfg[key] = $(id).value; save(); if (net) net.setLoadout(cfg.primary, cfg.secondary); });
+for (const [id, key] of [['mpPrim', 'primary'], ['mpSec', 'secondary']]) $(id).addEventListener('change', () => { cfg[key] = $(id).value; save(); refreshAtt(); if (net) net.setLoadout(cfg.primary, cfg.secondary, maskFor(cfg.primary), maskFor(cfg.secondary)); });
 $('mpStart').addEventListener('click', () => { const err = net && net.start(); if (err) mpStatus('mpLStatus', err, true); });
 $('mpLeave').addEventListener('click', () => { if (net) net.leave(); net = null; mpShow('home'); mpStatus('mpStatus', ''); });
 $('mpCopy').addEventListener('click', () => {

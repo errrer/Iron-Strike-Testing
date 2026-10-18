@@ -60,6 +60,12 @@ with sync_playwright() as pw:
     counts = pg.evaluate("() => ({modes: document.querySelectorAll('#modes .card').length, maps: document.querySelectorAll('#maps .card').length, prim: document.querySelectorAll('#primaries .card').length, sec: document.querySelectorAll('#secondaries .card').length})")
     print('menu cards:', counts)
     assert counts == {'modes': 3, 'maps': 4, 'prim': 5, 'sec': 3}, counts
+    chips = pg.evaluate("() => ({p: document.querySelectorAll('#attP .chip').length, s: document.querySelectorAll('#attS .chip').length})")
+    pg.click('#attP .chip'); pg.click('#attS .chip:nth-of-type(2)')   # VMP red dot, G18 laser
+    saved = pg.evaluate("() => JSON.parse(localStorage.getItem('ironstrike')).att")
+    print('attachment chips:', chips, 'saved:', saved); assert chips == {'p': 2, 's': 2} and saved.get('vmp') == 1 and saved.get('g18') == 4, (chips, saved)
+    pg.click('#primaries .card:nth-child(4)'); print('kar98k chips:', pg.evaluate("() => document.querySelectorAll('#attP .chip').length"))   # sniper: grip only
+    pg.click('#primaries .card:nth-child(1)')
     # UI flow: click DEPLOY via the real button
     pg.click('#btnStart'); pg.wait_for_timeout(300)
     print('after deploy: hud visible =', pg.evaluate("() => !document.getElementById('hud').classList.contains('hidden')"), 'state =', pg.evaluate('() => window.__game.state'))
@@ -84,6 +90,18 @@ with sync_playwright() as pw:
     print('after V key view =', pg.evaluate('() => window.__game.settings.view'), 'buttons sel =', pg.evaluate("() => [...document.querySelectorAll('.viewseg .sel')].map(b => b.dataset.view)"))
     pg.evaluate("() => document.querySelectorAll('.viewseg button[data-view=first]')[1].click()")
     print('after pause-menu click view =', pg.evaluate('() => window.__game.settings.view'), 'saved =', pg.evaluate("() => JSON.parse(localStorage.getItem('ironstrike')).view"))
+    # attachments: stats + models + laser dot
+    A = pg.evaluate("""() => { const g = window.__game;
+      g.start({mode:'tdm',map:'dust',mapName:'Dust',primary:'m4a1',secondary:'g18',attP:3,attS:5,difficulty:'normal'}); g.state='playing';
+      const p = g.player; g.adsHeld = false; g.fireHeld = false; g.keys = {};
+      const w0 = p.weapons[0], w1 = p.weapons[1];
+      const out = {m4a1: [w0.attMask, +w0.recoil.toFixed(4), +w0.adsSpread.toFixed(4), +w0.spread.toFixed(4)], g18: [w1.attMask, +w1.spread.toFixed(4), +w1.adsSpread.toFixed(4)], sightY: g.vm.sightY};
+      p.switchT = 0; g.switchWeapon(p, 1); p.switchT = 0; for (let i = 0; i < 90; i++) g.frame(1/60);
+      out.sightY2 = g.vm.sightY; p.yaw = 0; p.pitch = -0.1; g.frame(1/60); out.laser = g.laserDot.visible;
+      p.switchT = 0; g.switchWeapon(p, 0); p.switchT = 0; g.frame(1/60); out.laserOff = g.laserDot.visible;
+      return out; }""")
+    print('attachments:', A)
+    assert A['m4a1'][0] == 3 and A['g18'][0] == 5 and A['laser'] and not A['laserOff'] and A['sightY2'] < 0.07 and A['sightY'] > 0.09, A
     # easter egg: type "richtofen"
     pg.evaluate("() => { const g = window.__game; g.start({mode:'tdm',map:'dust',mapName:'Dust',primary:'vmp',secondary:'g18',difficulty:'normal'}); g.state='playing'; }")
     pg.keyboard.type('richtofen', delay=20); pg.wait_for_timeout(800)

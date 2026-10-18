@@ -9,6 +9,7 @@
 // Movement is client-trusted, so this is meant for playing with friends, not for ranked play.
 import { MODES, MAX_PLAYERS, mpMode } from './game.js';
 import { MAP_IDS, MAP_INFO } from './maps.js';
+import { WEAPONS, cleanMask } from './weapons.js';
 
 const PEER_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
 const PREFIX = 'ironstrike-v1-';
@@ -61,7 +62,8 @@ export class Net {
     }
     if (!peer) throw new Error('Could not reserve a room code, try again.');
     this.role = 'host'; this.code = code; this.peer = peer; this.mode = mode; this.map = map;
-    this.players.set(0, { id: 0, name: cleanName(name), prim: loadout.prim, sec: loadout.sec, team: 0 });
+    this.players.set(0, { id: 0, name: cleanName(name), prim: loadout.prim, sec: loadout.sec, ap: loadout.ap | 0, as: loadout.as | 0, team: 0 });
+    this.validate(this.players.get(0));
     peer.on('connection', (c) => this.hostConn(c));
     peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) { /* ignore */ } });
     peer.on('error', (e) => console.warn('[net] peer error', e && e.type));
@@ -76,7 +78,7 @@ export class Net {
 
   lobbyState() {
     return { mode: this.mode, map: this.map, max: mpMode(this.mode).max, inMatch: this.live(), code: this.code,
-      players: [...this.players.values()].map((p) => ({ id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec })) };
+      players: [...this.players.values()].map((p) => ({ id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec, ap: p.ap, as: p.as })) };
   }
 
   pushLobby() {
@@ -101,14 +103,14 @@ export class Net {
       const mode = mpMode(this.mode);
       if (this.players.size >= mode.max) { this.sendTo(c, { t: 'deny', why: this.mode === '1v1' ? 'Duel is full (2 players).' : 'Room is full.' }); setTimeout(() => c.close(), 300); return; }
       const id = this.nextId++;
-      const p = { id, name: this.uniqueName(cleanName(m.name)), prim: m.prim, sec: m.sec, team: 0 };
+      const p = { id, name: this.uniqueName(cleanName(m.name)), prim: m.prim, sec: m.sec, ap: m.ap, as: m.as, team: 0 };
       c.pid = id; this.conns.set(id, c); this.players.set(id, p);
       this.validate(p);
       const g = this.game;
       if (this.live()) {
         // late join: put them on the smaller team and drop them straight into the running match
         if (mode.team) { const n = [0, 0]; for (const q of this.players.values()) if (q !== p) n[q.team]++; p.team = n[0] <= n[1] ? 0 : 1; } else p.team = id;
-        const info = { id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec };
+        const info = { id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec, ap: p.ap, as: p.as };
         this.ev(['add', info]);
         this.sendTo(c, { t: 'welcome', id });
         this.sendTo(c, { t: 'begin', ...this.beginInfo(id) });
@@ -123,7 +125,7 @@ export class Net {
     const id = c.pid; if (id == null) return;
     const g = this.game;
     switch (m.t) {
-      case 'ld': { const p = this.players.get(id); if (p && !this.live()) { p.prim = m.prim; p.sec = m.sec; this.validate(p); this.pushLobby(); } break; }
+      case 'ld': { const p = this.players.get(id); if (p && !this.live()) { p.prim = m.prim; p.sec = m.sec; p.ap = m.ap; p.as = m.as; this.validate(p); this.pushLobby(); } break; }
       case 'st': { const a = g.byId(id); if (a && this.live()) g.applyRemoteState(a, m); break; }
       case 'shot': { const a = g.byId(id); if (a && this.live()) g.remoteShot(a, m); break; }
       case 'ping': this.sendTo(c, { t: 'pong', n: m.n }); break;
@@ -135,6 +137,7 @@ export class Net {
   validate(p) { // never trust loadout ids from the wire
     p.prim = ['vmp', 'm4a1', 'ak47', 'kar98k', 'm680'].includes(p.prim) ? p.prim : 'vmp';
     p.sec = ['g18', 'm1911', 'magnum'].includes(p.sec) ? p.sec : 'g18';
+    p.ap = cleanMask(WEAPONS[p.prim], p.ap); p.as = cleanMask(WEAPONS[p.sec], p.as);
   }
 
   uniqueName(n) {
@@ -155,12 +158,12 @@ export class Net {
   beginInfo(me) {
     const g = this.game, live = this.live();
     return { mode: this.mode, map: this.map, mapName: MAP_INFO[this.map].name, me, mt: live ? g.matchT : -3.5, ts: live ? g.teamScore : [0, 0],
-      players: [...this.players.values()].map((p) => ({ id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec })) };
+      players: [...this.players.values()].map((p) => ({ id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec, ap: p.ap, as: p.as })) };
   }
 
   // ---- host UI actions ----
-  setLoadout(prim, sec) {
-    if (this.role === 'host') { const p = this.players.get(0); p.prim = prim; p.sec = sec; this.pushLobby(); } else if (this.conn) this.sendTo(this.conn, { t: 'ld', prim, sec });
+  setLoadout(prim, sec, ap, as) {
+    if (this.role === 'host') { const p = this.players.get(0); p.prim = prim; p.sec = sec; p.ap = ap; p.as = as; this.validate(p); this.pushLobby(); } else if (this.conn) this.sendTo(this.conn, { t: 'ld', prim, sec, ap, as });
   }
   setMode(mode) {
     if (this.role !== 'host' || !MODES[mode]) return null;
@@ -205,7 +208,7 @@ export class Net {
       this.onDeny = (why) => { clearTimeout(t); rej(new Error(why)); };
       conn.on('data', (m) => { try { this.clientData(m); } catch (e) { console.error('[net] client data', e); } });
       conn.on('close', () => this.clientClosed('Disconnected from the host.'));
-      conn.send({ t: 'join', v: PROTOCOL, name: cleanName(name), prim: loadout.prim, sec: loadout.sec });
+      conn.send({ t: 'join', v: PROTOCOL, name: cleanName(name), prim: loadout.prim, sec: loadout.sec, ap: loadout.ap | 0, as: loadout.as | 0 });
     }).catch((e) => { this.cleanup(); throw e; });
     this.peer.on('error', (e) => console.warn('[net] peer error', e && e.type));
     return code;
