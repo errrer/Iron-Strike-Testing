@@ -6,7 +6,7 @@ import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js';
 import { buildWorld } from './world.js';
 import { Bot } from './bots.js';
 import { makeRichtofen, richtofenReady } from './easter.js';
-import { buildSoldier } from './soldier.js';
+import { buildSoldier, holdGun } from './soldier.js';
 import { Gore } from './gore.js';
 
 const V3 = THREE.Vector3;
@@ -695,32 +695,53 @@ export class Game {
     if (u >= 1) { a.pos.set(m.ex, m.ey, m.ez); a.mantle = null; a.onGround = true; }
   }
 
-  // blood, a splat under the body and flying body parts (each part has 3 different models, see gore.js)
+  // world position of a point on a dead actor's body (the corpse falls over, so stump positions follow it)
+  stumpPos(v, lp) {
+    if (v.alive || !v.mesh) return null;
+    const ang = Math.min(1, v.deathT * 3) * (Math.PI / 2), c = Math.cos(ang), s2 = Math.sin(ang);
+    const y = lp.y * c - lp.z * s2, z = lp.y * s2 + lp.z * c, cy = Math.cos(v.yaw), sy = Math.sin(v.yaw);
+    return [v.pos.x + lp.x * cy + z * sy, v.pos.y + y, v.pos.z - lp.x * sy + z * cy];
+  }
+
+  // GoreBox-style death: blood spray + splatter on walls and floor, a growing pool, spurting stumps, flying parts
+  // (head/torso/arm/leg each have 3 models, plus chunks and organs) leaving blood trails. See gore.js.
   spawnGore(v, k, w, head) {
     const gr = this.gore; if (!gr || !this.settings.gore || !v.mesh) return;
-    const m = v.mesh, cls = w.id === 'm680' ? 'shotgun' : w.id === 'kar98k' ? 'sniper' : 'other';
+    const m = v.mesh, cls = w.id === 'm680' ? 'shotgun' : w.id === 'kar98k' ? 'sniper' : 'other', big = cls !== 'other' || head;
     let dx = v.pos.x - k.pos.x, dz = v.pos.z - k.pos.z; const dl = Math.hypot(dx, dz);
     if (dl < 0.01) { const a = Math.random() * 6.28; dx = Math.cos(a); dz = Math.sin(a); } else { dx /= dl; dz /= dl; }
-    this.burst(v.pos.x, v.pos.y + (head ? 1.6 : 1.2), v.pos.z, 0x8a0f0f, head ? 14 : 9, 3.2);
-    gr.decal(v.pos.x, v.pos.y, v.pos.z, 0.9 + Math.random() * 0.5);
+    const x = v.pos.x, y = v.pos.y, z = v.pos.z, cy = y + (head ? 1.6 : 1.25);
+    gr.spray(x, cy, z, dx, 0.3, dz, big ? 42 : 26, 7, 0.55);              // exit spray along the shot
+    gr.spray(x, cy, z, -dx, 0.4, -dz, 10, 3, 0.9);                         // and a little back at the shooter
+    gr.splatter(x, cy, z, dx, dz, big ? 18 : 10);                          // walls, floor, crates
+    gr.splat({ x, y, z, nx: 0, ny: 1, nz: 0 }, 0.9 + Math.random() * 0.4, true);
+    if (big) gr.splat({ x: x + dx * 0.7, y, z: z + dz * 0.7, nx: 0, ny: 1, nz: 0 }, 0.7, true);
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const list = [];
     if (head && (cls !== 'other' || Math.random() < 0.7)) list.push('head');
-    if (cls === 'shotgun') for (let i = 0, n = 2 + Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg', 'torso', 'torso']));
-    else if (cls === 'sniper') for (let i = 0, n = 1 + Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg', 'torso']));
-    else if (!head && Math.random() < 0.3) list.push(pick(['arm', 'leg']));
-    const power = cls === 'shotgun' ? 1.4 : 1;
-    const hide = (o) => { if (!(m.rich && m.rich.visible) && o.visible) { o.visible = false; m.goreHidden.push(o); } };
+    if (cls === 'shotgun') for (let i = 0, n = 3 + Math.floor(Math.random() * 3); i < n; i++) list.push(pick(['arm', 'leg', 'arm', 'leg', 'torso']));
+    else if (cls === 'sniper') for (let i = 0, n = 2 + Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg', 'torso']));
+    else if (!head && Math.random() < 0.55) for (let i = 0, n = 1 + Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg']));
+    else if (head && Math.random() < 0.25) list.push(pick(['arm', 'leg']));
+    const power = cls === 'shotgun' ? 1.4 : 1, rich = m.rich && m.rich.visible;
     for (const part of list) {
-      let y = 1.2, ref = null;
-      if (part === 'head') { y = 1.6; ref = m.headG; }
-      else if (part === 'arm') { ref = pick(m.arms.filter((o) => o.visible)) || null; y = 1.15; }
-      else if (part === 'leg') { ref = pick(m.legs.filter((o) => o.visible)) || null; y = 0.6; }
+      let yy = 1.2, ref = null;
+      if (part === 'head') { yy = 1.6; ref = m.headG; }
+      else if (part === 'arm') { ref = pick(m.arms.filter((o) => o.visible)) || null; yy = 1.15; }
+      else if (part === 'leg') { ref = pick(m.legs.filter((o) => o.visible)) || null; yy = 0.6; }
       if ((part === 'arm' || part === 'leg') && !ref) continue;
-      if (ref) hide(ref);
+      if (ref && !rich && ref.visible) {
+        ref.visible = false; m.goreHidden.push(ref);
+        const lp = ref.position; gr.bleed(() => this.stumpPos(v, lp), 2.8, part === 'head' ? 1.3 : 1);
+      }
       const sp = rand(3, 7) * power;
-      gr.gib(part, { x: v.pos.x, y: v.pos.y + y, z: v.pos.z }, { x: dx * sp + rand(-2, 2), y: rand(2.5, 6), z: dz * sp + rand(-2, 2) }, m.color);
+      gr.gib(part, { x, y: y + yy, z }, { x: dx * sp + rand(-2, 2), y: rand(2.5, 6), z: dz * sp + rand(-2, 2) }, m.color);
     }
+    for (let i = 0, n = big ? 7 + Math.floor(Math.random() * 7) : 2 + Math.floor(Math.random() * 3); i < n; i++) {
+      const sp = rand(2, 8) * power;
+      gr.gib('chunk', { x, y: y + rand(0.9, 1.5), z }, { x: dx * sp + rand(-3, 3), y: rand(2, 7), z: dz * sp + rand(-3, 3) }, m.color);
+    }
+    if (!list.length) gr.bleed(() => this.stumpPos(v, { x: 0, y: 1.25, z: -0.1 }), 1.4, 0.7);   // torso wound
   }
 
   canFire(a) { return a.alive && this.matchT >= 0 && a.switchT <= 0 && !a.reloading && !a.mantle && a.fireCd <= 0 && a.ammo[a.cur].mag > 0; }
@@ -987,11 +1008,18 @@ export class Game {
     if (a.alive) {
       const sp = Math.hypot(a.vel.x, a.vel.z);
       a.walkPhase += sp * dt * 2.2;
-      const sw = sp > 0.5 ? Math.sin(a.walkPhase) * 0.8 : 0;
-      m.legs[0].rotation.x = sw; m.legs[1].rotation.x = -sw;
+      const sw = sp > 0.5 ? Math.sin(a.walkPhase) * 0.8 : 0, moving = sp > 0.5 ? 1 : 0;
+      m.crouchK = (m.crouchK || 0) + ((a.crouch ? 1 : 0) - (m.crouchK || 0)) * Math.min(1, dt * 12);
+      const ck = m.crouchK;
+      for (let i = 0; i < 2; i++) {
+        const hip = m.legs[i], kn = hip.userData.knee, ph = i === 0 ? 1 : -1;
+        hip.rotation.x = sw * ph * (1 - ck) + 1.15 * ck;                                      // thigh swings (or folds when crouched)
+        if (kn) kn.rotation.x = -(Math.max(0, Math.cos(a.walkPhase) * ph) * 0.9 * moving * (1 - ck)) - 1.3 * ck;   // knee bends
+      }
+      m.body.position.y = -0.34 * ck;
       if (m.rich) m.rich.position.y = sp > 0.5 ? Math.abs(Math.sin(a.walkPhase)) * 0.05 : 0;
       if (m.goreHidden.length) { for (const o of m.goreHidden) o.visible = !(m.rich && m.rich.visible); m.goreHidden = []; }
-      m.body.rotation.x = 0; m.gun.rotation.x = a.isPlayer ? 0 : a.pitch * 0.7;
+      m.body.rotation.x = 0; holdGun(m, a.isPlayer ? 0 : a.pitch * 0.7);
       m.root.visible = true;
       if (a.protT > 0) m.root.visible = Math.floor(this.time * 12) % 2 === 0;
     } else {
@@ -1007,7 +1035,7 @@ export class Game {
       q.life -= dt; if (q.life <= 0) { q.visible = false; continue; }
       q.vel.y -= 9 * dt; q.position.addScaledVector(q.vel, dt);
     }
-    if (this.gore) this.gore.update(dt, (x, y, z, c, n, sp) => this.burst(x, y, z, c, n, sp));
+    if (this.gore) this.gore.update(dt);
     if (this.flashT > 0) { this.flashT -= dt; if (this.flashT <= 0) { if (this.vm) this.vm.flash.visible = false; this.flashLight.intensity = 0; } }
   }
 

@@ -23,6 +23,7 @@ class Obj {
   remove(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); }
   traverse(f) { f(this); for (const c of this.children) c.traverse(f); }
   lookAt() {}
+  rotateZ(a) { this.rotation.z += a; }
   updateProjectionMatrix() {}
 }
 export class Scene extends Obj { constructor() { super(); this.background = null; this.fog = null; } }
@@ -58,6 +59,7 @@ export class MeshBasicMaterial extends Mat {}
 export class SpriteMaterial extends Mat {}
 export class PointsMaterial extends Mat {}
 export class ShaderMaterial extends Mat {}
+export class TextureLoader { load(u) { return { url: u, repeat: { set() {} }, colorSpace: null }; } }
 export class CanvasTexture { constructor(c) { this.image = c; this.repeat = { set() {} }; } clone() { return new CanvasTexture(this.image); } }
 export class WebGLRenderer {
   constructor(o) { this.domElement = o.canvas; this.shadowMap = {}; this.frames = 0; }

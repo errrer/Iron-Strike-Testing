@@ -186,15 +186,49 @@ with sync_playwright() as pw:
       out.kinds = gr.gibs.map(o => o.part + o.variant);
       for (let f = 0; f < 240; f++) { try { g.frame(1/60); } catch (e) { out.err = String(e); break; } }
       out.finite = gr.gibs.every(o => [o.g.position.x, o.g.position.y, o.g.position.z].every(isFinite));
-      out.resting = gr.gibs.filter(o => o.rest).length; out.decals = gr.decals.filter(d => d.visible).length;
+      out.resting = gr.gibs.filter(o => o.rest).length; out.decals = gr.decals.filter(d => d.visible).length; out.decalMaps = new Set(gr.decals.map(d => d.material.map && d.material.map.url)).size; 
       // respawn restores the body
       g.spawn(b); for (let f = 0; f < 3; f++) g.frame(1/60); out.restored = b.mesh.headG.visible === true && b.mesh.goreHidden.length === 0;
       // gore off = no gibs
       gr.clear(); g.settings.gore = false; const c = bots[1]; c.protT = 0; g.kill(c, p, p.weapons[0], true); out.offGibs = gr.gibs.length; g.settings.gore = true;
       return out; }""")
+    # blood must stick to walls too (surface normal pointing away from the wall)
+    WS = pg.evaluate("""() => { const g = window.__game; g.start({mode:'ffa',map:'warehouse',mapName:'W',primary:'m4a1',secondary:'g18',attP:0,attS:0,difficulty:'easy'}); g.state='playing'; g.matchT = 1; g.settings.gore = true;
+      const p = g.player; p.protT = 99; for (const a of g.actors) if (!a.isPlayer) { a.alive = false; a.respawnT = 9999; }
+      g.col.boxes.push({x0: 490, x1: 510, z0: 497, z1: 498, y0: 0, y1: 4});
+      const v = g.actors.find(a => !a.isPlayer); v.alive = true; v.protT = 0; v.pos.set(500, 0, 500); p.pos.set(500, 0, 506);
+      const calls = []; const orig = g.gore.splat.bind(g.gore); g.gore.splat = (sf, size, grow) => { calls.push([+sf.nx.toFixed(1), +sf.ny.toFixed(1), +sf.nz.toFixed(1), +sf.z.toFixed(2)]); return orig(sf, size, grow); };
+      g.kill(v, p, p.weapons[0], false);
+      for (let f = 0; f < 120; f++) g.frame(1/60);
+      return { total: calls.length, wall: calls.filter(c => c[2] === 1 && Math.abs(c[3] - 498) < 0.05).length, floor: calls.filter(c => c[1] === 1).length }; }""")
+    print('wall splatter:', WS)
+    assert WS['wall'] >= 2 and WS['floor'] >= 2, WS
+    # soldiers hold their guns: forward kinematics of both arms must put the palms on the grip / foregrip
+    HG = pg.evaluate("""async () => { const g = window.__game, W = await import('/js/weapons.js'), S = await import('/js/soldier.js'); const out = { worst: {}, bad: [] };
+      const rx = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0], v[1]*c - v[2]*s, v[1]*s + v[2]*c]; };
+      const rz = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0]*c - v[1]*s, v[0]*s + v[1]*c, v[2]]; };
+      const fk = (sh) => { const L1 = S.ARM.L1, L2 = S.ARM.L2, el = sh.userData.el;
+        const a = rx(rz([0, -L2, 0], el.rotation.z), el.rotation.x);                       // forearm in the shoulder frame
+        const b = rx(rz([a[0], a[1] - L1, a[2]], sh.rotation.z), sh.rotation.x);           // upper arm + forearm in body space
+        return [sh.position.x + b[0], sh.position.y + b[1], sh.position.z + b[2]]; };
+      for (const id of Object.keys(W.WEAPONS)) {
+        const m = g.makeBotMesh(0x4aa3ff, W.WEAPONS[id], null); let worst = 0;
+        for (const pitch of [-0.6, -0.2, 0, 0.3, 0.6]) {
+          const miss = S.holdGun(m, pitch), u = m.gun.userData;
+          const gp = rx([u.grip.x, u.grip.y, u.grip.z], pitch), fp = rx([u.fore.x, u.fore.y, u.fore.z], pitch);
+          const grip = [m.gun.position.x + gp[0], m.gun.position.y + gp[1], m.gun.position.z + gp[2]], fore = [m.gun.position.x + fp[0], m.gun.position.y + fp[1], m.gun.position.z + fp[2]];
+          const R = fk(m.arms[1]), Lh = fk(m.arms[0]);
+          const dR = Math.hypot(R[0]-grip[0], R[1]-grip[1], R[2]-grip[2]), dL = Math.hypot(Lh[0]-fore[0], Lh[1]-fore[1], Lh[2]-fore[2]);
+          worst = Math.max(worst, dR, dL); if (dR > 0.04 || dL > 0.09) out.bad.push([id, pitch, +dR.toFixed(3), +dL.toFixed(3)]);
+        }
+        out.worst[id] = +worst.toFixed(3);
+      }
+      return out; }""")
+    print('hold gun:', HG)
+    assert not HG['bad'], HG
     print('gore:', GR)
     assert all(len(v) == 3 and all(n >= 3 for n in v) for v in GR['models'].values()), GR
-    assert GR['gibs'] >= 2 and GR['headHidden'] and GR['finite'] and GR['resting'] >= 1 and GR['decals'] >= 1 and GR['restored'] and GR['offGibs'] == 0 and 'err' not in GR, GR
+    assert GR['gibs'] >= 2 and GR['headHidden'] and GR['finite'] and GR['resting'] >= 1 and GR['decals'] >= 1 and GR['decalMaps'] == 4 and GR['restored'] and GR['offGibs'] == 0 and 'err' not in GR, GR
     # easter egg: type "richtofen"
     pg.evaluate("() => { const g = window.__game; g.start({mode:'tdm',map:'dust',mapName:'Dust',primary:'vmp',secondary:'g18',difficulty:'normal'}); g.state='playing'; }")
     pg.keyboard.type('richtofen', delay=20); pg.wait_for_timeout(800)
