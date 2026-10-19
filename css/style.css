@@ -211,3 +211,6 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 
 .settings .xhbox { grid-template-columns: 1fr; }
 .settings .xhbox .xhprev { height: 90px; }
+
+.chk{display:flex;align-items:center;gap:8px;cursor:pointer}
+.chk input{width:auto}

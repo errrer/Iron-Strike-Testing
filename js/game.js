@@ -6,6 +6,8 @@ import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js';
 import { buildWorld } from './world.js';
 import { Bot } from './bots.js';
 import { makeRichtofen, richtofenReady } from './easter.js';
+import { buildSoldier } from './soldier.js';
+import { Gore } from './gore.js';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -180,7 +182,7 @@ export class Game {
   disposeMatch() {
     if (this.world) this.world.dispose();
     this.world = null; this.scene = null;
-    this.tracers = []; this.particles = [];
+    this.tracers = []; this.particles = []; this.gore = null;
     this.actors = [];
   }
 
@@ -437,6 +439,7 @@ export class Game {
     const k = this.byId(kid), v = this.byId(vid), w = WEAPONS[wid];
     if (!k || !v || !w) return;
     v.alive = false; v.hp = 0; v.deathT = 0; v.reloading = false; v.respawnT = 3.2; v.deaths++; if (k !== v) k.kills++;
+    this.spawnGore(v, k, w, head);
     this.hud.feed(k, v, w, head, this);
     if (v.isPlayer) { this.killer = k; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
     if (k.isPlayer && k !== v) {
@@ -457,20 +460,11 @@ export class Game {
   // ------------------------------------------------------------------ meshes
   makeBotMesh(color, weapon, label) {
     const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
-    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
-    const dark = new THREE.MeshStandardMaterial({ color: 0x23282c, roughness: 0.9 });
-    const skin = new THREE.MeshStandardMaterial({ color: 0xd2a077, roughness: 0.8 });
-    const box = (w, h, d, m, x, y, z, parent = body) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); me.position.set(x, y, z); me.castShadow = true; parent.add(me); return me; };
-    box(0.5, 0.62, 0.3, mat, 0, 1.1, 0);
-    box(0.52, 0.38, 0.34, dark, 0, 1.2, 0);
-    box(0.22, 0.24, 0.22, skin, 0, 1.55, 0);
-    box(0.28, 0.13, 0.28, dark, 0, 1.69, 0);
-    const legs = [];
-    for (const s of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(s * 0.13, 0.8, 0); body.add(piv); box(0.18, 0.8, 0.2, dark, 0, -0.4, 0, piv); legs.push(piv); }
-    for (const s of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(s * 0.31, 1.38, 0); piv.rotation.x = 1.3; piv.rotation.y = -s * 0.25; body.add(piv); box(0.12, 0.52, 0.12, mat, 0, -0.26, 0, piv); }
+    let seed = 0; for (const ch of String(label || Math.random())) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
+    const sol = buildSoldier(body, color, seed), legs = sol.legs;
     const parts = [...body.children];            // the blocky soldier (hidden while the easter egg is on)
     const gun = buildGun(weapon); gun.position.set(0.14, 1.24, -0.3); body.add(gun);
-    const m = { root, body, legs, gun, gunId: weapon.id, parts, rich: null };
+    const m = { root, body, legs, gun, gunId: weapon.id, parts, rich: null, headG: sol.head, arms: sol.arms, goreHidden: [], color };
     if (this.richtofen && richtofenReady()) this.applyRich(m, true);
     if (label) {
       const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
@@ -592,6 +586,7 @@ export class Game {
     this.laserDot = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a, fog: false }));
     this.laserDot.visible = false; this.fxGroup.add(this.laserDot);
     this.tracerI = 0; this.partI = 0;
+    this.gore = new Gore(this.fxGroup, this.col);
   }
 
   tracer(a, b) {
@@ -698,6 +693,34 @@ export class Game {
     a.pos.set(m.sx + (m.ex - m.sx) * h, m.sy + (m.ey - m.sy) * v, m.sz + (m.ez - m.sz) * h);
     a.vel.set(0, 0, 0); a.onGround = false;
     if (u >= 1) { a.pos.set(m.ex, m.ey, m.ez); a.mantle = null; a.onGround = true; }
+  }
+
+  // blood, a splat under the body and flying body parts (each part has 3 different models, see gore.js)
+  spawnGore(v, k, w, head) {
+    const gr = this.gore; if (!gr || !this.settings.gore || !v.mesh) return;
+    const m = v.mesh, cls = w.id === 'm680' ? 'shotgun' : w.id === 'kar98k' ? 'sniper' : 'other';
+    let dx = v.pos.x - k.pos.x, dz = v.pos.z - k.pos.z; const dl = Math.hypot(dx, dz);
+    if (dl < 0.01) { const a = Math.random() * 6.28; dx = Math.cos(a); dz = Math.sin(a); } else { dx /= dl; dz /= dl; }
+    this.burst(v.pos.x, v.pos.y + (head ? 1.6 : 1.2), v.pos.z, 0x8a0f0f, head ? 14 : 9, 3.2);
+    gr.decal(v.pos.x, v.pos.y, v.pos.z, 0.9 + Math.random() * 0.5);
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const list = [];
+    if (head && (cls !== 'other' || Math.random() < 0.7)) list.push('head');
+    if (cls === 'shotgun') for (let i = 0, n = 2 + Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg', 'torso', 'torso']));
+    else if (cls === 'sniper') for (let i = 0, n = 1 + Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg', 'torso']));
+    else if (!head && Math.random() < 0.3) list.push(pick(['arm', 'leg']));
+    const power = cls === 'shotgun' ? 1.4 : 1;
+    const hide = (o) => { if (!(m.rich && m.rich.visible) && o.visible) { o.visible = false; m.goreHidden.push(o); } };
+    for (const part of list) {
+      let y = 1.2, ref = null;
+      if (part === 'head') { y = 1.6; ref = m.headG; }
+      else if (part === 'arm') { ref = pick(m.arms.filter((o) => o.visible)) || null; y = 1.15; }
+      else if (part === 'leg') { ref = pick(m.legs.filter((o) => o.visible)) || null; y = 0.6; }
+      if ((part === 'arm' || part === 'leg') && !ref) continue;
+      if (ref) hide(ref);
+      const sp = rand(3, 7) * power;
+      gr.gib(part, { x: v.pos.x, y: v.pos.y + y, z: v.pos.z }, { x: dx * sp + rand(-2, 2), y: rand(2.5, 6), z: dz * sp + rand(-2, 2) }, m.color);
+    }
   }
 
   canFire(a) { return a.alive && this.matchT >= 0 && a.switchT <= 0 && !a.reloading && !a.mantle && a.fireCd <= 0 && a.ammo[a.cur].mag > 0; }
@@ -813,6 +836,7 @@ export class Game {
 
   kill(v, k, w, head) {
     v.alive = false; v.hp = 0; v.deaths++; v.deathT = 0; v.reloading = false; v.respawnT = v.isPlayer ? 3.2 : 3;
+    this.spawnGore(v, k, w, head);
     if (k !== v) { k.kills++; k.streak++; if (this.mode.team) this.teamScore[k.team]++; }
     v.streak = 0;
     this.hud.feed(k, v, w, head, this);
@@ -966,6 +990,7 @@ export class Game {
       const sw = sp > 0.5 ? Math.sin(a.walkPhase) * 0.8 : 0;
       m.legs[0].rotation.x = sw; m.legs[1].rotation.x = -sw;
       if (m.rich) m.rich.position.y = sp > 0.5 ? Math.abs(Math.sin(a.walkPhase)) * 0.05 : 0;
+      if (m.goreHidden.length) { for (const o of m.goreHidden) o.visible = !(m.rich && m.rich.visible); m.goreHidden = []; }
       m.body.rotation.x = 0; m.gun.rotation.x = a.isPlayer ? 0 : a.pitch * 0.7;
       m.root.visible = true;
       if (a.protT > 0) m.root.visible = Math.floor(this.time * 12) % 2 === 0;
@@ -982,6 +1007,7 @@ export class Game {
       q.life -= dt; if (q.life <= 0) { q.visible = false; continue; }
       q.vel.y -= 9 * dt; q.position.addScaledVector(q.vel, dt);
     }
+    if (this.gore) this.gore.update(dt, (x, y, z, c, n, sp) => this.burst(x, y, z, c, n, sp));
     if (this.flashT > 0) { this.flashT -= dt; if (this.flashT <= 0) { if (this.vm) this.vm.flash.visible = false; this.flashLight.intensity = 0; } }
   }
 

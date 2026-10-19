@@ -172,6 +172,29 @@ with sync_playwright() as pw:
     print('slide/mantle:', M)
     assert M['sprintSp'] > 5.8 and M['sliding'] and M['slideSp'] > M['sprintSp'] and M['crouched'] and M['eyeLow'] and M['slideEnded'] and M['noStandSlide'], M
     assert M['mantled'] and M['onTop'] and M['finite'] and M['tallBlocked'], M
+    # gore: 12 gib models, head popping, parts hidden then restored, toggle
+    GR = pg.evaluate("""() => { const g = window.__game, out = {};
+      g.start({mode:'ffa',map:'warehouse',mapName:'W',primary:'m680',secondary:'g18',attP:0,attS:0,difficulty:'easy'}); g.state='playing'; g.matchT = 1;
+      const p = g.player; p.protT = 99; g.settings.gore = true;
+      const bots = g.actors.filter(a => !a.isPlayer); const gr = g.gore;
+      // every model builds and has several meshes
+      out.models = {}; for (const part of ['head','torso','arm','leg']) { out.models[part] = [0,1,2].map(v => { const o = gr.gib(part, {x: 800+v, y: 2, z: 800}, {x: 0, y: 0, z: 0}, 0x4aa3ff, v); return o.g.children.length; }); }
+      gr.clear();
+      const b = bots[0]; b.protT = 0; b.hp = 1; b.pos.set(b.pos.x, b.pos.y, b.pos.z);
+      g.kill(b, p, p.weapons[0], true);       // shotgun headshot
+      out.gibs = gr.gibs.length; out.headHidden = b.mesh.headG.visible === false; out.hiddenN = b.mesh.goreHidden.length;
+      out.kinds = gr.gibs.map(o => o.part + o.variant);
+      for (let f = 0; f < 240; f++) { try { g.frame(1/60); } catch (e) { out.err = String(e); break; } }
+      out.finite = gr.gibs.every(o => [o.g.position.x, o.g.position.y, o.g.position.z].every(isFinite));
+      out.resting = gr.gibs.filter(o => o.rest).length; out.decals = gr.decals.filter(d => d.visible).length;
+      // respawn restores the body
+      g.spawn(b); for (let f = 0; f < 3; f++) g.frame(1/60); out.restored = b.mesh.headG.visible === true && b.mesh.goreHidden.length === 0;
+      // gore off = no gibs
+      gr.clear(); g.settings.gore = false; const c = bots[1]; c.protT = 0; g.kill(c, p, p.weapons[0], true); out.offGibs = gr.gibs.length; g.settings.gore = true;
+      return out; }""")
+    print('gore:', GR)
+    assert all(len(v) == 3 and all(n >= 3 for n in v) for v in GR['models'].values()), GR
+    assert GR['gibs'] >= 2 and GR['headHidden'] and GR['finite'] and GR['resting'] >= 1 and GR['decals'] >= 1 and GR['restored'] and GR['offGibs'] == 0 and 'err' not in GR, GR
     # easter egg: type "richtofen"
     pg.evaluate("() => { const g = window.__game; g.start({mode:'tdm',map:'dust',mapName:'Dust',primary:'vmp',secondary:'g18',difficulty:'normal'}); g.state='playing'; }")
     pg.keyboard.type('richtofen', delay=20); pg.wait_for_timeout(800)

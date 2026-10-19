@@ -53,6 +53,8 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 - **Reload** - the gun and your hands stay inside the frame for the whole reload on every weapon.
 - **Slide** - sprint, then tap `C`: you keep your momentum, drop low and skid for about a second. Jumping cancels it and keeps your speed.
 - **Mantle** - walk or jump into a ledge that is too tall to step on (up to about 1.5 m) and you pull yourself over it. Walls taller than that stay walls.
+- **Better-looking soldiers** - bots and other players now wear a vest with plates and pouches, a backpack, gloves, knee pads and boots, with one of three headgear styles (helmet, cap with goggles, balaclava). See `js/soldier.js`.
+- **Gore** - kills spray blood and leave floor splats, and body parts fly off: heads on headshots, limbs and chunks on shotgun and sniper kills and sometimes on others. Head, torso, arm and leg each have 3 different models (`js/gore.js`), 12 in total. The matching part disappears from the corpse and comes back on respawn. Turn it off with the Gore checkbox in the main or pause menu.
 - **Weapon animations** in the style of the 2010-2015 Call of Duty games: gun swings up on draw, swung-across sprint with arm pump, strafe tilt, landing dip, jump float, look sway, and full reloads where the support hand goes for the mag, the old mag drops, a new one is seated (mag slap) and the gun is charged. Pistol slides recoil and lock back when empty, the Kar98k works its bolt after every shot and on reload, the pump shotgun pumps after every shot and loads shells one by one. `F` inspects the weapon.
 - The animated parts are tagged in `js/gunmodels.js` (`mag`, `slide`, `bolt`, `pump`); the VMP's `Mag` part is animated automatically.
 

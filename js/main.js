@@ -32,7 +32,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gore: cfg.gore !== false };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -102,6 +102,13 @@ function slider(ids, key, fmt, apply) {
 slider([['sens', 'sensOut'], ['sens2', 'sensOut2']], 'sens', (v) => v.toFixed(2), (v) => { game.settings.sens = v; });
 slider([['fov', 'fovOut'], ['fov2', 'fovOut2']], 'fov', (v) => String(Math.round(v)), (v) => { game.settings.fov = v; });
 slider([['vol', 'volOut'], ['vol2', 'volOut2']], 'vol', (v) => v.toFixed(2), (v) => { sound.volume = v; if (sound.master) sound.master.gain.value = v; });
+
+// gore toggle (main menu + pause menu)
+for (const id of ['gore', 'gore2']) {
+  const el = $(id); if (!el) continue;
+  el.checked = cfg.gore !== false;
+  el.addEventListener('change', () => { cfg.gore = el.checked; game.settings.gore = el.checked; for (const o of ['gore', 'gore2']) if ($(o)) $(o).checked = el.checked; save(); });
+}
 
 // ---------------- crosshair changer (main menu + pause menu share one config) ----------------
 const XH_COLORS = ['#ffffff', '#39ff14', '#ff3b30', '#00e5ff', '#ffd23a', '#ff4fd8'];
