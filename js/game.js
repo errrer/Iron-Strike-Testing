@@ -60,7 +60,7 @@ export class Game {
     this.actors = []; this.player = null; this.world = null; this.scene = null;
     this.tracers = []; this.particles = [];
     this.net = null; this.hist = []; this.richtofen = false;
-    this.vmS = { sprint: 0, strafe: 0, land: 0, slide: 0, cycle: 0, inspectT: 0, lastVy: 0, wasGround: true, rand: 0, shake: 0 };
+    this.vmS = { sprint: 0, strafe: 0, land: 0, slide: 0, cycle: 0, inspectT: 0, lastVy: 0, wasGround: true, rand: 0, shake: 0, slk: 0, mvk: 0 };
     this.vmCache = {};
     this.resize();
     this.bindEvents();
@@ -193,7 +193,7 @@ export class Game {
       hp: 100, alive: true, kills: 0, deaths: 0, streak: 0, weapons, weapon: weapons[0], cur: 0,
       ammo: weapons.map((w) => ({ mag: w.mag, res: w.reserve })), fireCd: 0, reloading: false, reloadT: 0, switchT: 0,
       lastShot: -99, lastHurt: -99, respawnT: 0, protT: 0, deathT: 0, stepT: 0, heat: 0, recoilDebt: 0, walkPhase: 0, crouch: false,
-      ads: 0, mesh: null, brain: null, recoilKick: 0, tac: 0, tacOn: false, recoilBias: 0,
+      ads: 0, mesh: null, brain: null, recoilKick: 0, tac: 0, tacOn: false, recoilBias: 0, slideT: 0, slideCd: 0, slideSp: 0, slideDx: 0, slideDz: 0, mantle: null, mantleCd: 0,
     };
   }
 
@@ -226,7 +226,7 @@ export class Game {
     a.vel.set(0, 0, 0);
     a.yaw = yaw; a.pitch = 0; a.ibuf = [];
     a.hp = 100; a.alive = true; a.reloading = false; a.reloadT = 0; a.switchT = 0.4; a.fireCd = 0.3; a.cur = 0; a.weapon = a.weapons[0];
-    a.ammo = a.weapons.map((w) => ({ mag: w.mag, res: w.reserve })); a.crouch = false; a.h = 1.8; a.eye = 1.65; a.heat = 0; a.recoilDebt = 0; a.ads = 0;
+    a.ammo = a.weapons.map((w) => ({ mag: w.mag, res: w.reserve })); a.crouch = false; a.slideT = 0; a.mantle = null; a.h = 1.8; a.eye = 1.65; a.heat = 0; a.recoilDebt = 0; a.ads = 0;
     a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99; a.tac = 0; a.tacOn = false; a.recoilBias = 0;
     if (a.brain) a.brain.reset();
     if (a.mesh) { a.mesh.root.visible = !a.isPlayer; a.mesh.body.rotation.x = 0; this.setActorGun(a); }
@@ -690,7 +690,17 @@ export class Game {
     a.crouch = a.h < 1.8;
   }
 
-  canFire(a) { return a.alive && this.matchT >= 0 && a.switchT <= 0 && !a.reloading && a.fireCd <= 0 && a.ammo[a.cur].mag > 0; }
+  // advances a mantle: up the face of the ledge first, then forward over the lip
+  stepMantle(a, dt) {
+    const m = a.mantle; m.t += dt;
+    const u = Math.min(1, m.t / m.dur), sm = (x) => x * x * (3 - 2 * x);
+    const v = sm(Math.min(1, u / 0.65)), h = sm(Math.max(0, (u - 0.5) / 0.5));
+    a.pos.set(m.sx + (m.ex - m.sx) * h, m.sy + (m.ey - m.sy) * v, m.sz + (m.ez - m.sz) * h);
+    a.vel.set(0, 0, 0); a.onGround = false;
+    if (u >= 1) { a.pos.set(m.ex, m.ey, m.ez); a.mantle = null; a.onGround = true; }
+  }
+
+  canFire(a) { return a.alive && this.matchT >= 0 && a.switchT <= 0 && !a.reloading && !a.mantle && a.fireCd <= 0 && a.ammo[a.cur].mag > 0; }
 
   startReload(a) {
     const am = a.ammo[a.cur], w = a.weapon;
@@ -858,8 +868,33 @@ export class Game {
     let wx = fx * fwd + rx * str, wz = fz * fwd + rz * str;
     const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
     if (frozen) { wx = 0; wz = 0; }
-    this.moveActor(p, wx, wz, speed, dt, !!k.Space && !frozen, wantCrouch);
-    p.eye += ((p.crouch ? 1.12 : 1.65) - p.eye) * Math.min(1, dt * 12);
+    // --- slide: crouch while sprinting; you keep your momentum and it bleeds off ---
+    const crouchPress = wantCrouch && !this.prevCrouch; this.prevCrouch = wantCrouch;
+    p.slideCd = Math.max(0, p.slideCd - dt); p.mantleCd = Math.max(0, p.mantleCd - dt);
+    if (crouchPress && p.sprint && p.onGround && !frozen && !p.mantle && p.slideCd <= 0 && p.speed2 > 5.8) {
+      p.slideT = 0.9; p.slideSp = Math.min(10.5, p.speed2 * 1.3); p.slideDx = p.vel.x / p.speed2; p.slideDz = p.vel.z / p.speed2; p.slideCd = 1.1;
+    }
+    let jump = !!k.Space && !frozen, crouchNow = wantCrouch;
+    if (p.slideT > 0) {
+      p.slideT -= dt;
+      if (!p.onGround || p.speed2 < 2.2 || p.mantle || (jump && p.onGround)) p.slideT = 0;     // slide-jump keeps the speed
+      else {
+        const u = p.slideT / 0.9; p.slideSp = Math.max(2.4, p.slideSp - dt * 9 * (1.3 - u));
+        wx = p.slideDx; wz = p.slideDz; speed = p.slideSp; p.vel.x = wx * speed; p.vel.z = wz * speed;
+        crouchNow = true; jump = false;
+      }
+    }
+    // --- mantle: jump into a ledge that is too high to step up and you pull yourself over it ---
+    if (p.mantle) this.stepMantle(p, dt);
+    else {
+      if (k.Space && !frozen && fwd > 0 && p.mantleCd <= 0) {
+        const L = this.col.findLedge(p, fx, fz, p.onGround ? 1.5 : 1.0);
+        if (L) { const up = L.y - p.pos.y; p.mantle = { t: 0, dur: 0.36 + up * 0.14, sx: p.pos.x, sy: p.pos.y, sz: p.pos.z, ex: L.x, ey: L.y, ez: L.z }; p.slideT = 0; p.vel.set(0, 0, 0); p.mantleCd = 0.5; }
+      }
+      if (!p.mantle) this.moveActor(p, wx, wz, speed, dt, jump, crouchNow);
+    }
+    p.eye += ((p.slideT > 0 ? 0.9 : p.crouch ? 1.12 : 1.65) - p.eye) * Math.min(1, dt * 12);
+    { const S = this.vmS; S.slk += ((p.slideT > 0 ? 1 : 0) - S.slk) * Math.min(1, dt * 10); S.mvk += ((p.mantle ? Math.sin(Math.PI * Math.min(1, p.mantle.t / p.mantle.dur)) : 0) - S.mvk) * Math.min(1, dt * 16); }
     // with tac stance on, the aim button turns the gun on its side (p.tac) instead of looking down the sights (p.ads)
     p.ads += ((ads && !p.tacOn ? 1 : 0) - p.ads) * Math.min(1, dt * 11);
     p.tac += ((ads && p.tacOn ? 1 : 0) - p.tac) * Math.min(1, dt * 10);
@@ -972,7 +1007,7 @@ export class Game {
       cam.position.set(ox + dx * dist, Math.max(0.15, oy + dy * dist), oz + dz * dist);
     }
     const S = this.vmS; S.shake = Math.max(0, S.shake - dt * 5);
-    cam.rotation.set(p.pitch + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + (Math.random() - 0.5) * 0.004 * S.shake, roll + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
+    cam.rotation.set(p.pitch - S.mvk * 0.12 + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + (Math.random() - 0.5) * 0.004 * S.shake, roll + S.slk * 0.045 + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
     if (p.mesh) p.mesh.root.visible = this.tp && p.mesh.root.visible;
     const zoom = lerp(lerp(1, 1.12, p.tac), this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
     const fov = this.settings.fov / zoom;
@@ -1097,6 +1132,9 @@ export class Game {
       const k = revolver ? 1.3 : vm.pistol ? 0.8 : 1;
       y += tilt * (vm.pistol ? 0.07 : 0.05); x -= tilt * 0.03 * k; z -= tilt * 0.05; rz += tilt * (revolver ? 0.6 : 0.38) * k * (1 - a); rx += (-tilt * 0.22 * k + rk) * (1 - a * 0.7); ry += tilt * 0.15 * k;
     }
+    // sliding: gun canted and low; mantling: gun pushed down and out of the way while you climb
+    if (S.slk > 0.01) { const f = S.slk * (1 - a * 0.8); x -= 0.035 * f; y -= 0.03 * f; rz += 0.3 * f; ry += 0.12 * f; rx += 0.05 * f; }
+    if (S.mvk > 0.01) { y -= 0.1 * S.mvk; z += 0.03 * S.mvk; rx -= 0.35 * S.mvk; rz += 0.15 * S.mvk; }
     // melee-free "inspect": gun turned over in front of you (F)
     let insp = 0;
     if (S.inspectT > 0) {

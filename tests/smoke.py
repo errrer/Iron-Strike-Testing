@@ -146,6 +146,32 @@ with sync_playwright() as pw:
       return out; }""")
     print('attachments:', A)
     assert A['m4a1'][0] == 3 and A['g18'][0] == 5 and A['laser'] and not A['laserOff'] and A['sightY2'] < 0.07 and A['sightY'] > 0.09, A
+    # slide + mantle
+    M = pg.evaluate("""() => { const g = window.__game; const out = {};
+      g.start({mode:'ffa',map:'warehouse',mapName:'W',primary:'m4a1',secondary:'g18',attP:0,attS:0,difficulty:'easy'}); g.state='playing';
+      const p = g.player; p.protT = 99; g.matchT = 1; g.fireHeld = false; g.adsHeld = false; g.prevCrouch = false; for (const a of g.actors) if (!a.isPlayer) { a.alive = false; a.respawnT = 9999; }
+      p.pos.set(900, 0, 900); p.vel.set(0, 0, 0); p.yaw = 0; p.pitch = 0; g.keys = {};
+      // slide: sprint, then tap crouch
+      g.keys.KeyW = true; g.keys.ShiftLeft = true; for (let f = 0; f < 70; f++) g.frame(1/60);
+      out.sprintSp = +p.speed2.toFixed(2);
+      g.keys.KeyC = true; g.frame(1/60); out.sliding = p.slideT > 0; out.slideSp = +p.speed2.toFixed(2);
+      for (let f = 0; f < 20; f++) g.frame(1/60); out.crouched = p.crouch; out.eyeLow = p.eye < 1.3;
+      g.keys.KeyC = false; for (let f = 0; f < 90; f++) g.frame(1/60); out.slideEnded = p.slideT <= 0; out.stood = !p.crouch;
+      // a slide must not start from a standstill or from walking
+      g.keys = {}; for (let f = 0; f < 60; f++) g.frame(1/60); g.keys.KeyC = true; g.frame(1/60); out.noStandSlide = !(p.slideT > 0); g.keys = {}; for (let f = 0; f < 30; f++) g.frame(1/60);
+      // mantle: a 1.2 m ledge straight ahead
+      p.pos.set(500, 0, 500); p.vel.set(0, 0, 0); p.yaw = 0; g.keys = {}; g.prevCrouch = false;
+      g.col.boxes.push({x0: 498.5, x1: 501.5, z0: 496.5, z1: 499.6, y0: 0, y1: 1.2});
+      g.keys.KeyW = true; g.keys.Space = true; let sawMantle = false;
+      for (let f = 0; f < 120; f++) { g.frame(1/60); if (p.mantle) sawMantle = true; if (!p.mantle && sawMantle) break; }
+      out.mantled = sawMantle; out.topY = +p.pos.y.toFixed(2); out.onTop = Math.abs(p.pos.y - 1.2) < 0.05 && p.pos.z < 499.6 && p.pos.z > 496.5; out.finite = [p.pos.x, p.pos.y, p.pos.z].every(isFinite);
+      // too high to mantle
+      g.keys = {}; p.pos.set(700, 0, 700); p.vel.set(0, 0, 0); g.col.boxes.push({x0: 698.5, x1: 701.5, z0: 696.5, z1: 699.6, y0: 0, y1: 2.6});
+      g.keys.KeyW = true; g.keys.Space = true; let tall = false; for (let f = 0; f < 60; f++) { g.frame(1/60); if (p.mantle) tall = true; } out.tallBlocked = !tall;
+      return out; }""")
+    print('slide/mantle:', M)
+    assert M['sprintSp'] > 5.8 and M['sliding'] and M['slideSp'] > M['sprintSp'] and M['crouched'] and M['eyeLow'] and M['slideEnded'] and M['noStandSlide'], M
+    assert M['mantled'] and M['onTop'] and M['finite'] and M['tallBlocked'], M
     # easter egg: type "richtofen"
     pg.evaluate("() => { const g = window.__game; g.start({mode:'tdm',map:'dust',mapName:'Dust',primary:'vmp',secondary:'g18',difficulty:'normal'}); g.state='playing'; }")
     pg.keyboard.type('richtofen', delay=20); pg.wait_for_timeout(800)
