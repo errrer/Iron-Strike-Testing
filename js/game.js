@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WEAPONS, PRIMARIES, SECONDARIES, withAtt, ATT_LASER } from './weapons.js';
+import { WEAPONS, PRIMARIES, SECONDARIES, withAtt, cleanMask, ATT_LASER } from './weapons.js';
 import { buildGun } from './gunmodels.js';
 import { buildMap } from './maps.js';
 import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js';
@@ -18,7 +18,9 @@ export const MODES = {
   tdm: { id: 'tdm', name: 'Team Deathmatch', team: true, perSide: 5, scoreLimit: 30, time: 420, blurb: '5v5 - first team to 30 kills' },
   '1v1': { id: '1v1', name: '1v1 Duel', team: false, count: 2, scoreLimit: 10, time: 300, blurb: 'You vs one bot - first to 10 kills' },
   ffa: { id: 'ffa', name: 'Free For All', team: false, count: 8, scoreLimit: 20, time: 420, blurb: '8 players, every man for himself - first to 20' },
+  sandbox: { id: 'sandbox', name: 'Sandbox', team: false, count: 1, scoreLimit: 0, time: 0, sandbox: true, blurb: 'No score, no clock. Spawn dummies (B), swap your loadout any time (Esc)' },
 };
+export const MAX_DUMMIES = 20;
 
 export const MAX_PLAYERS = 18;
 // online matches: same modes, scaled for bigger lobbies (every peer derives the same rules from the mode id)
@@ -26,9 +28,11 @@ export const MP_OVERRIDES = {
   tdm: { scoreLimit: 50, time: 600, blurb: 'Two teams, auto-balanced - first team to 50' },
   '1v1': { blurb: 'Two players - first to 10 kills', max: 2 },
   ffa: { scoreLimit: 30, time: 600, blurb: 'Up to 18 players - first to 30' },
+  sandbox: { blurb: 'Up to 18 players share one sandbox: dummies (B), live loadout swaps (Esc)' },
 };
 export const mpMode = (id) => ({ ...MODES[id], ...MP_OVERRIDES[id], max: (MP_OVERRIDES[id] || {}).max || MAX_PLAYERS });
 const CALLSIGNS = ['Ghost', 'Viper', 'Razor', 'Havoc', 'Nova', 'Falcon', 'Rook', 'Cobra', 'Maverick', 'Reaper', 'Titan', 'Echo', 'Blaze', 'Sable', 'Onyx', 'Wolf'];
+const DUMMY_COLOR = 0x8a8f94;
 const FFA_COLORS = [0xc0392b, 0xd68910, 0x1e8449, 0x7d3c98, 0x148f77, 0xb7950b, 0xa04000, 0x2e86c1];
 const TEAM_COLORS = [0x2e6fbd, 0xc0392b];
 const BOT_PRIMARY_POOL = ['vmp', 'vmp', 'vmp', 'm4a1', 'm4a1', 'm4a1', 'ak47', 'ak47', 'ak47', 'm680', 'kar98k'];
@@ -85,6 +89,8 @@ export class Game {
       if (e.code === 'KeyQ') this.switchWeapon(p, 1 - p.cur);
       if (e.code === 'KeyV') this.toggleView();
       if (e.code === 'KeyZ' && p.alive) { p.tacOn = !p.tacOn; this.hud.center(p.tacOn ? 'TAC STANCE ON' : 'TAC STANCE OFF', 0.7); }
+      if (e.code === 'KeyB' && this.mode.sandbox) this.sandboxSpawn(e.shiftKey ? 5 : 1);
+      if (e.code === 'KeyN' && this.mode.sandbox) this.sandboxClear();
       if (e.code === 'KeyF' && p.alive && !p.reloading && !p.sprint && this.vmS.inspectT <= 0) this.vmS.inspectT = 2.8;
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
@@ -126,7 +132,7 @@ export class Game {
 
   lock() { try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
 
-  pause() { if (this.state !== 'playing') return; this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.hud.showPause(true); }
+  pause() { if (this.state !== 'playing') return; this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.hud.showPause(true); if (this.onPause) this.onPause(); }
   resume() { if (this.state !== 'paused') return; this.state = 'playing'; this.hud.showPause(false); this.lock(); }
 
   // ------------------------------------------------------------------ match setup
@@ -167,9 +173,9 @@ export class Game {
       }
     }
     this.teamScore = [0, 0];
-    this.timeLeft = mode.time; this.matchT = -3.5; this.ended = false;
+    this.timeLeft = mode.time; this.matchT = mode.sandbox ? 0 : -3.5; this.ended = false;
     this.killer = null; this.deathInfo = '';
-    this.lastCountdown = 99;
+    this.lastCountdown = mode.sandbox ? 0 : 99; this.nextDummyId = 1000;
     this.hud.begin(this);
     for (const a of this.actors) this.spawn(a, true);
     this.setPlayerVm();
@@ -223,8 +229,8 @@ export class Game {
   }
 
   // put an actor on the map in a fresh state (shared by solo spawns, host spawns and client spawn events)
-  placeActor(a, x, z, yaw, first) {
-    a.pos.set(x, 0, z); a.tgt = a.remote ? new V3(x, 0, z) : null;
+  placeActor(a, x, z, yaw, first, y = 0) {
+    a.pos.set(x, y, z); a.tgt = a.remote ? new V3(x, y, z) : null;
     a.vel.set(0, 0, 0);
     a.yaw = yaw; a.pitch = 0; a.ibuf = [];
     a.hp = 100; a.alive = true; a.reloading = false; a.reloadT = 0; a.switchT = 0.4; a.fireCd = 0.3; a.cur = 0; a.weapon = a.weapons[0];
@@ -235,6 +241,78 @@ export class Game {
     if (a.isPlayer) { this.setPlayerVm(); this.hud.onRespawn(); if (!first) this.sound.spawn(); }
   }
 
+
+  // ------------------------------------------------------------------ sandbox: dummies + live loadout
+  // top of whatever solid thing is under (x, z), up to yMax (0 = floor)
+  groundAt(x, yMax, z, hw = 0.3) {
+    let g = 0;
+    for (const b of this.col.boxes) if (b.y1 <= yMax + 0.01 && b.y1 > g && x + hw > b.x0 && x - hw < b.x1 && z + hw > b.z0 && z - hw < b.z1) g = b.y1;
+    return g;
+  }
+
+  // where the crosshair lands, as a spot a dummy can stand on: { x, y, z } or null
+  aimSpot() {
+    const p = this.player, ox = p.pos.x, oy = p.pos.y + p.eye, oz = p.pos.z, d = this.dirFrom(p.yaw, p.pitch, new V3());
+    let t = this.col.ray(ox, oy, oz, d.x, d.y, d.z, 40);
+    if (d.y < -0.02) t = Math.min(t, -oy / d.y);
+    if (!(t < 40)) t = 8;                                                   // looking at the sky: 8 m ahead
+    const back = Math.min(0.5, t * 0.4), hl = Math.hypot(d.x, d.z) || 1;
+    const x = ox + d.x * t - (d.x / hl) * back, z = oz + d.z * t - (d.z / hl) * back, y = this.groundAt(x, Math.max(0, oy + d.y * t) + 0.35, z);
+    return { x, y, z };
+  }
+
+  // host / solo: put dummies on the ground in a row around spot (row direction = the requester's right-hand side)
+  spawnDummies(spot, n, who) {
+    let made = 0; const rx = Math.cos(who.yaw), rz = -Math.sin(who.yaw);
+    for (let i = 0; i < n; i++) {
+      if (this.actors.filter((a) => a.dummy).length >= MAX_DUMMIES) break;
+      const off = (i - (n - 1) / 2) * 1.1, x = spot.x + rx * off, z = spot.z + rz * off, y = this.groundAt(x, spot.y + 0.35, z, 0.35);
+      if (this.col.overlaps(x, y + 0.02, z, 0.36, 1.8)) continue;
+      this.spawnDummy(x, y, z, Math.atan2(-(who.pos.x - x), -(who.pos.z - z)));
+      made++;
+    }
+    return made;
+  }
+
+  spawnDummy(x, y, z, yaw) {
+    const id = this.nextDummyId++, a = this.makeActor(id, 'Dummy', id, false, 'm4a1', 'g18');
+    a.dummy = true; a.alive = false;
+    a.mesh = this.makeBotMesh(DUMMY_COLOR, a.weapons[0], null); this.scene.add(a.mesh.root);
+    this.actors.push(a);
+    if (this.net && this.net.role === 'host') this.net.ev(['add', { id, name: 'Dummy', team: id, prim: 'm4a1', sec: 'g18', ap: 0, as: 0, dummy: 1 }]);
+    this.placeActor(a, x, z, yaw, true, y);
+    return a;
+  }
+
+  // B (or the pause-menu button): drop dummies where you are aiming
+  sandboxSpawn(n = 1) {
+    const p = this.player; if (!this.mode.sandbox || !p || !p.alive || !this.scene) return 0;
+    const spot = this.aimSpot();
+    if (this.isClient) { this.net.sendSandbox({ a: 'spawn', x: +spot.x.toFixed(2), y: +spot.y.toFixed(2), z: +spot.z.toFixed(2), n, yaw: +p.yaw.toFixed(3) }); return n; }
+    const made = this.spawnDummies(spot, n, p);
+    this.hud.center(made ? (n > 1 ? `${made} DUMMIES` : 'DUMMY SPAWNED') : (this.actors.filter((a) => a.dummy).length >= MAX_DUMMIES ? `DUMMY LIMIT (${MAX_DUMMIES})` : 'NO ROOM THERE'), 0.8);
+    return made;
+  }
+
+  clearDummies() { for (const a of this.actors.filter((x) => x.dummy)) this.removeNetActor(a.id); }
+  sandboxClear() {
+    if (!this.mode.sandbox || !this.scene) return;
+    if (this.isClient) { this.net.sendSandbox({ a: 'clear' }); return; }
+    this.clearDummies();
+    this.hud.center('DUMMIES CLEARED', 0.8);
+  }
+
+  // swap an actor's weapons and attachments on the spot (sandbox): fresh ammo, new gun in hand and on the body
+  applyLoadout(a, prim, sec, ap, as) {
+    if (!a || !WEAPONS[prim] || !WEAPONS[sec]) return;
+    ap = cleanMask(WEAPONS[prim], ap | 0); as = cleanMask(WEAPONS[sec], as | 0);
+    if (a.weapons[0].id === prim && a.weapons[1].id === sec && (a.weapons[0].attMask | 0) === ap && (a.weapons[1].attMask | 0) === as) return;
+    a.weapons = [withAtt(WEAPONS[prim], ap), withAtt(WEAPONS[sec], as)];
+    a.cur = 0; a.weapon = a.weapons[0]; a.reloading = false; a.reloadT = 0; a.switchT = 0.4; a.fireCd = 0.2; a.heat = 0; a.recoilDebt = 0;
+    a.ammo = a.weapons.map((w) => ({ mag: w.mag, res: w.reserve }));
+    if (a.mesh) this.setActorGun(a);
+    if (a.isPlayer) { this.setPlayerVm(); this.sound.switchGun(); }
+  }
 
   // ------------------------------------------------------------------ online play
   get isClient() { return !!this.net && this.net.role === 'client'; }
@@ -256,9 +334,10 @@ export class Game {
     this.actors = []; this.player = null; this.hist = [];
     this.myTeam = (info.players.find((p) => p.id === info.me) || { team: 0 }).team;
     for (const p of info.players) this.addNetActor(p, p.id === info.me, true);
+    for (const d of info.dummies || []) { const a = this.addNetActor({ id: d.id, name: 'Dummy', team: d.id, prim: 'm4a1', sec: 'g18', dummy: 1 }, false, true); this.placeActor(a, d.x, d.z, d.yaw, true, d.y); }
     this.teamScore = info.ts ? info.ts.slice() : [0, 0];
     this.timeLeft = this.mode.time; this.matchT = info.mt; this.ended = false;
-    this.killer = null; this.lastCountdown = 99; this.clockOff = null; this.snapT = 0; this.stT = 0;
+    this.killer = null; this.lastCountdown = this.mode.sandbox ? 0 : 99; this.clockOff = null; this.snapT = 0; this.stT = 0; this.nextDummyId = 1000;
     this.hud.begin(this);
     for (const a of this.actors) { a.alive = false; a.mesh.root.visible = false; }
     if (net.role === 'host') for (const a of this.actors) this.spawn(a, true);
@@ -271,9 +350,9 @@ export class Game {
 
   addNetActor(p, isLocal, batch) {
     const a = this.makeActor(p.id, String(p.name).replace(/[<>&"'`]/g, '').slice(0, 14), p.team, isLocal, p.prim, p.sec, p.ap | 0, p.as | 0);
-    a.remote = !isLocal; a.alive = false; a.ibuf = []; a.sseq = 0;
+    a.remote = !isLocal; a.alive = false; a.ibuf = []; a.sseq = 0; a.dummy = !!p.dummy;
     const team = this.mode.team;
-    const color = team ? TEAM_COLORS[p.team % 2] : FFA_COLORS[p.id % FFA_COLORS.length];
+    const color = a.dummy ? DUMMY_COLOR : team ? TEAM_COLORS[p.team % 2] : FFA_COLORS[p.id % FFA_COLORS.length];
     const label = team && !isLocal && p.team === this.myTeam ? p.name : null;
     a.mesh = this.makeBotMesh(color, a.weapons[0], label);
     a.mesh.root.visible = false; this.scene.add(a.mesh.root);
@@ -418,7 +497,7 @@ export class Game {
         case 'sp': {
           const a = this.byId(e[1]); if (!a) break;
           a.sseq = e[5];
-          this.placeActor(a, e[2], e[3], e[4], false);
+          this.placeActor(a, e[2], e[3], e[4], false, e[6] || 0);
           a.alive = true; a.deathT = 0; a.protT = 2;
           if (!a.isPlayer) a.mesh.root.visible = true;
           break;
@@ -428,6 +507,7 @@ export class Game {
         case 'hm': this.hud.hitmarker(!!e[1], !!e[2]); this.sound.hit(!!e[2]); break;
         case 'add': if (!this.byId(e[1].id)) this.addNetActor(e[1], false, true); break;
         case 'rm': this.removeNetActor(e[1]); break;
+        case 'lo': this.applyLoadout(this.byId(e[1]), e[2], e[3], e[4], e[5]); break;
         case 'hp': if (this.player.alive) this.player.hp = e[1]; break;
         case 'end': this.netEnd(e[1], e[2], e[3]); break;
         default: break;
@@ -637,7 +717,8 @@ export class Game {
         if (a.tgt) { a.pos.lerp(a.tgt, 1 - Math.exp(-22 * dt)); a.pos.y = a.tgt.y; }
       } else {
         a.deathT += dt; a.respawnT -= dt;
-        if (a.respawnT <= 0 && !this.ended) this.spawn(a);
+        if (a.dummy) { if (a.deathT > 4) this.removeNetActor(a.id); }          // dead dummies are cleared away
+        else if (a.respawnT <= 0 && !this.ended) this.spawn(a);
       }
     }
     for (const a of this.actors) {
@@ -871,6 +952,7 @@ export class Game {
 
   checkEnd() {
     const m = this.mode;
+    if (m.sandbox) return;
     let over = false;
     if (m.team) over = this.teamScore[0] >= m.scoreLimit || this.teamScore[1] >= m.scoreLimit;
     else over = this.actors.some((a) => a.kills >= m.scoreLimit);

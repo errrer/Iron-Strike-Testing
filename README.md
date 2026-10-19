@@ -58,6 +58,15 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 - **Weapon animations** in the style of the 2010-2015 Call of Duty games: gun swings up on draw, swung-across sprint with arm pump, strafe tilt, landing dip, jump float, look sway, and full reloads where the support hand goes for the mag, the old mag drops, a new one is seated (mag slap) and the gun is charged. Pistol slides recoil and lock back when empty, the Kar98k works its bolt after every shot and on reload, the pump shotgun pumps after every shot and loads shells one by one. `F` inspects the weapon.
 - The animated parts are tagged in `js/gunmodels.js` (`mag`, `slide`, `bolt`, `pump`); the VMP's `Mag` part is animated automatically.
 
+## Sandbox mode
+
+Pick **Sandbox** in the mode list (also available in multiplayer). There is no score and no clock, and no bots - just you, a map and dummies.
+
+- **B** drops a dummy where your crosshair is pointing (on the floor or on top of a crate). **Shift+B** drops a row of five, **N** clears them all. Up to 20 at a time.
+- Dummies stand still and do nothing. They can be shot (hit markers, kill feed, gore and all); dead ones are cleared away after a few seconds.
+- **Esc** opens the pause menu with a sandbox panel: spawn/clear buttons plus your **loadout**. Change the primary, secondary or any attachment and it takes effect immediately, with a fresh magazine and the new gun in your hands and on your body.
+- **Multiplayer:** the host picks Sandbox in the lobby and can start alone. Everybody can spawn and clear dummies and change loadout mid-match; the host validates every request and everyone sees the same dummies and guns. People who join late get the existing dummies.
+
 ## Attachments
 
 Pick them on the main menu (or in the multiplayer lobby) under each weapon. They are remembered per weapon.

@@ -22,7 +22,7 @@ export class HUD {
   constructor() {
     this.el = {};
     for (const id of ['hud', 'sbL', 'sbR', 'timer', 'radar', 'killfeed', 'crosshair', 'hitmarker', 'dmgind', 'vignette', 'hpfill', 'hptxt',
-      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'stance']) this.el[id] = $(id);
+      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'stance', 'sbhint', 'sbPanel']) this.el[id] = $(id);
     this.rctx = this.el.radar.getContext('2d');
     this.cache = {};
     this.msgT = 0; this.sbT = 0;
@@ -38,6 +38,7 @@ export class HUD {
     this.el.hud.classList.remove('hidden');
     this.el.endscreen.classList.add('hidden'); this.el.pause.classList.add('hidden'); this.el.dead.classList.add('hidden');
     this.el.killfeed.innerHTML = ''; this.el.dmgind.innerHTML = '';
+    this.sandbox = !!game.mode.sandbox; this.el.sbhint.classList.toggle('hidden', !this.sandbox);
     this.el.modeTag.textContent = `${game.mode.name} - ${game.cfg.mapName}` + (game.net ? ` - ROOM ${game.net.code}` : '');
     // static radar map
     const b = game.map.bounds, S = 4, cv = document.createElement('canvas');
@@ -90,7 +91,7 @@ export class HUD {
   }
   onRespawn() { this.el.dead.classList.add('hidden'); }
 
-  showPause(on) { this.el.pause.classList.toggle('hidden', !on); }
+  showPause(on) { this.el.pause.classList.toggle('hidden', !on); this.el.sbPanel.classList.toggle('hidden', !(on && this.sandbox)); }
 
   showEnd(game, win) {
     const e = this.el, p = game.player;
@@ -116,7 +117,8 @@ export class HUD {
   update(game) {
     const p = game.player, w = p.weapon, e = this.el;
     // scores + timer
-    if (game.mode.team) { this.set('sbL', `ALLIES ${game.teamScore[p.team % 2]}`); this.set('sbR', `${game.teamScore[1 - (p.team % 2)]} ENEMY`); }
+    if (game.mode.sandbox) { this.set('sbL', `DUMMIES ${game.actors.filter((a) => a.dummy).length}`); this.set('sbR', `KILLS ${p.kills}`); }
+    else if (game.mode.team) { this.set('sbL', `ALLIES ${game.teamScore[p.team % 2]}`); this.set('sbR', `${game.teamScore[1 - (p.team % 2)]} ENEMY`); }
     else {
       const sorted = [...game.actors].sort((a, b) => b.kills - a.kills);
       this.set('sbL', `YOU ${p.kills}`);
@@ -124,7 +126,7 @@ export class HUD {
       this.set('sbR', `${top.name.toUpperCase()} ${top.kills}`);
     }
     const tl = Math.ceil(game.timeLeft);
-    this.set('timer', `${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`);
+    this.set('timer', game.mode.sandbox ? 'SANDBOX' : `${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`);
     // health
     const hp = Math.max(0, Math.ceil(p.hp));
     e.hpfill.style.width = `${hp}%`;

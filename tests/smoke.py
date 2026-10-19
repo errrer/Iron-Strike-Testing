@@ -59,7 +59,7 @@ with sync_playwright() as pw:
     # menu sanity
     counts = pg.evaluate("() => ({modes: document.querySelectorAll('#modes .card').length, maps: document.querySelectorAll('#maps .card').length, prim: document.querySelectorAll('#primaries .card').length, sec: document.querySelectorAll('#secondaries .card').length})")
     print('menu cards:', counts)
-    assert counts == {'modes': 3, 'maps': 4, 'prim': 5, 'sec': 3}, counts
+    assert counts == {'modes': 4, 'maps': 4, 'prim': 5, 'sec': 3}, counts
     chips = pg.evaluate("() => ({p: document.querySelectorAll('#attP .chip').length, s: document.querySelectorAll('#attS .chip').length})")
     pg.click('#attP .chip'); pg.click('#attS .chip:nth-of-type(2)')   # VMP red dot, G18 laser
     saved = pg.evaluate("() => JSON.parse(localStorage.getItem('ironstrike')).att")
@@ -226,6 +226,63 @@ with sync_playwright() as pw:
       return out; }""")
     print('hold gun:', HG)
     assert not HG['bad'], HG
+    # sandbox: no bots, no end, dummies that do nothing, instant loadout swaps
+    SB = pg.evaluate("""() => { const g = window.__game, out = {};
+      g.start({mode:'sandbox',map:'warehouse',mapName:'W',primary:'vmp',secondary:'g18',attP:7,attS:5,difficulty:'hard'}); g.state='playing';
+      const p = g.player; out.actors0 = g.actors.length; out.cd = g.matchT;
+      p.pos.set(300, 0, 300); p.vel.set(0, 0, 0); p.yaw = 0; p.pitch = -0.25; g.keys = {};
+      for (let f = 0; f < 60; f++) g.frame(1/60);
+      out.timer = g.hud.cache.timer; out.hint = !g.hud.el.sbhint.classList.contains('hidden');
+      // B key spawns one dummy at the crosshair
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyB' })); document.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyB' }));
+      const ds = () => g.actors.filter(a => a.dummy);
+      out.one = ds().length; const d0 = ds()[0];
+      out.d0 = d0 && { alive: d0.alive, x: +d0.pos.x.toFixed(2), y: +d0.pos.y.toFixed(2), z: +d0.pos.z.toFixed(2), vis: d0.mesh.root.visible, facing: Math.abs(Math.sin(d0.yaw - Math.atan2(-(p.pos.x - d0.pos.x), -(p.pos.z - d0.pos.z)))) < 0.01 };
+      // Shift+B x5 -> capped at 20
+      for (let k = 0; k < 6; k++) document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyB', shiftKey: true }));
+      out.capped = ds().length;
+      // dummies stand still and never shoot
+      const before = ds().map(a => [a.pos.x, a.pos.y, a.pos.z]);
+      for (let f = 0; f < 400; f++) g.frame(1/60);
+      out.still = ds().every((a, i) => a.pos.x === before[i][0] && a.pos.y === before[i][1] && a.pos.z === before[i][2] && a.alive && a.lastShot < 0);
+      out.hp = p.hp; out.state = g.state; out.stillActors = g.actors.length;
+      // kill one: it falls, then is removed
+      g.damage(d0, p, 500, p.weapon, true); out.deadFlag = !d0.alive; out.kills = p.kills;
+      for (let f = 0; f < 60 * 5; f++) g.frame(1/60);
+      out.removed = !g.actors.includes(d0);
+      // N clears
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyN' })); out.cleared = ds().length;
+      // crate: dummy stands on top of it
+      g.col.boxes.push({x0: 299, x1: 301, z0: 296, z1: 298, y0: 0, y1: 1.0}); p.pos.set(300, 0, 300); p.pitch = -0.21; g.frame(1/60);
+      g.sandboxSpawn(1); const dc = ds()[0]; out.crateY = dc && +dc.pos.y.toFixed(2);
+      g.clearDummies();
+      // live loadout swap
+      p.alive = true; g.applyLoadout(p, 'ak47', 'm1911', 7, 1); for (let f = 0; f < 5; f++) g.frame(1/60);
+      out.lo = [p.weapons[0].id, p.weapons[1].id, p.weapons[0].attMask, p.weapons[1].attMask, p.weapon.id, g.vm && g.vm.id, p.ammo[0].mag === p.weapons[0].mag, p.mesh.gunId];
+      g.timeLeft = 0; g.matchT = 5000; for (let f = 0; f < 10; f++) g.frame(1/60); out.stillPlaying = g.state === 'playing' && !g.ended;
+      return out; }""")
+    print('sandbox:', SB)
+    assert SB['actors0'] == 1 and SB['cd'] >= 0 and SB['timer'] == 'SANDBOX' and SB['hint'] and SB['one'] == 1 and SB['d0']['alive'] and SB['d0']['vis'] and SB['d0']['facing'] and SB['capped'] == 20, SB
+    assert SB['still'] and SB['hp'] == 100 and SB['deadFlag'] and SB['kills'] == 1 and SB['removed'] and SB['cleared'] == 0 and abs(SB['crateY'] - 1.0) < 0.05, SB
+    assert SB['lo'][:6] == ['ak47', 'm1911', 7, 1, 'ak47', 'ak47'] and SB['lo'][6] and SB['lo'][7] == 'ak47' and SB['stillPlaying'], SB
+    # sandbox pause-menu panel: spawn button + live loadout through the real UI
+    SU = pg.evaluate("""async () => { const g = window.__game, $ = (id) => document.getElementById(id), o = {};
+      g.start({mode:'sandbox',map:'dust',mapName:'D',primary:'vmp',secondary:'g18',attP:0,attS:0,difficulty:'easy'}); g.state = 'playing';
+      const p = g.player; p.pos.set(400, 0, 400); p.yaw = 0; p.pitch = -0.3; for (let f = 0; f < 10; f++) g.frame(1/60);
+      g.pause(); o.panelShown = !$('sbPanel').classList.contains('hidden'); o.pauseShown = !$('pause').classList.contains('hidden');
+      $('sbSpawn').click(); $('sbSpawn5').click(); o.dummies = g.actors.filter(a => a.dummy).length; o.countTxt = $('sbCount').textContent;
+      $('sbPrim').value = 'm4a1'; $('sbPrim').dispatchEvent(new Event('change'));
+      $('sbSec').value = 'magnum'; $('sbSec').dispatchEvent(new Event('change'));
+      o.chips = $('sbAttP').querySelectorAll('.chip').length;
+      $('sbAttP').querySelector('.chip').click();                // toggle the first attachment on the new primary
+      o.weapons = [p.weapons[0].id, p.weapons[1].id, p.weapons[0].attMask > 0];
+      $('sbClear').click(); o.cleared = g.actors.filter(a => a.dummy).length;
+      g.resume(); o.resumed = g.state;
+      // other modes never show the sandbox panel
+      g.start({mode:'ffa',map:'dust',mapName:'D',primary:'vmp',secondary:'g18',attP:0,attS:0,difficulty:'easy'}); g.state = 'playing'; g.pause(); o.ffaPanel = !$('sbPanel').classList.contains('hidden'); g.resume();
+      return o; }""")
+    print('sandbox ui:', SU)
+    assert SU['panelShown'] and SU['pauseShown'] and SU['dummies'] == 6 and SU['weapons'][:2] == ['m4a1', 'magnum'] and SU['weapons'][2] and SU['chips'] == 3 and SU['cleared'] == 0 and not SU['ffaPanel'], SU
     print('gore:', GR)
     assert all(len(v) == 3 and all(n >= 3 for n in v) for v in GR['models'].values()), GR
     assert GR['gibs'] >= 2 and GR['headHidden'] and GR['finite'] and GR['resting'] >= 1 and GR['decals'] >= 1 and GR['decalMaps'] == 4 and GR['restored'] and GR['offGibs'] == 0 and 'err' not in GR, GR

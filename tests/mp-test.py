@@ -185,6 +185,66 @@ with sync_playwright() as pw:
     assert all(x in ('playing','paused') for x in E['states2']) and E['mode2'] == ['ffa'] * 4 and all(E['ffaKdMatch']), E
     assert len(E['closed']) >= 3 and all('host' in c.lower() for c in E['closed']) and all(E['clientNetNull']), E
 
+    # ---- sandbox in multiplayer: dummies replicate, clients can spawn/clear them, loadouts change live
+    SBX = pg.evaluate("""async () => {
+      const M = await H.mods(), o = {}, closed = [], errs = [];
+      document.getElementById('menu').classList.remove('hidden');
+      document.getElementById('btnMP').click(); document.getElementById('mpHostBtn').click();
+      await window.__bus.pumpAsync(0.5);
+      const code = document.getElementById('mpCodeTxt').textContent, host = window.__game, hostNet = window.__mp.net;
+      hostNet.setMode('sandbox'); hostNet.setMap('dust');
+      o.startAlone = hostNet.start();                     // sandbox needs no opponents
+      await window.__bus.pumpAsync(0.3);
+      o.hostMode = host.mode.id; o.hostState = host.state; o.hostActors = host.actors.length; o.hostCountdown = host.matchT >= 0;
+      const hp = host.player; const ds = (g) => g.actors.filter(a => a.dummy);
+      // host drops two dummies somewhere with room
+      for (let k = 0; k < 12 && ds(host).length < 2; k++) { hp.yaw = k * 0.5; hp.pitch = -0.35; host.sandboxSpawn(2); }
+      o.hostDummies = ds(host).length;
+      // clients join late and must see the existing dummies
+      const clients = [];
+      for (let i = 0; i < 2; i++) { const c = H.mkClient(M, closed); await Promise.all([c.netObj.join(code, 'Sb' + i, {prim: 'vmp', sec: 'g18'}), window.__bus.pumpAsync(1)]); clients.push(c); }
+      await window.__bus.pumpAsync(0.5);
+      const games = [host, ...clients];
+      for (let f = 0; f < 120; f++) { for (const g of games) { if (g.state === 'paused') g.state = 'playing'; g.frame(1/60); } window.__bus.advance(1/60); }
+      o.clientModes = clients.map(c => c.mode.id); o.clientDummies = clients.map(c => ds(c).length);
+      o.dummyAlive = clients.map(c => ds(c).every(a => a.alive && a.mesh.root.visible));
+      o.dummyPosMatch = clients.map(c => ds(c).every(a => { const h = host.byId(a.id); return h && Math.hypot(a.pos.x - h.pos.x, a.pos.z - h.pos.z) < 0.3 && Math.abs(a.pos.y - h.pos.y) < 0.3; }));
+      // a client spawns a dummy; everyone gets it
+      const c0 = clients[0], before = ds(host).length;
+      c0.player.pitch = -0.35; for (let k = 0; k < 12 && ds(host).length === before; k++) { c0.player.yaw = k * 0.5; c0.sandboxSpawn(1); for (let f = 0; f < 30; f++) { for (const g of games) g.frame(1/60); window.__bus.advance(1/60); } }
+      o.afterClientSpawn = [ds(host).length, ...clients.map(c => ds(c).length)];
+      // live loadout: client swaps, host and the other client see the new guns
+      c0.netObj.setLoadout('ak47', 'm1911', 0, 0);
+      o.c0Instant = c0.player.weapon.id;
+      for (let f = 0; f < 90; f++) { for (const g of games) g.frame(1/60); window.__bus.advance(1/60); }
+      const seen = (g) => { const a = g.byId(c0.player.id); return [a.weapons[0].id, a.weapons[1].id, a.mesh.gunId]; };
+      o.swapSeen = games.map(seen);
+      hostNet.setLoadout('m680', 'magnum', 0, 0);
+      for (let f = 0; f < 90; f++) { for (const g of games) g.frame(1/60); window.__bus.advance(1/60); }
+      o.hostSwapSeen = games.map(g => { const a = g.byId(0); return [a.weapons[0].id, a.weapons[1].id]; });
+      // a dummy dies: corpse everywhere, then removed everywhere
+      const dm = ds(host)[0]; host.damage(dm, hp, 500, hp.weapon, false);
+      for (let f = 0; f < 30; f++) { for (const g of games) g.frame(1/60); window.__bus.advance(1/60); }
+      o.deadSeen = games.map(g => !g.byId(dm.id) || !g.byId(dm.id).alive);
+      for (let f = 0; f < 60 * 5; f++) { for (const g of games) g.frame(1/60); window.__bus.advance(1/60); }
+      o.removedEverywhere = games.map(g => !g.byId(dm.id));
+      // a client clears them all
+      c0.sandboxClear();
+      for (let f = 0; f < 60; f++) { for (const g of games) g.frame(1/60); window.__bus.advance(1/60); }
+      o.afterClear = games.map(g => ds(g).length);
+      o.stillPlaying = games.map(g => g.state === 'playing' || g.state === 'paused'); o.notEnded = games.every(g => !g.ended);
+      o.errs = errs;
+      hostNet.leave(); window.__game.net = null;
+      return o;
+    }""")
+    print(json.dumps(SBX))
+    errors += SBX['errs']
+    assert SBX['startAlone'] is None and SBX['hostMode'] == 'sandbox' and SBX['hostActors'] == 1 and SBX['hostCountdown'], SBX
+    assert SBX['hostDummies'] >= 2 and SBX['clientModes'] == ['sandbox'] * 2 and SBX['clientDummies'] == [SBX['hostDummies']] * 2 and all(SBX['dummyAlive']) and all(SBX['dummyPosMatch']), SBX
+    assert SBX['afterClientSpawn'][0] == SBX['hostDummies'] + 1 and len(set(SBX['afterClientSpawn'])) == 1, SBX
+    assert SBX['c0Instant'] == 'ak47' and all(x == ['ak47', 'm1911', 'ak47'] for x in SBX['swapSeen']) and all(x == ['m680', 'magnum'] for x in SBX['hostSwapSeen']), SBX
+    assert all(SBX['deadSeen']) and all(SBX['removedEverywhere']) and SBX['afterClear'] == [0, 0, 0] and all(SBX['stillPlaying']) and SBX['notEnded'], SBX
+
     # ---- full lobby: 18 players, the 19th is refused; duel capacity
     F = pg.evaluate("""async () => {
       const M = await H.mods(), o = {}, closed = [], errs = [];

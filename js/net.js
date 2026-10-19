@@ -125,7 +125,24 @@ export class Net {
     const id = c.pid; if (id == null) return;
     const g = this.game;
     switch (m.t) {
-      case 'ld': { const p = this.players.get(id); if (p && !this.live()) { p.prim = m.prim; p.sec = m.sec; p.ap = m.ap; p.as = m.as; this.validate(p); this.pushLobby(); } break; }
+      case 'ld': {
+        const p = this.players.get(id); if (!p) break;
+        if (!this.live()) { p.prim = m.prim; p.sec = m.sec; p.ap = m.ap; p.as = m.as; this.validate(p); this.pushLobby(); }
+        else if (MODES[this.mode].sandbox) {          // sandbox: loadouts can change mid-match; everybody gets the new gun
+          p.prim = m.prim; p.sec = m.sec; p.ap = m.ap; p.as = m.as; this.validate(p);
+          g.applyLoadout(g.byId(id), p.prim, p.sec, p.ap, p.as); this.ev(['lo', id, p.prim, p.sec, p.ap, p.as]);
+        }
+        break;
+      }
+      case 'sb': {                                      // sandbox requests: spawn / clear dummies
+        const a = g.byId(id); if (!a || !this.live() || !MODES[this.mode].sandbox || !a.alive) break;
+        if (m.a === 'spawn') {
+          const x = +m.x, y = +m.y, z = +m.z, b = g.map.bounds;
+          if (![x, y, z].every(isFinite) || x < b.x0 || x > b.x1 || z < b.z0 || z > b.z1 || Math.hypot(x - a.pos.x, z - a.pos.z) > 60) break;
+          g.spawnDummies({ x, y: Math.max(0, Math.min(40, y)), z }, Math.max(1, Math.min(5, m.n | 0)), a);
+        } else if (m.a === 'clear') g.clearDummies();
+        break;
+      }
       case 'st': { const a = g.byId(id); if (a && this.live()) g.applyRemoteState(a, m); break; }
       case 'shot': { const a = g.byId(id); if (a && this.live()) g.remoteShot(a, m); break; }
       case 'ping': this.sendTo(c, { t: 'pong', n: m.n }); break;
@@ -157,14 +174,24 @@ export class Net {
 
   beginInfo(me) {
     const g = this.game, live = this.live();
-    return { mode: this.mode, map: this.map, mapName: MAP_INFO[this.map].name, me, mt: live ? g.matchT : -3.5, ts: live ? g.teamScore : [0, 0],
+    const dummies = live ? g.actors.filter((a) => a.dummy && a.alive).map((a) => ({ id: a.id, x: +a.pos.x.toFixed(2), y: +a.pos.y.toFixed(2), z: +a.pos.z.toFixed(2), yaw: +a.yaw.toFixed(3) })) : [];
+    return { mode: this.mode, map: this.map, mapName: MAP_INFO[this.map].name, me, mt: live ? g.matchT : (MODES[this.mode].sandbox ? 0 : -3.5), ts: live ? g.teamScore : [0, 0], dummies,
       players: [...this.players.values()].map((p) => ({ id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec, ap: p.ap, as: p.as })) };
   }
 
   // ---- host UI actions ----
   setLoadout(prim, sec, ap, as) {
-    if (this.role === 'host') { const p = this.players.get(0); p.prim = prim; p.sec = sec; p.ap = ap; p.as = as; this.validate(p); this.pushLobby(); } else if (this.conn) this.sendTo(this.conn, { t: 'ld', prim, sec, ap, as });
+    const g = this.game, sb = this.live() && !!g.mode && !!g.mode.sandbox;
+    if (this.role === 'host') {
+      const p = this.players.get(0); p.prim = prim; p.sec = sec; p.ap = ap; p.as = as; this.validate(p);
+      if (sb) { g.applyLoadout(g.byId(0), p.prim, p.sec, p.ap, p.as); this.ev(['lo', 0, p.prim, p.sec, p.ap, p.as]); }
+      this.pushLobby();
+    } else if (this.conn) {
+      this.sendTo(this.conn, { t: 'ld', prim, sec, ap, as });
+      if (sb) g.applyLoadout(g.player, prim, sec, ap, as);                  // instant on our own screen; the host confirms to everyone
+    }
   }
+  sendSandbox(m) { if (this.conn) this.sendTo(this.conn, { t: 'sb', ...m }); }
   setMode(mode) {
     if (this.role !== 'host' || !MODES[mode]) return null;
     if (this.players.size > mpMode(mode).max) return `Too many players for ${MODES[mode].name} (max ${mpMode(mode).max}).`;
@@ -173,7 +200,7 @@ export class Net {
   setMap(map) { if (this.role === 'host' && MAP_IDS.includes(map)) { this.map = map; this.pushLobby(); } }
   start() {
     if (this.role !== 'host') return 'Only the host can start the match.';
-    if (this.players.size < 2) return 'Need at least 2 players to start.';
+    if (this.players.size < (MODES[this.mode].sandbox ? 1 : 2)) return 'Need at least 2 players to start.';
     this.assignTeams();
     for (const c of this.conns.values()) this.sendTo(c, { t: 'begin', ...this.beginInfo(c.pid) });
     this.evAll = []; this.evMap.clear();

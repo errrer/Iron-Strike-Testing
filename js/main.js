@@ -64,6 +64,7 @@ let net = null;
 for (const id of PRIMARIES) weaponCard($('primaries'), id, 'primary');
 for (const id of SECONDARIES) weaponCard($('secondaries'), id, 'secondary');
 // ---------------- attachments (equipped per weapon, remembered between sessions) ----------------
+const MAX_DUMMIES_UI = 20;
 const maskFor = (id) => cleanMask(WEAPONS[id], cfg.att[id] | 0);
 function renderAtt(el, slot) {
   const id = cfg[slot], w = WEAPONS[id]; el.textContent = '';
@@ -73,8 +74,7 @@ function renderAtt(el, slot) {
     b.className = 'chip' + (maskFor(id) & a.bit ? ' sel' : '');
     for (const [tag, text] of [['b', a.name], ['span', a.desc], ['em', a.stats]]) { const x = document.createElement(tag); x.textContent = text; b.appendChild(x); }
     b.addEventListener('click', () => {
-      cfg.att[id] = maskFor(id) ^ a.bit; save(); refreshAtt();
-      if (net) net.setLoadout(cfg.primary, cfg.secondary, maskFor(cfg.primary), maskFor(cfg.secondary));
+      cfg.att[id] = maskFor(id) ^ a.bit; save(); refreshAtt(); loadoutChanged();
     });
     el.appendChild(b);
   }
@@ -83,6 +83,12 @@ function renderAtt(el, slot) {
 function refreshAtt() {
   renderAtt($('attP'), 'primary'); renderAtt($('attS'), 'secondary');
   renderAtt($('mpAttP'), 'primary'); renderAtt($('mpAttS'), 'secondary');
+  renderAtt($('sbAttP'), 'primary'); renderAtt($('sbAttS'), 'secondary');
+}
+// a loadout edit goes to the lobby (multiplayer), or straight into a running sandbox match
+function loadoutChanged() {
+  if (net) { net.setLoadout(cfg.primary, cfg.secondary, maskFor(cfg.primary), maskFor(cfg.secondary)); return; }
+  if (game.mode && game.mode.sandbox && game.scene && (game.state === 'playing' || game.state === 'paused')) game.applyLoadout(game.player, cfg.primary, cfg.secondary, maskFor(cfg.primary), maskFor(cfg.secondary));
 }
 refreshAtt();
 
@@ -202,9 +208,24 @@ function resetMpUi() { $('btnAgain').textContent = 'Play again'; $('pauseTitle')
 function fillSelect(id, items) { const el = $(id); for (const [v, label] of items) { const o = document.createElement('option'); o.value = v; o.textContent = label; el.appendChild(o); } }
 fillSelect('mpMode', Object.values(MODES).map((m) => [m.id, m.name]));
 fillSelect('mpMap', MAP_IDS.map((id) => [id, MAP_INFO[id].name]));
+fillSelect('sbPrim', PRIMARIES.map((id) => [id, WEAPONS[id].name]));
+fillSelect('sbSec', SECONDARIES.map((id) => [id, WEAPONS[id].name]));
 fillSelect('mpPrim', PRIMARIES.map((id) => [id, WEAPONS[id].name]));
 fillSelect('mpSec', SECONDARIES.map((id) => [id, WEAPONS[id].name]));
 $('mpPrim').value = cfg.primary; $('mpSec').value = cfg.secondary; $('mpName').value = cfg.name;
+
+// ---------------- sandbox panel (pause menu) ----------------
+function sbRefresh() {
+  $('sbPrim').value = cfg.primary; $('sbSec').value = cfg.secondary; refreshAtt();
+  const n = game.actors ? game.actors.filter((a) => a.dummy).length : 0;
+  $('sbCount').textContent = `Dummies: ${n} / ${MAX_DUMMIES_UI}. They stand still and do nothing; dead ones disappear after a few seconds.`;
+}
+game.onPause = sbRefresh;
+setInterval(() => { if (game.mode && game.mode.sandbox && game.state === 'paused') sbRefresh(); }, 500);
+$('sbSpawn').addEventListener('click', () => { game.sandboxSpawn(1); sbRefresh(); });
+$('sbSpawn5').addEventListener('click', () => { game.sandboxSpawn(5); sbRefresh(); });
+$('sbClear').addEventListener('click', () => { game.sandboxClear(); sbRefresh(); });
+for (const [id, key] of [['sbPrim', 'primary'], ['sbSec', 'secondary']]) $(id).addEventListener('change', () => { cfg[key] = $(id).value; save(); refreshAtt(); loadoutChanged(); });
 
 function renderLobby(st) {
   if (!net || !st) return;
@@ -225,8 +246,9 @@ function renderLobby(st) {
     r.insertCell().textContent = `${tag(p.prim, p.ap)} / ${tag(p.sec, p.as)}`;
   }
   $('mpStart').classList.toggle('hidden', !host);
-  $('mpStart').disabled = st.players.length < 2;
-  mpStatus('mpLStatus', host ? (st.players.length < 2 ? 'Waiting for players - share the room code.' : '') : (st.inMatch ? 'A match is in progress...' : 'Waiting for the host to start the match...'));
+  const minP = mpMode(st.mode).sandbox ? 1 : 2;
+  $('mpStart').disabled = st.players.length < minP;
+  mpStatus('mpLStatus', host ? (st.players.length < minP ? 'Waiting for players - share the room code.' : '') : (st.inMatch ? 'A match is in progress...' : 'Waiting for the host to start the match...'));
 }
 
 const mpUi = {
