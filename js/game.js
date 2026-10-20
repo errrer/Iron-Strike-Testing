@@ -8,6 +8,9 @@ import { Bot } from './bots.js';
 import { makeRichtofen, richtofenReady } from './easter.js';
 import { buildSoldier, holdGun } from './soldier.js';
 import { Ragdoll, makeRagdoll } from './ragdoll.js';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js';
+import { Objectives } from './objectives.js';
+import { Streaks, STREAKS } from './streaks.js';
 import { Gore } from './gore.js';
 
 const V3 = THREE.Vector3;
@@ -19,6 +22,10 @@ export const MODES = {
   tdm: { id: 'tdm', name: 'Team Deathmatch', team: true, perSide: 5, scoreLimit: 30, time: 420, blurb: '5v5 - first team to 30 kills' },
   '1v1': { id: '1v1', name: '1v1 Duel', team: false, count: 2, scoreLimit: 10, time: 300, blurb: 'You vs one bot - first to 10 kills' },
   ffa: { id: 'ffa', name: 'Free For All', team: false, count: 8, scoreLimit: 20, time: 420, blurb: '8 players, every man for himself - first to 20' },
+  dom: { id: 'dom', name: 'Domination', team: true, perSide: 5, scoreLimit: 200, time: 600, obj: 'dom', solo: true, blurb: 'Capture A, B and C and hold them - first team to 200 (offline)' },
+  hp: { id: 'hp', name: 'Hardpoint', team: true, perSide: 5, scoreLimit: 250, time: 600, obj: 'hp', solo: true, blurb: 'One zone that keeps moving - stand in it alone to score (offline)' },
+  kc: { id: 'kc', name: 'Kill Confirmed', team: true, perSide: 5, scoreLimit: 40, time: 600, obj: 'kc', solo: true, blurb: 'Kills drop dog tags - grab red to confirm, blue to deny (offline)' },
+  snd: { id: 'snd', name: 'Search & Destroy', team: true, perSide: 5, scoreLimit: 4, time: 1500, obj: 'snd', oneLife: true, solo: true, blurb: 'One life. Attack: plant at A or B (hold E). Defend: stop it. First to 4 rounds (offline)' },
   sandbox: { id: 'sandbox', name: 'Sandbox', team: false, count: 1, scoreLimit: 0, time: 0, sandbox: true, blurb: 'No score, no clock. Spawn dummies (B), swap your loadout any time (Esc)' },
 };
 export const MAX_DUMMIES = 20;
@@ -40,7 +47,7 @@ const BOT_PRIMARY_POOL = ['vmp', 'vmp', 'vmp', 'm4a1', 'm4a1', 'm4a1', 'ak47', '
 
 export class Game {
   constructor(canvas, hud, sound, settings) {
-    this.canvas = canvas; this.hud = hud; this.sound = sound; this.settings = settings;
+    this.canvas = canvas; this.hud = hud; this.sound = sound; this.settings = settings; this.prog = new Progress(); this.matchXp = 0;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.shadowMap.enabled = true;
@@ -88,6 +95,7 @@ export class Game {
       if (e.code === 'Digit1') this.switchWeapon(p, 0);
       if (e.code === 'Digit2') this.switchWeapon(p, 1);
       if (e.code === 'KeyQ') this.switchWeapon(p, 1 - p.cur);
+      if (this.streaks && !this.net) { const s = STREAKS.find((x) => x.code === e.code); if (s) this.streaks.use(s.id); }
       if (e.code === 'KeyV') this.toggleView();
       if (e.code === 'KeyZ' && p.alive) { p.tacOn = !p.tacOn; this.hud.center(p.tacOn ? 'TAC STANCE ON' : 'TAC STANCE OFF', 0.7); }
       if (e.code === 'KeyB' && this.mode.sandbox) this.sandboxSpawn(e.shiftKey ? 5 : 1);
@@ -177,8 +185,10 @@ export class Game {
     this.timeLeft = mode.time; this.matchT = mode.sandbox ? 0 : -3.5; this.ended = false;
     this.killer = null; this.deathInfo = '';
     this.lastCountdown = mode.sandbox ? 0 : 99; this.nextDummyId = 1000;
-    this.hud.begin(this);
+    this.matchXp = 0; this.xpDone = false; this.hud.begin(this);
     for (const a of this.actors) this.spawn(a, true);
+    this.obj = mode.obj ? new Objectives(this, mode.obj) : null;
+    this.streaks = mode.sandbox ? null : new Streaks(this);
     this.setPlayerVm();
     this.state = 'playing';
     this.keys = {}; this.fireHeld = false; this.adsHeld = false;
@@ -188,7 +198,9 @@ export class Game {
 
   disposeMatch() {
     if (this.world) this.world.dispose();
-    this.world = null; this.scene = null;
+    if (this.obj) this.obj.dispose();
+    if (this.streaks) this.streaks.dispose();
+    this.streaks = null; this.obj = null; this.world = null; this.scene = null;
     this.tracers = []; this.particles = []; this.gore = null;
     this.actors = [];
   }
@@ -339,7 +351,7 @@ export class Game {
     this.teamScore = info.ts ? info.ts.slice() : [0, 0];
     this.timeLeft = this.mode.time; this.matchT = info.mt; this.ended = false;
     this.killer = null; this.lastCountdown = this.mode.sandbox ? 0 : 99; this.clockOff = null; this.snapT = 0; this.stT = 0; this.nextDummyId = 1000;
-    this.hud.begin(this);
+    this.matchXp = 0; this.xpDone = false; this.hud.begin(this);
     for (const a of this.actors) { a.alive = false; a.mesh.root.visible = false; }
     if (net.role === 'host') for (const a of this.actors) this.spawn(a, true);
     this.setPlayerVm();
@@ -521,6 +533,7 @@ export class Game {
     if (!k || !v || !w) return;
     v.alive = false; v.hp = 0; v.deathT = 0; v.reloading = false; v.respawnT = 3.2; v.deaths++; if (k !== v) k.kills++;
     this.spawnGore(v, k, w, head); this.startRagdoll(v, k, w, head);
+    this.killXp(k, v, head);
     this.hud.feed(k, v, w, head, this);
     if (v.isPlayer) { this.killer = k; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
     if (k.isPlayer && k !== v) {
@@ -535,6 +548,7 @@ export class Game {
     this.teamScore = ts; this.ended = true; this.state = 'ended';
     this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.showScore = false;
     try { document.exitPointerLock(); } catch (e) { /* ignore */ }
+    this.finishXp(win);
     this.hud.showEnd(this, win);
   }
 
@@ -719,7 +733,7 @@ export class Game {
       } else {
         a.deathT += dt; a.respawnT -= dt;
         if (a.dummy) { if (a.deathT > 8) this.removeNetActor(a.id); }          // dead dummies are cleared away
-        else if (a.respawnT <= 0 && !this.ended) this.spawn(a);
+        else if (a.respawnT <= 0 && !this.ended && !this.mode.oneLife) this.spawn(a);
       }
     }
     for (const a of this.actors) {
@@ -733,6 +747,8 @@ export class Game {
       if (a.mesh) this.syncMesh(a, dt);
     }
     for (const a of this.actors) if (!a.alive && a.mesh) this.syncMesh(a, dt);
+    if (this.obj && !this.ended && this.matchT >= 0) this.obj.update(dt);
+    if (this.streaks && !this.ended) this.streaks.update(dt);
     this.updateFx(dt);
 
     if (!client && !this.ended) this.checkEnd();
@@ -947,8 +963,11 @@ export class Game {
   kill(v, k, w, head) {
     v.alive = false; v.hp = 0; v.deaths++; v.deathT = 0; v.reloading = false; v.respawnT = v.isPlayer ? 3.2 : 3;
     this.spawnGore(v, k, w, head); this.startRagdoll(v, k, w, head);
-    if (k !== v) { k.kills++; k.streak++; if (this.mode.team) this.teamScore[k.team]++; }
+    if (k !== v) { k.kills++; k.streak++; if (this.mode.team && !this.mode.obj) this.teamScore[k.team]++; }
     v.streak = 0;
+    if (this.obj) this.obj.onKill(v, k);
+    if (this.streaks && k.isPlayer && k !== v && !v.dummy) this.streaks.earn(k.streak);
+    this.killXp(k, v, head);
     this.hud.feed(k, v, w, head, this);
     if (this.net) this.net.ev(['k', k.id, v.id, w.id, head ? 1 : 0]);
     if (v.isPlayer) { this.killer = k; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
@@ -956,6 +975,34 @@ export class Game {
       this.sound.kill();
       for (let i = 0; i < 2; i++) { const am = k.ammo[i]; am.res = Math.min(k.weapons[i].reserve, am.res + Math.ceil(k.weapons[i].mag / 2)); }
     }
+  }
+
+  // ------------------------------------------------------------------ progression (XP, ranks; see progress.js)
+  award(n, label) {
+    if (this.mode.sandbox || !n) return;
+    this.matchXp += n; const lv = this.prog.add(n); this.hud.xp(`+${n} ${label}`);
+    if (lv) {
+      this.hud.xp(`LEVEL ${lv} - ${rankName(lv).toUpperCase()}`, true);
+      for (const [id, l] of Object.entries(UNLOCK)) if (l === lv && WEAPONS[id]) this.hud.xp(`UNLOCKED ${WEAPONS[id].name.toUpperCase()}`, true);
+    }
+  }
+
+  // called on every peer for each kill; only counts the local player's own kills and deaths
+  killXp(k, v, head) {
+    if (this.mode.sandbox || !k || !v) return;
+    if (v.isPlayer) this.prog.stat('deaths');
+    if (!k.isPlayer || k === v || v.dummy) return;
+    this.prog.stat('kills'); this.award(XP_REWARD.kill, 'KILL');
+    if (head) { this.prog.stat('heads'); this.award(XP_REWARD.headshot, 'HEADSHOT'); }
+    if (k.streak >= 3) this.award(XP_REWARD.streak * Math.min(k.streak - 2, 6), `${k.streak} KILL STREAK`);
+  }
+
+  finishXp(win) {
+    if (this.mode.sandbox || this.xpDone) return; this.xpDone = true;
+    const p = this.player; this.prog.stat('matches');
+    this.award(XP_REWARD.played, 'MATCH COMPLETE');
+    if (win !== null && win === p.team) { this.prog.stat('wins'); this.award(XP_REWARD.win, 'VICTORY'); }
+    this.endXp = this.matchXp;
   }
 
   checkEnd() {
@@ -980,6 +1027,7 @@ export class Game {
     }
     if (this.isHost) this.net.ev(['end', win, this.actors.map((a) => [a.id, a.kills, a.deaths]), this.teamScore]);
     try { document.exitPointerLock(); } catch (e) { /* ignore */ }
+    this.finishXp(win);
     this.hud.showEnd(this, win);
   }
 
@@ -988,7 +1036,7 @@ export class Game {
     const p = this.player, k = this.keys;
     if (!p.alive) {
       p.deathT += dt; p.respawnT -= dt;
-      if (p.respawnT <= 0 && !this.ended && !this.isClient) this.spawn(p);
+      if (p.respawnT <= 0 && !this.ended && !this.isClient && !this.mode.oneLife) this.spawn(p);
       return;
     }
     p.protT = Math.max(0, p.protT - dt);

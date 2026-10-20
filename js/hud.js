@@ -22,7 +22,7 @@ export class HUD {
   constructor() {
     this.el = {};
     for (const id of ['hud', 'sbL', 'sbR', 'timer', 'radar', 'killfeed', 'crosshair', 'hitmarker', 'dmgind', 'vignette', 'hpfill', 'hptxt',
-      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'stance', 'sbhint', 'sbPanel']) this.el[id] = $(id);
+      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'stance', 'sbhint', 'sbPanel', 'xppop', 'objhud', 'streakbar']) this.el[id] = $(id);
     this.rctx = this.el.radar.getContext('2d');
     this.cache = {};
     this.msgT = 0; this.sbT = 0;
@@ -31,7 +31,7 @@ export class HUD {
 
   setCrosshair(c) { this.xh = cleanXh(c); styleCrosshair(this.el.crosshair, this.xh); this.xhGap = null; }
 
-  set(id, text) { if (this.cache[id] !== text) { this.cache[id] = text; this.el[id].textContent = text; } }
+  set(id, text, html) { if (this.cache[id] !== text) { this.cache[id] = text; if (html) this.el[id].innerHTML = text; else this.el[id].textContent = text; } }
 
   begin(game) {
     this.cache = {};
@@ -51,6 +51,12 @@ export class HUD {
       c.fillRect((bx.x0 - b.x0) * S, (bx.z0 - b.z0) * S, (bx.x1 - bx.x0) * S, (bx.z1 - bx.z0) * S);
     }
     this.radarMap = cv;
+  }
+
+  xp(text, lvl) {
+    const d = document.createElement('div'); d.textContent = text; if (lvl) d.className = 'lvl';
+    this.el.xppop.appendChild(d); setTimeout(() => d.remove(), 1700);
+    while (this.el.xppop.children.length > 5) this.el.xppop.firstChild.remove();
   }
 
   center(text, secs = 1.2) { this.el.msg.textContent = text; this.el.msg.classList.add('show'); this.msgT = secs; }
@@ -99,6 +105,7 @@ export class HUD {
     e.endTitle.textContent = win === null ? 'DRAW' : (won ? 'VICTORY' : 'DEFEAT');
     e.endTitle.className = win === null ? 'draw' : (won ? 'win' : 'lose');
     e.endSub.textContent = game.mode.team ? `Allies ${game.teamScore[p.team % 2]} - ${game.teamScore[1 - (p.team % 2)]} Enemy` : `${[...game.actors].sort((a, b) => b.kills - a.kills)[0].name} wins with ${[...game.actors].sort((a, b) => b.kills - a.kills)[0].kills} kills`;
+    if (game.endXp) e.endSub.textContent += `  -  +${game.endXp} XP`;
     this.buildTable(game, e.endTable);
     e.endscreen.classList.remove('hidden');
     this.el.dead.classList.add('hidden');
@@ -148,13 +155,15 @@ export class HUD {
     if (this.xhGap !== gap.toFixed(1)) { this.xhGap = gap.toFixed(1); e.crosshair.style.setProperty('--gap', `${this.xhGap}px`); }
     e.crosshair.style.opacity = (p.ads > 0.3 && !game.tp) || !p.alive ? '0' : '1';
     // dead
-    if (!p.alive) this.set('deadSub', `${this.deadWeapon || ''}  -  respawning in ${Math.max(0, Math.ceil(p.respawnT))}`);
+    if (!p.alive) this.set('deadSub', `${this.deadWeapon || ''}  -  ${game.mode.oneLife ? 'waiting for the next round' : `respawning in ${Math.max(0, Math.ceil(p.respawnT))}`}`);
     // scoreboard
     this.sbT -= game.dt || 1 / 60;
     e.scoreboard.classList.toggle('hidden', !game.showScore);
     if (game.showScore && this.sbT <= 0) { this.sbT = 0.25; this.buildTable(game, e.scoreboard.querySelector('table')); }
     if (game.net) this.set('netinfo', game.net.role === 'host' ? `HOST - ${game.actors.length} players` : `PING ${Math.round(game.net.ping)} ms - ${game.actors.length} players`);
     this.el.stance.classList.toggle('hidden', !(p.tacOn && p.alive));
+    if (game.streaks && !game.net) this.set('streakbar', game.streaks.html, true); else this.set('streakbar', '', true);
+    const oh = game.obj ? game.obj.hudHtml : ''; e.objhud.classList.toggle('hidden', !oh); this.set('objhud', oh, true);
     this.drawRadar(game);
   }
 
@@ -168,11 +177,12 @@ export class HUD {
     for (const a of game.actors) {
       if (a === p || !a.alive) continue;
       const ally = game.mode.team && a.team === p.team;
-      const pinged = game.time - a.lastShot < 1.6;
+      const pinged = game.time - a.lastShot < 1.6 || (game.streaks && game.streaks.uav > 0);
       if (!ally && !pinged) continue;
       c.fillStyle = ally ? '#58b4ff' : '#ff5a4a';
       c.beginPath(); c.arc(a.pos.x, a.pos.z, 1.5, 0, Math.PI * 2); c.fill();
     }
+    if (game.obj) game.obj.drawRadar(c);
     c.restore();
     // player marker + ring
     c.save(); c.translate(R, R); c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(0, -7); c.lineTo(5, 6); c.lineTo(0, 3); c.lineTo(-5, 6); c.closePath(); c.fill(); c.restore();

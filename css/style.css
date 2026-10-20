@@ -223,3 +223,25 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 .sbrow label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
 .sbpanel select { background: #11181f; color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 5px 8px; }
 .sbcount { font-size: 12px; opacity: 0.7; margin: 2px 0 8px; }
+
+/* ---- progression / objectives / killstreaks ---- */
+.rankbox { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--dim); }
+.rankbox b { color: var(--accent2); letter-spacing: 2px; text-transform: uppercase; }
+.xpbar { width: 160px; height: 6px; background: rgba(255,255,255,.12); border-radius: 3px; overflow: hidden; }
+.xpbar i { display: block; height: 100%; width: 0; background: var(--accent); }
+.card.locked { opacity: .45; cursor: not-allowed; filter: grayscale(.6); }
+.card.locked:hover { transform: none; border-color: var(--line); }
+.card .lock { position: absolute; bottom: 8px; right: 10px; font-size: 11px; letter-spacing: 2px; color: #e04a3a; }
+#xppop { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); display: grid; gap: 2px; justify-items: center; font-weight: 700; letter-spacing: 2px; text-shadow: 0 1px 4px #000; pointer-events: none; }
+#xppop div { color: #ffd45e; font-size: 15px; animation: xpfade 1.6s forwards; }
+#xppop div.lvl { color: #7dffa0; font-size: 20px; }
+@keyframes xpfade { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+#objhud { position: absolute; top: 46px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; font-weight: 700; letter-spacing: 2px; text-shadow: 0 1px 3px #000; pointer-events: none; }
+#objhud.hidden { display: none; }
+#objhud .z { min-width: 38px; height: 38px; border: 2px solid rgba(255,255,255,.7); border-radius: 50%; display: grid; place-items: center; background: rgba(0,0,0,.45); font-size: 16px; position: relative; }
+#objhud .z.ally { border-color: #58b4ff; color: #58b4ff; } #objhud .z.enemy { border-color: #ff5a4a; color: #ff5a4a; } #objhud .z.contested { border-color: #ffd45e; color: #ffd45e; }
+#objhud .info { font-size: 13px; color: #fff; background: rgba(0,0,0,.45); padding: 4px 10px; border-radius: 4px; }
+#streakbar { position: absolute; left: 16px; bottom: 120px; display: grid; gap: 4px; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-shadow: 0 1px 3px #000; }
+#streakbar div { background: rgba(0,0,0,.5); border-left: 3px solid #666; padding: 3px 10px; color: #aaa; }
+#streakbar div.ready { border-color: var(--accent); color: #fff; }
+#streakbar div.active { border-color: #7dffa0; color: #7dffa0; }

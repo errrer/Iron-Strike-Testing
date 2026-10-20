@@ -6,6 +6,7 @@ import { Sound } from './audio.js';
 import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js';
 import { loadModels } from './gunmodels.js';
 import { MAP_IDS, MAP_INFO } from './maps.js';
+import { rankName, UNLOCK } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -32,7 +33,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll !== false };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -44,8 +45,8 @@ try {
 // ---------------- menu cards ----------------
 function card(parent, html, selected, onClick) {
   const d = document.createElement('div'); d.className = 'card' + (selected ? ' sel' : ''); d.innerHTML = html;
-  d.addEventListener('click', () => { onClick(); for (const c of parent.children) c.classList.remove('sel'); d.classList.add('sel'); save(); });
-  parent.appendChild(d);
+  d.addEventListener('click', () => { if (d.classList.contains('locked')) return; onClick(); for (const c of parent.children) c.classList.remove('sel'); d.classList.add('sel'); save(); });
+  parent.appendChild(d); return d;
 }
 
 for (const m of Object.values(MODES)) {
@@ -58,9 +59,24 @@ for (const id of MAP_IDS) {
 function weaponCard(parent, id, key) {
   const w = WEAPONS[id], bars = weaponBars(w);
   const barsHtml = Object.entries(bars).map(([k, v]) => `<div class="bar"><span>${k}</span><i><b style="width:${Math.round(v * 100)}%"></b></i></div>`).join('');
-  card(parent, `<span class="cls">${w.cls}</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars">${barsHtml}</div>`, cfg[key] === id, () => { cfg[key] = id; refreshAtt(); });
+  const el = card(parent, `<span class="cls">${w.cls}</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars">${barsHtml}</div>`, cfg[key] === id, () => { cfg[key] = id; refreshAtt(); });
+  el.dataset.wid = id; el.insertAdjacentHTML('beforeend', '<span class="lock"></span>');
 }
 let net = null;
+// ---------------- progression: rank box + weapon unlocks ----------------
+function refreshProg() {
+  const pr = game.prog, i = pr.info, all = cfg.unlockAll !== false;
+  $('rankName').textContent = `LV ${i.level} ${rankName(i.level)}`;
+  $('rankFill').style.width = `${Math.round(i.into / i.next * 100)}%`;
+  $('rankTxt').textContent = `${i.into} / ${i.next} XP  -  ${pr.d.kills} kills  -  ${pr.d.wins}/${pr.d.matches} wins`;
+  for (const c of document.querySelectorAll('[data-wid]')) {
+    const id = c.dataset.wid, lock = !pr.unlocked(id, all);
+    c.classList.toggle('locked', lock); c.querySelector('.lock').textContent = lock ? `LEVEL ${UNLOCK[id]}` : '';
+  }
+  for (const [key, list] of [['primary', PRIMARIES], ['secondary', SECONDARIES]]) {
+    if (!pr.unlocked(cfg[key], all)) { cfg[key] = list.find((id) => pr.unlocked(id, all)); for (const c of document.querySelectorAll(`#${key === 'primary' ? 'primaries' : 'secondaries'} .card`)) c.classList.toggle('sel', c.dataset.wid === cfg[key]); }
+  }
+}
 for (const id of PRIMARIES) weaponCard($('primaries'), id, 'primary');
 for (const id of SECONDARIES) weaponCard($('secondaries'), id, 'secondary');
 // ---------------- attachments (equipped per weapon, remembered between sessions) ----------------
@@ -192,7 +208,7 @@ function toMenu() {
   game.net = null; game.state = 'menu';
   try { document.exitPointerLock(); } catch (e) { /* ignore */ }
   $('hud').classList.add('hidden'); $('pause').classList.add('hidden'); $('endscreen').classList.add('hidden');
-  $('menu').classList.remove('hidden');
+  $('menu').classList.remove('hidden'); refreshProg();
 }
 $('btnStart').addEventListener('click', deploy);
 $('btnAgain').addEventListener('click', () => {
@@ -212,7 +228,7 @@ function mpStatus(id, text, err) { const el = $(id); el.textContent = text || ''
 function resetMpUi() { $('btnAgain').textContent = 'Play again'; $('pauseTitle').textContent = 'PAUSED'; $('btnQuit').textContent = 'Quit to menu'; }
 
 function fillSelect(id, items) { const el = $(id); for (const [v, label] of items) { const o = document.createElement('option'); o.value = v; o.textContent = label; el.appendChild(o); } }
-fillSelect('mpMode', Object.values(MODES).map((m) => [m.id, m.name]));
+fillSelect('mpMode', Object.values(MODES).filter((m) => !m.solo).map((m) => [m.id, m.name]));
 fillSelect('mpMap', MAP_IDS.map((id) => [id, MAP_INFO[id].name]));
 fillSelect('sbPrim', PRIMARIES.map((id) => [id, WEAPONS[id].name]));
 fillSelect('sbSec', SECONDARIES.map((id) => [id, WEAPONS[id].name]));
@@ -320,3 +336,10 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+// unlock-all toggle + initial rank display
+{
+  const el = $('unlockAll');
+  if (el) { el.checked = cfg.unlockAll !== false; el.addEventListener('change', () => { cfg.unlockAll = el.checked; game.settings.unlockAll = el.checked; save(); refreshProg(); }); }
+  refreshProg();
+}

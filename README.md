@@ -60,6 +60,12 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 
 - **Euphoria ragdoll** (checkbox in the menus, `js/ragdoll.js`) - a dying soldier is an active ragdoll, not a plank that tips over. A 16-point Verlet skeleton keeps fighting for a moment: it props itself up, takes stumbling steps in the direction of the hit, clutches the wound (or its head) with one hand, flails the other arm, then reaches for the ground as it falls and finally goes limp and settles against the floor and crates. Bigger guns shove harder (shotgun and sniper hardest, pistols least) and stay conscious for less time; headshots cut it short. Knees and elbows bend the right way, severed parts bleed from the right spot on the moving body, and it is cosmetic only, so every peer simulates its own in multiplayer.
 
+## V0.5 - objectives, killstreaks and ranks
+
+- **4 new offline modes** (`js/objectives.js`; bots play the objective too): **Domination** (capture A/B/C by standing in the ring, a point every 3 s per flag, first to 200), **Hardpoint** (one zone that moves every 45 s, only the team alone in it scores, first to 250), **Kill Confirmed** (kills drop dog tags - pick up red tags to confirm, blue to deny, first to 40) and **Search & Destroy** (one life per round; attackers hold **E** in site A or B for 3 s to plant, defenders hold **E** at the bomb for 5 s to defuse, bomb timer 40 s, first to 4 rounds). They are single-player only for now, so they are hidden from the multiplayer lobby.
+- **Killstreaks** (`js/streaks.js`, offline modes): 3 kills in a row earns a **UAV** (key 4, all enemies on the radar for 25 s), 5 a **Sentry Gun** (key 5, automatic turret for 60 s), 7 an **Airstrike** (key 6, eight bombs along your view direction). The cycle repeats every 10 kills.
+- **XP, ranks and unlocks** (`js/progress.js`, saved in the browser): kills, headshots, streaks, captures, plants/defuses and wins give XP. 30 levels with 10 rank names; weapons unlock with level (M4A1/VMP/G18 at 1, M1911 3, AK-47 5, Model 680 8, .357 11, Kar98k 14). The main menu has an "Unlock all weapons (testing)" checkbox, ON by default - turn it off to play the progression for real.
+
 ## Sandbox mode
 
 Pick **Sandbox** in the mode list (also available in multiplayer). There is no score and no clock, and no bots - just you, a map and dummies.
@@ -141,6 +147,7 @@ tests/              map/nav test + headless smoke test
 ```bash
 node tests/nav-test.mjs   # every map has a connected nav graph and valid spawns
 python3 tests/smoke.py    # headless Chromium (Playwright): plays all modes with a stubbed Three.js
+python3 tests/modes-test.py     # V0.5: objective modes, killstreaks, XP and unlocks
 python3 tests/ragdoll-test.py   # euphoria ragdoll: stagger, limb lengths, ground, sleep, respawn reset
 ```
 

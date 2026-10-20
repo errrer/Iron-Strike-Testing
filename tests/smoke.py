@@ -59,7 +59,7 @@ with sync_playwright() as pw:
     # menu sanity
     counts = pg.evaluate("() => ({modes: document.querySelectorAll('#modes .card').length, maps: document.querySelectorAll('#maps .card').length, prim: document.querySelectorAll('#primaries .card').length, sec: document.querySelectorAll('#secondaries .card').length})")
     print('menu cards:', counts)
-    assert counts == {'modes': 4, 'maps': 4, 'prim': 5, 'sec': 3}, counts
+    assert counts == {'modes': 8, 'maps': 4, 'prim': 5, 'sec': 3}, counts
     chips = pg.evaluate("() => ({p: document.querySelectorAll('#attP .chip').length, s: document.querySelectorAll('#attS .chip').length})")
     pg.click('#attP .chip'); pg.click('#attS .chip:nth-of-type(2)')   # VMP red dot, G18 laser
     saved = pg.evaluate("() => JSON.parse(localStorage.getItem('ironstrike')).att")

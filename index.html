@@ -26,6 +26,9 @@
   <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
   <div id="scope"><div class="ring"></div><div class="h"></div><div class="v"></div></div>
   <div id="msg"></div>
+  <div id="xppop"></div>
+  <div id="objhud" class="hidden"></div>
+  <div id="streakbar"></div>
   <div id="stance" class="hidden">TAC STANCE</div>
   <div id="sbhint" class="hidden">SANDBOX - B spawn dummy - Shift+B spawn 5 - N clear dummies - Esc loadout</div>
   <div id="health"><div id="hpbar"><i id="hpfill"></i></div><span id="hptxt">100</span></div>
@@ -67,7 +70,7 @@
       <h3>Crosshair</h3>
       <div id="xhPause" class="xhbox"></div>
     </div>
-    <p class="hint">WASD move - Shift sprint - C crouch (while sprinting: slide) - Space jump (at a ledge: mantle) - LMB fire - RMB aim - R reload - 1/2/Q/wheel switch - Z tac stance (then aim) - F inspect - B/N sandbox dummies - V switch camera - Tab scoreboard</p>
+    <p class="hint">WASD move - Shift sprint - C crouch (while sprinting: slide) - Space jump (at a ledge: mantle) - LMB fire - RMB aim - R reload - 1/2/Q/wheel switch - Z tac stance (then aim) - F inspect - B/N sandbox dummies - E plant/defuse - 4/5/6 killstreaks - V switch camera - Tab scoreboard</p>
   </div>
 </div>
 
@@ -90,6 +93,7 @@
     <header>
       <div class="logo">IRON<span>STRIKE</span></div>
       <div class="tag">3D TACTICAL SHOOTER</div>
+      <div id="rankbox" class="rankbox"><b id="rankName"></b><div class="xpbar"><i id="rankFill"></i></div><span id="rankTxt"></span></div>
     </header>
 
     <section>
@@ -131,6 +135,7 @@
         <label>Field of view <input id="fov" type="range" min="60" max="110" step="1" value="80"><output id="fovOut">80</output></label>
         <label class="chk"><input id="gore" type="checkbox" checked> Gore (body parts and blood)</label>
         <label class="chk"><input id="rag" type="checkbox" checked> Euphoria ragdoll</label>
+        <label class="chk"><input id="unlockAll" type="checkbox" checked> Unlock all weapons (testing)</label>
         <label>Volume <input id="vol" type="range" min="0" max="1" step="0.05" value="0.55"><output id="volOut">0.55</output></label>
       </div>
     </section>
