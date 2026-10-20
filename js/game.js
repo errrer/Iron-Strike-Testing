@@ -7,6 +7,7 @@ import { buildWorld } from './world.js';
 import { Bot } from './bots.js';
 import { makeRichtofen, richtofenReady } from './easter.js';
 import { buildSoldier, holdGun } from './soldier.js';
+import { Ragdoll, makeRagdoll } from './ragdoll.js';
 import { Gore } from './gore.js';
 
 const V3 = THREE.Vector3;
@@ -237,7 +238,7 @@ export class Game {
     a.ammo = a.weapons.map((w) => ({ mag: w.mag, res: w.reserve })); a.crouch = false; a.slideT = 0; a.mantle = null; a.h = 1.8; a.eye = 1.65; a.heat = 0; a.recoilDebt = 0; a.ads = 0;
     a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99; a.tac = 0; a.tacOn = false; a.recoilBias = 0;
     if (a.brain) a.brain.reset();
-    if (a.mesh) { a.mesh.root.visible = !a.isPlayer; a.mesh.body.rotation.x = 0; this.setActorGun(a); }
+    if (a.mesh) { if (a.rag) { a.rag = null; Ragdoll.reset(a.mesh); } a.flinch = null; a.mesh.root.visible = !a.isPlayer; a.mesh.body.rotation.set(0, 0, 0); this.setActorGun(a); }
     if (a.isPlayer) { this.setPlayerVm(); this.hud.onRespawn(); if (!first) this.sound.spawn(); }
   }
 
@@ -450,7 +451,7 @@ export class Game {
       if (e.length > 7) { a.kills = e[7]; a.deaths = e[8]; }
       if (a.isPlayer) continue;
       const f = e[6], alive = !!(f & 1);
-      if (alive !== a.alive) { a.alive = alive; a.deathT = 0; if (alive) a.mesh.body.rotation.x = 0; }
+      if (alive !== a.alive) { a.alive = alive; a.deathT = 0; if (alive) { if (a.rag) { a.rag = null; Ragdoll.reset(a.mesh); } a.mesh.body.rotation.set(0, 0, 0); } }
       a.crouch = !!(f & 2); a.reloading = !!(f & 4); a.protT = (f & 64) ? 1 : 0;
       const cur = (f >> 4) & 1;
       if (cur !== a.cur) { a.cur = cur; a.weapon = a.weapons[cur]; this.setActorGun(a); }
@@ -519,7 +520,7 @@ export class Game {
     const k = this.byId(kid), v = this.byId(vid), w = WEAPONS[wid];
     if (!k || !v || !w) return;
     v.alive = false; v.hp = 0; v.deathT = 0; v.reloading = false; v.respawnT = 3.2; v.deaths++; if (k !== v) k.kills++;
-    this.spawnGore(v, k, w, head);
+    this.spawnGore(v, k, w, head); this.startRagdoll(v, k, w, head);
     this.hud.feed(k, v, w, head, this);
     if (v.isPlayer) { this.killer = k; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
     if (k.isPlayer && k !== v) {
@@ -717,7 +718,7 @@ export class Game {
         if (a.tgt) { a.pos.lerp(a.tgt, 1 - Math.exp(-22 * dt)); a.pos.y = a.tgt.y; }
       } else {
         a.deathT += dt; a.respawnT -= dt;
-        if (a.dummy) { if (a.deathT > 4) this.removeNetActor(a.id); }          // dead dummies are cleared away
+        if (a.dummy) { if (a.deathT > 8) this.removeNetActor(a.id); }          // dead dummies are cleared away
         else if (a.respawnT <= 0 && !this.ended) this.spawn(a);
       }
     }
@@ -779,9 +780,16 @@ export class Game {
   // world position of a point on a dead actor's body (the corpse falls over, so stump positions follow it)
   stumpPos(v, lp) {
     if (v.alive || !v.mesh) return null;
+    if (v.rag) return v.rag.toWorld(lp);
     const ang = Math.min(1, v.deathT * 3) * (Math.PI / 2), c = Math.cos(ang), s2 = Math.sin(ang);
     const y = lp.y * c - lp.z * s2, z = lp.y * s2 + lp.z * c, cy = Math.cos(v.yaw), sy = Math.sin(v.yaw);
     return [v.pos.x + lp.x * cy + z * sy, v.pos.y + y, v.pos.z - lp.x * sy + z * cy];
+  }
+
+  // Euphoria-style active ragdoll: the dying soldier staggers, clutches the wound and braces before going limp (ragdoll.js)
+  startRagdoll(v, k, w, head) {
+    if (!v.mesh || !this.settings.ragdoll) return;
+    try { Ragdoll.reset(v.mesh); v.rag = makeRagdoll(this.col, v, v.mesh, k, w, head); } catch (e) { v.rag = null; }
   }
 
   // GoreBox-style death: blood spray + splatter on walls and floor, a growing pool, spurting stumps, flying parts
@@ -938,7 +946,7 @@ export class Game {
 
   kill(v, k, w, head) {
     v.alive = false; v.hp = 0; v.deaths++; v.deathT = 0; v.reloading = false; v.respawnT = v.isPlayer ? 3.2 : 3;
-    this.spawnGore(v, k, w, head);
+    this.spawnGore(v, k, w, head); this.startRagdoll(v, k, w, head);
     if (k !== v) { k.kills++; k.streak++; if (this.mode.team) this.teamScore[k.team]++; }
     v.streak = 0;
     this.hud.feed(k, v, w, head, this);
@@ -1085,6 +1093,11 @@ export class Game {
   // ------------------------------------------------------------------ visuals
   syncMesh(a, dt) {
     const m = a.mesh;
+    if (!a.alive && a.rag) {
+      a.rag.step(dt); a.rag.apply(m); m.root.visible = a.deathT < 12;
+      if (m.goreHidden.length === 0 && m.rich && m.rich.visible) m.rich.visible = false;
+      return;
+    }
     m.root.position.set(a.pos.x, a.pos.y, a.pos.z);
     m.root.rotation.y = a.yaw;
     if (a.alive) {

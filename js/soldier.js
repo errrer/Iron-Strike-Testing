@@ -100,12 +100,12 @@ export function buildSoldier(body, teamColor, seed = 0) {
 
 // ---- two-bone IK: both hands on the gun -----------------------------------------------------------------------
 // Euler XYZ with ry = 0 maps a limb hanging along -Y onto direction d: rz = asin(dx), rx = atan2(-dz, -dy).
-const aim = (d) => [Math.atan2(-d[2], -d[1]), Math.asin(Math.max(-1, Math.min(1, d[0])))];
-const inv = (d, rx, rz) => {                                      // d in the parent's frame (undo Rx then Rz)
+export const aim = (d) => [Math.atan2(-d[2], -d[1]), Math.asin(Math.max(-1, Math.min(1, d[0])))];
+export const inv = (d, rx, rz) => {                                      // d in the parent's frame (undo Rx then Rz)
   let [x, y, z] = d; const c = Math.cos(-rx), s = Math.sin(-rx); [y, z] = [y * c - z * s, y * s + z * c];
   const c2 = Math.cos(-rz), s2 = Math.sin(-rz); [x, y] = [x * c2 - y * s2, x * s2 + y * c2]; return [x, y, z];
 };
-const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+export const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 
 // Poses one arm so the middle of its palm reaches target T (body space). Returns the distance it missed by.
 export function solveArm(sh, T, side) {

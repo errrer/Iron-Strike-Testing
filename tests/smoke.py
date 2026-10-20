@@ -248,7 +248,7 @@ with sync_playwright() as pw:
       out.hp = p.hp; out.state = g.state; out.stillActors = g.actors.length;
       // kill one: it falls, then is removed
       g.damage(d0, p, 500, p.weapon, true); out.deadFlag = !d0.alive; out.kills = p.kills;
-      for (let f = 0; f < 60 * 5; f++) g.frame(1/60);
+      for (let f = 0; f < 60 * 9; f++) g.frame(1/60);
       out.removed = !g.actors.includes(d0);
       // N clears
       document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyN' })); out.cleared = ds().length;

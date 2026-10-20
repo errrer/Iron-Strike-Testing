@@ -226,7 +226,7 @@ with sync_playwright() as pw:
       const dm = ds(host)[0]; host.damage(dm, hp, 500, hp.weapon, false);
       for (let f = 0; f < 30; f++) { for (const g of games) g.frame(1/60); window.__bus.advance(1/60); }
       o.deadSeen = games.map(g => !g.byId(dm.id) || !g.byId(dm.id).alive);
-      for (let f = 0; f < 60 * 5; f++) { for (const g of games) g.frame(1/60); window.__bus.advance(1/60); }
+      for (let f = 0; f < 60 * 9; f++) { for (const g of games) g.frame(1/60); window.__bus.advance(1/60); }
       o.removedEverywhere = games.map(g => !g.byId(dm.id));
       // a client clears them all
       c0.sandboxClear();

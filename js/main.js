@@ -32,7 +32,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gore: cfg.gore !== false };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -109,6 +109,12 @@ slider([['sens', 'sensOut'], ['sens2', 'sensOut2']], 'sens', (v) => v.toFixed(2)
 slider([['fov', 'fovOut'], ['fov2', 'fovOut2']], 'fov', (v) => String(Math.round(v)), (v) => { game.settings.fov = v; });
 slider([['vol', 'volOut'], ['vol2', 'volOut2']], 'vol', (v) => v.toFixed(2), (v) => { sound.volume = v; if (sound.master) sound.master.gain.value = v; });
 
+// ragdoll toggle (main menu + pause menu)
+for (const id of ['rag', 'rag2']) {
+  const el = $(id); if (!el) continue;
+  el.checked = cfg.ragdoll !== false;
+  el.addEventListener('change', () => { cfg.ragdoll = el.checked; game.settings.ragdoll = el.checked; for (const o of ['rag', 'rag2']) if ($(o)) $(o).checked = el.checked; save(); });
+}
 // gore toggle (main menu + pause menu)
 for (const id of ['gore', 'gore2']) {
   const el = $(id); if (!el) continue;
