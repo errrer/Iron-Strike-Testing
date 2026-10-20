@@ -66,6 +66,11 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 - **Killstreaks** (`js/streaks.js`, offline modes): 3 kills in a row earns a **UAV** (key 4, all enemies on the radar for 25 s), 5 a **Sentry Gun** (key 5, automatic turret for 60 s), 7 an **Airstrike** (key 6, eight bombs along your view direction). The cycle repeats every 10 kills.
 - **XP, ranks and unlocks** (`js/progress.js`, saved in the browser): kills, headshots, streaks, captures, plants/defuses and wins give XP. 30 levels with 10 rank names; weapons unlock with level (M4A1/VMP/G18 at 1, M1911 3, AK-47 5, Model 680 8, .357 11, Kar98k 14). The main menu has an "Unlock all weapons (testing)" checkbox, ON by default - turn it off to play the progression for real.
 
+## Warehouse props (V0.5 part 4)
+The warehouse now uses real 3D props and image textures: shipping containers (two halves per slot, tinted per colour), crates, barrels, pallet racking along the north/south walls, roller shutters and big doors on the walls, a concrete floor and corrugated wall texture.
+Collision stays simple boxes. Props are baked by `python3 tools/props2json.py model.fbx out.json --up y|z --scale 0.01 [--keep Part]` into `assets/props/*.json` (positions, normals, UVs) and loaded by `js/props.js`; textures live in `assets/tex/*.jpg`. If a prop file is missing the map falls back to the old boxes.
+Not used yet: the ladder (no textures supplied, 10k+ triangles) and the 3 beam pieces (`Untitled_2.fbx`).
+
 ## Sandbox mode
 
 Pick **Sandbox** in the mode list (also available in multiplayer). There is no score and no clock, and no bots - just you, a map and dummies.

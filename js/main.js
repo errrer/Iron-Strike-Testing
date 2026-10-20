@@ -5,6 +5,7 @@ import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js';
 import { Sound } from './audio.js';
 import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js';
 import { loadModels } from './gunmodels.js';
+import { loadProps } from './props.js';
 import { MAP_IDS, MAP_INFO } from './maps.js';
 import { rankName, UNLOCK } from './progress.js';
 
@@ -192,7 +193,7 @@ showView(cfg.view);
 // Weapons with an `asset` (assets/models/<id>.json, baked from FBX) are loaded before the first match.
 const startBtn = $('btnStart');
 startBtn.disabled = true; startBtn.textContent = 'LOADING...';
-loadModels(WEAPONS).then((ids) => console.log('[models] loaded:', ids.join(', ') || 'none (procedural fallbacks)'))
+Promise.all([loadModels(WEAPONS), loadProps().catch(() => [])]).then(([ids]) => ids).then((ids) => console.log('[models] loaded:', ids.join(', ') || 'none (procedural fallbacks)'))
   .catch(() => {}).finally(() => { startBtn.disabled = false; startBtn.textContent = 'DEPLOY'; });
 
 // ---------------- flow ----------------

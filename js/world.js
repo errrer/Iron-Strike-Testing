@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import { PROPS, imgTex } from './props.js';
 
 // ---- procedural textures (greyscale detail, tinted by material colour) ---------------------------
 const texCache = new Map();
 function makeTex(kind) {
+  if (kind.startsWith('img:')) return imgTex(kind.slice(4));
   if (texCache.has(kind)) return texCache.get(kind);
   const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S;
   const c = cv.getContext('2d');
@@ -99,13 +101,30 @@ export function buildWorld(map) {
   if (map.lights) for (const p of map.lights) { const l = new THREE.PointLight(0xfff0d8, 300, 45, 2); l.position.set(...p); scene.add(l); }
 
   // ground
-  const gt = makeTex(map.ground.tex).clone(); gt.needsUpdate = true; gt.repeat.set(300 / map.ground.tile, 300 / map.ground.tile);
+  const gt = map.ground.tex.startsWith('img:') ? imgTex(map.ground.tex.slice(4), true) : makeTex(map.ground.tex).clone(); gt.needsUpdate = true; gt.repeat.set(300 / map.ground.tile, 300 / map.ground.tile);
   const gm = new THREE.MeshStandardMaterial({ map: gt, color: map.ground.color, roughness: 1 });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), gm);
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
   // visuals
+  const propMats = new Map();
   for (const v of map.visuals) {
+    if (v.shape === 'prop') {
+      const P = PROPS[v.model];
+      if (!P) continue;                                   // model not loaded: the box underneath stays as the fallback
+      let m = propMats.get(v.model + v.tint);
+      if (!m) { m = new THREE.MeshStandardMaterial({ map: imgTex(v.tex), color: v.tint, roughness: v.rough ?? 0.75, metalness: v.metal ?? 0.25 }); propMats.set(v.model + v.tint, m); }
+      const mesh = new THREE.Mesh(P.geo, m);
+      const rot = v.rot || 0;
+      // fit the model into w x h x d (w along world x, d along world z) after rotating it by rot*90deg about Y
+      if (rot % 2) mesh.scale.set(v.d / P.size[0], v.h / P.size[1], v.w / P.size[2]);
+      else mesh.scale.set(v.w / P.size[0], v.h / P.size[1], v.d / P.size[2]);
+      mesh.rotation.y = rot * Math.PI / 2;
+      mesh.position.set(v.x, v.y0, v.z);
+      mesh.castShadow = false; mesh.receiveShadow = true;
+      scene.add(mesh);
+      continue;
+    }
     let geo;
     if (v.shape === 'cyl') geo = new THREE.CylinderGeometry(v.r, v.r, v.h, 18);
     else if (v.shape === 'cone') geo = new THREE.ConeGeometry(v.r, v.h, 10);

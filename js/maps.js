@@ -12,6 +12,8 @@ class Builder {
     if (o.collide !== false) this.boxes.push({ x0: x - w / 2, x1: x + w / 2, y0, y1: y0 + h, z0: z - d / 2, z1: z + d / 2 });
     this.visuals.push({ shape: 'box', x, z, y0, w, h, d, tex: o.tex || 'concrete', color: o.color ?? 0x888888, tile: o.tile || 4, emissive: o.emissive, cast: o.cast, opacity: o.opacity });
   }
+  // Baked 3D prop (assets/props/<model>.json) fitted into w(x) x d(z) x h(y), rot = quarter turns about Y. Visual only.
+  prop(model, x, z, w, d, h, o = {}) { this.visuals.push({ shape: 'prop', model, x, z, y0: o.y0 || 0, w, d, h, rot: o.rot || 0, tex: o.tex || model, tint: o.tint ?? 0xffffff, rough: o.rough, metal: o.metal }); }
   // Visual only (no collision)
   deco(x, z, w, d, h, o = {}) { this.box(x, z, w, d, h, { ...o, collide: false }); }
   // Cylinder (collides as a square box)
@@ -93,11 +95,19 @@ const SPAWNS = { 0: { x0: -37, x1: -29, z0: -24, z1: 24 }, 1: { x0: 29, x1: 37, 
 // ------------------------------------------------------------------------------------------
 function warehouse() {
   const b = new Builder();
-  b.outerWalls(12, { tex: 'metal', color: 0x59616b, tile: 6 });
+  b.outerWalls(12, { tex: 'img:wall', color: 0x9aa2ac, tile: 4 });
   b.box(0, 0, 90, 66, 0.5, { y0: 12, tex: 'metal', color: 0x2d3238, collide: true, cast: false });  // roof
   const cols = [0xb23a2f, 0x2f5fa6, 0x3f8a4a, 0xc7842b, 0x7a4a9b, 0x2f8a8a];
   let ci = 0;
-  const cont = (x, z, w, d, y0 = 0) => b.box(x, z, w, d, 2.6, { y0, tex: 'metal', color: cols[ci++ % cols.length], tile: 3 });
+  // containers: the old coloured box stays (inset) as the end caps + the collision, a real container model is laid over it in two halves
+  const tint = (c) => { const r = (c >> 16 & 255), g = (c >> 8 & 255), bl = (c & 255), m = (v) => Math.round(255 + (v - 255) * 0.55); return (m(r) << 16) | (m(g) << 8) | m(bl); };
+  const cont = (x, z, w, d, y0 = 0) => {
+    const col = cols[ci++ % cols.length];
+    b.boxes.push({ x0: x - w / 2, x1: x + w / 2, y0, y1: y0 + 2.6, z0: z - d / 2, z1: z + d / 2 });
+    b.visuals.push({ shape: 'box', x, z, y0: y0 + 0.05, w: w - 0.25, h: 2.5, d: d - 0.25, tex: 'metal', color: col, tile: 3, cast: false });
+    const alongX = w >= d, half = (alongX ? w : d) / 2;
+    for (const s of [-1, 1]) b.prop('container', alongX ? x + s * half / 2 : x, alongX ? z : z + s * half / 2, alongX ? half : d, alongX ? d : half, 2.6, { y0, rot: alongX ? 0 : 1, tint: tint(col), metal: 0.4, rough: 0.6 });
+  };
   // two long rows of containers (gaps are lanes)
   for (const z of [-12, 12]) for (const x of [-26, -10, 10, 26]) cont(x, z, 12, 2.6);
   cont(-10, -12, 12, 2.6, 2.6); cont(26, 12, 12, 2.6, 2.6);   // stacked
@@ -113,13 +123,24 @@ function warehouse() {
   // pillars
   for (const x of [-22, 22]) b.box(x, 0, 1.4, 1.4, 12, { tex: 'concrete', color: 0x6e7379 });
   // crates and pallets in the side lanes
-  const crate = (x, z, s = 2, h = 2) => b.box(x, z, s, s, h, { tex: 'crate', color: 0xa07040, tile: 2 });
+  const crate = (x, z, s = 2, h = 2) => {
+    b.box(x, z, s - 0.04, s - 0.04, h - 0.04, { tex: 'crate', color: 0xa07040, tile: 2, cast: false });   // fallback / hidden under the model
+    b.boxes[b.boxes.length - 1] = { x0: x - s / 2, x1: x + s / 2, y0: 0, y1: h, z0: z - s / 2, z1: z + s / 2 };
+    b.prop('crate', x, z, s, s, h, { rot: ((x * 7 + z * 3) | 0) & 3, rough: 0.9, metal: 0 });
+  };
   crate(-8, -22); crate(-5.5, -22, 2, 1.2); crate(8, -21.5); crate(0, -18, 3, 1.2); crate(18, -22, 2.4, 2.4); crate(-18, -23, 2.4, 1.2);
   crate(8, 22); crate(5.5, 22, 2, 1.2); crate(-8, 21.5); crate(0, 18, 3, 1.2); crate(-18, 22, 2.4, 2.4); crate(18, 23, 2.4, 1.2);
   crate(-30, 16, 2, 1.2); crate(-30, -16, 2, 1.2); crate(30, 16, 2, 1.2); crate(30, -16, 2, 1.2);
   crate(-3, -6, 1.6, 1.0); crate(3, 6, 1.6, 1.0);
   // barrels
-  for (const [x, z] of [[-14, -6], [-14, 6], [14, -6], [14, 6], [-24, 0], [24, 0]]) b.cyl(x, z, 0.5, 1.1, { tex: 'metal', color: 0x2e6aa8 });
+  for (const [x, z] of [[-14, -6], [-14, 6], [14, -6], [14, 6], [-24, 0], [24, 0]]) { b.boxes.push({ x0: x - 0.32, x1: x + 0.32, y0: 0, y1: 0.9, z0: z - 0.32, z1: z + 0.32 }); b.cyl(x, z, 0.26, 0.86, { tex: 'metal', color: 0x2e6aa8, collide: false }); b.prop('barrel', x, z, 0.6, 0.6, 0.9, { rot: ((x + z) | 0) & 3, metal: 0.5, rough: 0.6 }); }
+  // pallet racking along the north/south walls (solid), roller shutters + big doors on the walls (decor)
+  for (const z of [-26.9, 26.9]) for (const x of [-30, -25.6, -14, 14, 25.6, 30]) {
+    b.boxes.push({ x0: x - 2.1, x1: x + 2.1, y0: 0, y1: 4, z0: z - 1.1, z1: z + 1.1 });
+    b.prop('racking', x, z, 4.2, 2.2, 4);
+  }
+  for (const z of [-27.8, 27.8]) { b.prop('shutter', 0, z, 3.47, 0.33, 3.15, { rot: 1, rough: 0.5, metal: 0.5 }); b.prop('door', z < 0 ? 8 : -8, z * 0.995, 3.76, 0.36, 3.57, { rough: 0.6, metal: 0.4 }); }
+  for (const x of [-39.8, 39.8]) b.prop('shutter', x, 0, 0.33, 3.47, 3.15, { rough: 0.5, metal: 0.5 });
   // ceiling lights (decor)
   for (const x of [-30, -15, 0, 15, 30]) for (const z of [-20, -7, 7, 20]) b.deco(x, z, 6, 0.8, 0.2, { y0: 11.6, tex: 'plain', color: 0xffffff, emissive: 0xfff2d0 });
   return finish(b, {
@@ -128,7 +149,7 @@ function warehouse() {
     sky: [0x1b1e24, 0x2b2f36], fog: [0x23262c, 30, 85],
     hemi: [0xbfc8d6, 0x2a2a2e, 0.9], sun: null,
     lights: [[-22, 9, -14], [22, 9, -14], [-22, 9, 14], [22, 9, 14], [0, 9, 0]],
-    ground: { tex: 'concrete', color: 0x5a5d62, tile: 6 },
+    ground: { tex: 'img:floor', color: 0xa4a7ac, tile: 5 },
     impact: 0xd8d0c0,
   });
 }
