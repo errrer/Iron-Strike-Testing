@@ -6,7 +6,7 @@ import { bx, mat, SKIN, DARK, OLIVE, KHAKI } from './soldier.js';
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
 
-// textures: a flesh surface for the torn ends of the body parts, and 19 blood splats for the floor
+// textures: a flesh surface for the torn ends of the body parts, and 15 blood splats for the floor
 const url = (f) => new URL('../assets/gore/' + f, import.meta.url).href;
 let loader = null, fleshTex = null, bloodTex = null; const fleshMats = {};
 const load = (f) => { if (!loader) loader = new THREE.TextureLoader(); const t = loader.load(url(f)); if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; return t; };
@@ -15,7 +15,7 @@ const fleshMat = (key, tint, rough) => {
   return fleshMats[key];
 };
 const flesh = () => fleshMat('flesh', 0xe0a0a0, 0.55), meat = () => fleshMat('meat', 0xffffff, 0.45), bone = () => mat(0xe7e0cd, 0.7);
-const bloodTextures = () => bloodTex || (bloodTex = Array.from({ length: 19 }, (_, i) => load('blood' + (i + 1) + '.png')));
+const bloodTextures = () => bloodTex || (bloodTex = Array.from({ length: 15 }, (_, i) => load('blood' + (i + 1) + '.png')));
 const G = () => new THREE.Group();
 
 // ---- gib models: GIBS[part][variant](teamColor) -> Group centred on its own middle ----

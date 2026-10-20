@@ -285,7 +285,7 @@ with sync_playwright() as pw:
     assert SU['panelShown'] and SU['pauseShown'] and SU['dummies'] == 6 and SU['weapons'][:2] == ['m4a1', 'magnum'] and SU['weapons'][2] and SU['chips'] == 3 and SU['cleared'] == 0 and not SU['ffaPanel'], SU
     print('gore:', GR)
     assert all(len(v) == 3 and all(n >= 3 for n in v) for v in GR['models'].values()), GR
-    assert GR['gibs'] >= 2 and GR['headHidden'] and GR['finite'] and GR['resting'] >= 1 and GR['decals'] >= 1 and GR['decalMaps'] == 19 and GR['restored'] and GR['offGibs'] == 0 and 'err' not in GR, GR
+    assert GR['gibs'] >= 2 and GR['headHidden'] and GR['finite'] and GR['resting'] >= 1 and GR['decals'] >= 1 and GR['decalMaps'] == 15 and GR['restored'] and GR['offGibs'] == 0 and 'err' not in GR, GR
     # easter egg: type "richtofen"
     pg.evaluate("() => { const g = window.__game; g.start({mode:'tdm',map:'dust',mapName:'Dust',primary:'vmp',secondary:'g18',difficulty:'normal'}); g.state='playing'; }")
     pg.keyboard.type('richtofen', delay=20); pg.wait_for_timeout(800)
