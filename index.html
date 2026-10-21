@@ -29,6 +29,13 @@
   <div id="xppop"></div>
   <div id="objhud" class="hidden"></div>
   <div id="streakbar"></div>
+  <div id="zmhud" class="hidden">
+    <div id="zmRound"></div>
+    <div id="zmPts"></div>
+    <div id="zmPerks"></div>
+    <div id="zmPU"></div>
+    <div id="zmPrompt"></div>
+  </div>
   <div id="stance" class="hidden">TAC STANCE</div>
   <div id="sbhint" class="hidden">SANDBOX - B spawn dummy - Shift+B spawn 5 - N clear dummies - Esc loadout</div>
   <div id="health"><div id="hpbar"><i id="hpfill"></i></div><span id="hptxt">100</span></div>
@@ -87,12 +94,61 @@
   </div>
 </div>
 
+<!-- ============ START SCREEN ============ -->
+<div id="landing" class="overlay">
+  <div class="landing-inner">
+    <div class="logo huge">IRON<span>STRIKE</span></div>
+    <div class="tag">3D TACTICAL SHOOTER</div>
+    <div class="lcards">
+      <button id="lMP" class="lcard mp" type="button">
+        <h2>MULTIPLAYER</h2>
+        <p>Team Deathmatch, Free For All, 1v1, Domination, Hardpoint, Kill Confirmed, Search &amp; Destroy and sandbox. Play against bots or go online with friends.</p>
+        <span class="go">PLAY &rsaquo;</span>
+      </button>
+      <button id="lZM" class="lcard zm" type="button">
+        <h2>ZOMBIES</h2>
+        <p>Hold out against endless rounds of the undead. Board up windows, buy weapons off the wall, open doors, drink perks and try the Mystery Box. Solo or 4-player online co-op.</p>
+        <span class="go">SURVIVE &rsaquo;</span>
+      </button>
+    </div>
+    <div id="landRank" class="rankbox"><b id="landRankName"></b><div class="xpbar"><i id="landRankFill"></i></div><span id="landRankTxt"></span></div>
+    <footer>Fan-made, non-commercial project. Not affiliated with or endorsed by any game publisher.</footer>
+  </div>
+</div>
+
+<!-- ============ ZOMBIES MENU ============ -->
+<div id="zmenu" class="overlay hidden">
+  <div class="panel zpanel">
+    <h2>ZOMBIES</h2>
+    <p class="zblurb">Round after round of zombies come for you through the windows. Earn points for hits and kills, spend them on guns, doors, perks and the Mystery Box. Go down and a teammate has to revive you - if everyone is down, it's over.</p>
+    <label class="mpname">Callsign <input id="zmName" maxlength="14" autocomplete="off" spellcheck="false"></label>
+    <div class="mpcols">
+      <div class="mpbox">
+        <h3>Solo</h3>
+        <p>Just you. Buy Quick Revive for self-revives.</p>
+        <button id="zmSolo" class="btn primary">Play solo</button>
+      </div>
+      <div class="mpbox">
+        <h3>Online co-op</h3>
+        <p>Host a room (up to 4 players) or join a friend's with their code.</p>
+        <button id="zmHost" class="btn primary">Create room</button>
+        <input id="zmCode" maxlength="6" placeholder="ABCDEF" autocomplete="off" spellcheck="false">
+        <button id="zmJoin" class="btn">Join</button>
+      </div>
+    </div>
+    <p id="zmStatus" class="mpstatus"></p>
+    <div class="zkeys">F (hold) buy / revive / rebuild boards &middot; wall guns, doors, perk machines and the box all use F &middot; V/Tab/WASD as usual</div>
+    <button id="zmBack" class="btn">Back</button>
+  </div>
+</div>
+
 <!-- ============ MAIN MENU ============ -->
-<div id="menu" class="overlay">
+<div id="menu" class="overlay hidden">
   <div class="menu-inner">
     <header>
+      <button id="btnLandBack" class="btn small back" type="button">&lsaquo; Back</button>
       <div class="logo">IRON<span>STRIKE</span></div>
-      <div class="tag">3D TACTICAL SHOOTER</div>
+      <div class="tag">MULTIPLAYER</div>
       <div id="rankbox" class="rankbox"><b id="rankName"></b><div class="xpbar"><i id="rankFill"></i></div><span id="rankTxt"></span></div>
     </header>
 
@@ -143,7 +199,7 @@
     <div class="startrow">
       <button id="btnStart" class="btn primary big">DEPLOY</button>
       <button id="btnMP" class="btn big alt">MULTIPLAYER</button>
-      <div class="controls">WASD move &middot; Shift sprint &middot; C crouch (sprint + C slides) &middot; Space jump (at a ledge: mantle) &middot; LMB fire &middot; RMB aim &middot; R reload &middot; 1/2/Q/wheel swap weapon &middot; Z tac stance (then aim) &middot; F inspect &middot; B/N sandbox dummies &middot; V first/third person &middot; Tab scoreboard &middot; Esc pause</div>
+      <div class="controls">WASD move &middot; Shift sprint &middot; C crouch (sprint + C slides) &middot; Space jump (at a ledge: mantle) &middot; LMB fire &middot; RMB aim &middot; R reload &middot; 1/2/Q/wheel swap weapon &middot; Z tac stance (then aim) &middot; F inspect (Zombies: F buy / revive / rebuild) &middot; B/N sandbox dummies &middot; V first/third person &middot; Tab scoreboard &middot; Esc pause</div>
     </div>
     <footer>Fan-made, non-commercial project. Not affiliated with or endorsed by any game publisher. Weapon names are used descriptively.</footer>
   </div>

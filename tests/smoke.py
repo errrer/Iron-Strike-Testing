@@ -56,6 +56,7 @@ with sync_playwright() as pw:
     pg.on('console', lambda m: errors.append('console.error: ' + m.text) if m.type == 'error' else None)
     pg.route('**/cdn.jsdelivr.net/**', lambda r: r.fulfill(body=stub, content_type='application/javascript'))
     pg.goto(f'http://127.0.0.1:{port}/index.html'); pg.wait_for_timeout(500)
+    pg.click('#lMP')   # landing -> multiplayer menu
     # menu sanity
     counts = pg.evaluate("() => ({modes: document.querySelectorAll('#modes .card').length, maps: document.querySelectorAll('#maps .card').length, prim: document.querySelectorAll('#primaries .card').length, sec: document.querySelectorAll('#secondaries .card').length})")
     print('menu cards:', counts)

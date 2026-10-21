@@ -15,7 +15,7 @@ const $ = (id) => document.getElementById(id);
 const DEFAULTS = { mode: 'tdm', map: 'warehouse', primary: 'vmp', secondary: 'g18', difficulty: 'normal', sens: 1, fov: 80, vol: 0.55, view: 'first', name: '', att: {}, xh: null };
 let cfg = { ...DEFAULTS };
 try { Object.assign(cfg, JSON.parse(localStorage.getItem('ironstrike') || '{}')); } catch (e) { /* ignore */ }
-if (!MODES[cfg.mode]) cfg.mode = DEFAULTS.mode;
+if (!MODES[cfg.mode] || MODES[cfg.mode].zm) cfg.mode = DEFAULTS.mode;
 if (!MAP_IDS.includes(cfg.map)) cfg.map = DEFAULTS.map;
 if (!PRIMARIES.includes(cfg.primary)) cfg.primary = DEFAULTS.primary;
 if (!SECONDARIES.includes(cfg.secondary)) cfg.secondary = DEFAULTS.secondary;
@@ -51,6 +51,7 @@ function card(parent, html, selected, onClick) {
 }
 
 for (const m of Object.values(MODES)) {
+  if (m.zm) continue;
   card($('modes'), `<h3>${m.name}</h3><p>${m.blurb}</p>`, cfg.mode === m.id, () => { cfg.mode = m.id; });
 }
 for (const id of MAP_IDS) {
@@ -69,7 +70,9 @@ function refreshProg() {
   const pr = game.prog, i = pr.info, all = cfg.unlockAll !== false;
   $('rankName').textContent = `LV ${i.level} ${rankName(i.level)}`;
   $('rankFill').style.width = `${Math.round(i.into / i.next * 100)}%`;
+  $('landRankName').textContent = $('rankName').textContent; $('landRankFill').style.width = $('rankFill').style.width;
   $('rankTxt').textContent = `${i.into} / ${i.next} XP  -  ${pr.d.kills} kills  -  ${pr.d.wins}/${pr.d.matches} wins`;
+  $('landRankTxt').textContent = $('rankTxt').textContent;
   for (const c of document.querySelectorAll('[data-wid]')) {
     const id = c.dataset.wid, lock = !pr.unlocked(id, all);
     c.classList.toggle('locked', lock); c.querySelector('.lock').textContent = lock ? `LEVEL ${UNLOCK[id]}` : '';
@@ -196,11 +199,33 @@ startBtn.disabled = true; startBtn.textContent = 'LOADING...';
 Promise.all([loadModels(WEAPONS), loadProps().catch(() => [])]).then(([ids]) => ids).then((ids) => console.log('[models] loaded:', ids.join(', ') || 'none (procedural fallbacks)'))
   .catch(() => {}).finally(() => { startBtn.disabled = false; startBtn.textContent = 'DEPLOY'; });
 
+// ---------------- start screen: Multiplayer / Zombies ----------------
+const screens = ['landing', 'menu', 'zmenu'];
+function showScreen(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
+$('lMP').addEventListener('click', () => showScreen('menu'));
+$('lZM').addEventListener('click', () => { $('zmName').value = cfg.name; zmStatus(''); showScreen('zmenu'); });
+$('btnLandBack').addEventListener('click', () => showScreen('landing'));
+$('zmBack').addEventListener('click', () => showScreen('landing'));
+function zmStatus(text, err) { const el = $('zmStatus'); el.textContent = text || ''; el.classList.toggle('err', !!err); }
+const zmLoadout = () => ({ prim: 'm1911', sec: 'm1911', ap: 0, as: 0 });
+$('zmSolo').addEventListener('click', () => {
+  cfg.name = cleanName($('zmName').value); save(); lastZm = true;
+  zmDeploy();
+});
+let lastZm = false;
+function zmDeploy() {
+  resetMpUi(); sound.init();
+  if (sound.master) sound.master.gain.value = cfg.vol;
+  for (const id of ['landing', 'menu', 'zmenu', 'endscreen', 'pause']) $(id).classList.add('hidden');
+  game.start({ mode: 'zm', map: 'outpost', mapName: MAP_INFO.outpost.name, primary: 'm1911', secondary: 'm1911', attP: 0, attS: 0, difficulty: cfg.difficulty, name: cfg.name });
+}
+
 // ---------------- flow ----------------
 function deploy() {
   save(); resetMpUi();
   sound.init();
   if (sound.master) sound.master.gain.value = cfg.vol;
+  lastZm = false;
   $('menu').classList.add('hidden'); $('endscreen').classList.add('hidden'); $('pause').classList.add('hidden');
   game.start({ mode: cfg.mode, map: cfg.map, mapName: MAP_INFO[cfg.map].name, primary: cfg.primary, secondary: cfg.secondary, attP: maskFor(cfg.primary), attS: maskFor(cfg.secondary), difficulty: cfg.difficulty });
 }
@@ -209,11 +234,11 @@ function toMenu() {
   game.net = null; game.state = 'menu';
   try { document.exitPointerLock(); } catch (e) { /* ignore */ }
   $('hud').classList.add('hidden'); $('pause').classList.add('hidden'); $('endscreen').classList.add('hidden');
-  $('menu').classList.remove('hidden'); refreshProg();
+  showScreen('landing'); refreshProg();
 }
 $('btnStart').addEventListener('click', deploy);
 $('btnAgain').addEventListener('click', () => {
-  if (!net) return deploy();
+  if (!net) return lastZm ? zmDeploy() : deploy();
   if (net.role === 'host') net.toLobby();
   $('endscreen').classList.add('hidden'); $('hud').classList.add('hidden');
   $('mp').classList.remove('hidden'); mpShow('lobby'); renderLobby(net.lobby);
@@ -230,7 +255,9 @@ function resetMpUi() { $('btnAgain').textContent = 'Play again'; $('pauseTitle')
 
 function fillSelect(id, items) { const el = $(id); for (const [v, label] of items) { const o = document.createElement('option'); o.value = v; o.textContent = label; el.appendChild(o); } }
 fillSelect('mpMode', Object.values(MODES).filter((m) => !m.solo).map((m) => [m.id, m.name]));
+for (const o of $('mpMode').options) if (o.value === 'zm') o.hidden = true;     // zombies rooms are made from the Zombies screen
 fillSelect('mpMap', MAP_IDS.map((id) => [id, MAP_INFO[id].name]));
+for (const o of $('mpMap').options) if (o.value === 'outpost') o.hidden = true;
 fillSelect('sbPrim', PRIMARIES.map((id) => [id, WEAPONS[id].name]));
 fillSelect('sbSec', SECONDARIES.map((id) => [id, WEAPONS[id].name]));
 fillSelect('mpPrim', PRIMARIES.map((id) => [id, WEAPONS[id].name]));
@@ -255,7 +282,9 @@ function renderLobby(st) {
   const host = net.role === 'host';
   $('mpCodeTxt').textContent = net.code;
   $('mpMode').value = st.mode; $('mpMap').value = st.map;
-  $('mpMode').disabled = !host; $('mpMap').disabled = !host;
+  const zm = st.mode === 'zm';
+  $('mpMode').disabled = !host || zm; $('mpMap').disabled = !host || zm; $('mpPrim').parentElement.classList.toggle('hidden', zm); $('mpSec').parentElement.classList.toggle('hidden', zm);
+  for (const id of ['mpAttP', 'mpAttS']) $(id).classList.toggle('hidden', zm);
   $('mpCount').textContent = `${st.players.length} / ${st.max}`;
   $('mpInfo').textContent = `${mpMode(st.mode).blurb}${host ? '' : ' (the host picks mode and map)'}`;
   const tbl = $('mpPlayers'); tbl.textContent = '';
@@ -269,7 +298,7 @@ function renderLobby(st) {
     r.insertCell().textContent = `${tag(p.prim, p.ap)} / ${tag(p.sec, p.as)}`;
   }
   $('mpStart').classList.toggle('hidden', !host);
-  const minP = mpMode(st.mode).sandbox ? 1 : 2;
+  const minP = mpMode(st.mode).sandbox || zm ? 1 : 2;
   $('mpStart').disabled = st.players.length < minP;
   mpStatus('mpLStatus', host ? (st.players.length < minP ? 'Waiting for players - share the room code.' : '') : (st.inMatch ? 'A match is in progress...' : 'Waiting for the host to start the match...'));
 }
@@ -284,7 +313,7 @@ const mpUi = {
     net = null; game.net = null; game.state = 'menu'; resetMpUi();
     try { document.exitPointerLock(); } catch (e) { /* ignore */ }
     for (const id of ['hud', 'pause', 'endscreen']) $(id).classList.add('hidden');
-    $('menu').classList.remove('hidden'); $('mp').classList.remove('hidden'); mpShow('home'); mpStatus('mpStatus', why, true);
+    showScreen('landing'); $('mp').classList.remove('hidden'); mpShow('home'); mpStatus('mpStatus', why, true);
   },
 };
 const loadout = () => ({ prim: cfg.primary, sec: cfg.secondary, ap: maskFor(cfg.primary), as: maskFor(cfg.secondary) });
@@ -313,11 +342,29 @@ $('mpMode').addEventListener('change', () => { const err = net && net.setMode($(
 $('mpMap').addEventListener('change', () => net && net.setMap($('mpMap').value));
 for (const [id, key] of [['mpPrim', 'primary'], ['mpSec', 'secondary']]) $(id).addEventListener('change', () => { cfg[key] = $(id).value; save(); refreshAtt(); if (net) net.setLoadout(cfg.primary, cfg.secondary, maskFor(cfg.primary), maskFor(cfg.secondary)); });
 $('mpStart').addEventListener('click', () => { const err = net && net.start(); if (err) mpStatus('mpLStatus', err, true); });
-$('mpLeave').addEventListener('click', () => { if (net) net.leave(); net = null; mpShow('home'); mpStatus('mpStatus', ''); });
+$('mpLeave').addEventListener('click', () => { const z = net && net.mode === 'zm'; if (net) net.leave(); net = null; mpShow('home'); mpStatus('mpStatus', ''); if (z) { $('mp').classList.add('hidden'); showScreen('zmenu'); } });
 $('mpCopy').addEventListener('click', () => {
   const code = net ? net.code : '';
   const done = () => { $('mpCopy').textContent = 'Copied'; setTimeout(() => { $('mpCopy').textContent = 'Copy'; }, 1500); };
   try { navigator.clipboard.writeText(code).then(done, () => {}); } catch (e) { /* ignore */ }
+});
+// ---- zombies co-op: host / join through the same lobby screen ----
+function zmBusy(on) { for (const id of ['zmSolo', 'zmHost', 'zmJoin']) $(id).disabled = on; }
+$('zmCode').addEventListener('input', () => { $('zmCode').value = cleanCode($('zmCode').value); });
+$('zmCode').addEventListener('keydown', (e) => { if (e.code === 'Enter') $('zmJoin').click(); });
+$('zmHost').addEventListener('click', async () => {
+  zmBusy(true); zmStatus('Creating room...'); cfg.name = cleanName($('zmName').value); $('mpName').value = cfg.name; save();
+  net = new Net(game, mpUi);
+  try { await net.host(cfg.name, zmLoadout(), 'zm', 'outpost'); $('mp').classList.remove('hidden'); mpShow('lobby'); renderLobby(net.lobby); zmStatus(''); }
+  catch (e) { try { net.leave(); } catch (x) { /* ignore */ } net = null; zmStatus((e && e.message) || 'Could not create a room.', true); }
+  zmBusy(false);
+});
+$('zmJoin').addEventListener('click', async () => {
+  zmBusy(true); zmStatus('Connecting...'); cfg.name = cleanName($('zmName').value); $('mpName').value = cfg.name; save();
+  net = new Net(game, mpUi);
+  try { await net.join($('zmCode').value, cfg.name, zmLoadout()); zmStatus(''); $('mp').classList.remove('hidden'); mpShow('lobby'); if (net.lobby) renderLobby(net.lobby); }
+  catch (e) { net = null; zmStatus((e && e.message) || 'Could not join.', true); }
+  zmBusy(false);
 });
 window.addEventListener('beforeunload', () => { if (net) net.leave(); });
 window.__mp = { get net() { return net; }, mpUi };

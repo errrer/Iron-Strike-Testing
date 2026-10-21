@@ -12,6 +12,13 @@ export class Colliders {
     this.blockers = boxes.filter(isBlocker);
   }
 
+  // dynamic boxes (zombie-mode barricades and doors)
+  add(b) { if (this.boxes.includes(b)) return; this.boxes.push(b); if (isBlocker(b)) this.blockers.push(b); }
+  remove(b) {
+    const i = this.boxes.indexOf(b); if (i >= 0) this.boxes.splice(i, 1);
+    const j = this.blockers.indexOf(b); if (j >= 0) this.blockers.splice(j, 1);
+  }
+
   overlaps(x, y, z, hw, h) {
     for (const b of this.boxes) {
       if (y + h > b.y0 && y < b.y1 && x + hw > b.x0 && x - hw < b.x1 && z + hw > b.z0 && z - hw < b.z1) return true;
@@ -169,13 +176,15 @@ export function rayAABB(ox, oy, oz, dx, dy, dz, x0, y0, z0, x1, y1, z1) {
 
 // ---- navigation graph --------------------------------------------------------------------
 export class NavGraph {
-  constructor(col, bounds, step = 3) {
-    this.col = col;
+  // opt.margin: how far a node must be from walls; opt.seg: body radius used when linking nodes (zombie mode uses a fine grid)
+  constructor(col, bounds, step = 3, opt = {}) {
+    this.col = col; this.step = step; this.bounds = bounds;
+    const margin = opt.margin ?? 0.8, segM = opt.seg ?? 0.45;
     this.nodes = [];   // {x,z}
     this.adj = [];
     const free = (x, z) => {
       for (const b of col.blockers) {
-        if (x > b.x0 - 0.8 && x < b.x1 + 0.8 && z > b.z0 - 0.8 && z < b.z1 + 0.8) return false;
+        if (x > b.x0 - margin && x < b.x1 + margin && z > b.z0 - margin && z < b.z1 + margin) return false;
       }
       return true;
     };
@@ -197,7 +206,7 @@ export class NavGraph {
           const row = grid[i + di]; if (!row) continue;
           const b = row[j + dj]; if (b === undefined || b < 0) continue;
           const A = this.nodes[a], B = this.nodes[b];
-          if (!col.segBlocked(A.x, A.z, B.x, B.z, 0.45)) this.adj[a].push(b);
+          if (!col.segBlocked(A.x, A.z, B.x, B.z, segM)) this.adj[a].push(b);
         }
       }
     }
@@ -215,6 +224,26 @@ export class NavGraph {
     this.validIdx = [];
     for (let i = 0; i < this.nodes.length; i++) if (this.valid[i]) this.validIdx.push(i);
     this.coverage = this.nodes.length ? bestSize / this.nodes.length : 0;
+    this.grid = grid;
+  }
+
+  // Dijkstra distance field over the graph from the node nearest (x, z). `blocked` = Set of node ids that may not be crossed.
+  // Returns a Float32Array of path lengths (Infinity = unreachable). Zombies walk downhill on it.
+  field(x, z, blocked) {
+    const N = this.nodes, dist = new Float32Array(N.length).fill(Infinity), src = this.nearest(x, z);
+    if (src < 0) return dist;
+    const heap = [[0, src]]; dist[src] = 0;
+    const push = (e) => { heap.push(e); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const t = heap[0], l = heap.pop(); if (heap.length) { heap[0] = l; let i = 0; for (;;) { let m = i; const a = 2 * i + 1, b = a + 1; if (a < heap.length && heap[a][0] < heap[m][0]) m = a; if (b < heap.length && heap[b][0] < heap[m][0]) m = b; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return t; };
+    while (heap.length) {
+      const [d, n] = pop(); if (d > dist[n]) continue;
+      for (const m of this.adj[n]) {
+        if (blocked && blocked.has(m)) continue;
+        const nd = d + Math.hypot(N[n].x - N[m].x, N[n].z - N[m].z);
+        if (nd < dist[m]) { dist[m] = nd; push([nd, m]); }
+      }
+    }
+    return dist;
   }
 
   nearest(x, z) {
@@ -225,6 +254,20 @@ export class NavGraph {
       if (d < bd) { bd = d; bi = i; }
     }
     return bi;
+  }
+
+  // O(1) lookup on the regular grid (falls back to a full search)
+  nodeAt(x, z) {
+    const s = this.step, gx = Math.round((x - (this.bounds.x0 + 2)) / s), gz = Math.round((z - (this.bounds.z0 + 2)) / s);
+    let best = -1, bd = Infinity;
+    for (let di = -1; di <= 1; di++) {
+      const row = this.grid[gx + di]; if (!row) continue;
+      for (let dj = -1; dj <= 1; dj++) {
+        const n = row[gz + dj]; if (n === undefined || n < 0 || !this.valid[n]) continue;
+        const d = (this.nodes[n].x - x) ** 2 + (this.nodes[n].z - z) ** 2; if (d < bd) { bd = d; best = n; }
+      }
+    }
+    return best >= 0 ? best : this.nearest(x, z);
   }
 
   randomNode() { return this.validIdx[Math.floor(Math.random() * this.validIdx.length)]; }

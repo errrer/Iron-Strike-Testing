@@ -156,8 +156,8 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 .mpanel { width: min(720px, 94vw); max-height: 94vh; overflow-y: auto; text-align: left; }
 .mpanel h2 { text-align: center; }
 .mpname { display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 12px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
-.mpanel input, .mpanel select { background: #0a0e13; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; font: inherit; font-size: 14px; user-select: text; }
-.mpanel input:focus, .mpanel select:focus { outline: none; border-color: var(--accent); }
+.mpanel input, .mpanel select, .zpanel input { background: #0a0e13; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; font: inherit; font-size: 14px; user-select: text; }
+.mpanel input:focus, .mpanel select:focus, .zpanel input:focus { outline: none; border-color: var(--accent); }
 .mpcols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
 .mpbox { border: 1px solid var(--line); border-radius: 8px; padding: 16px; text-align: center; }
 .mpbox h3, .mph { margin: 0 0 6px; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--accent2); }
@@ -245,3 +245,54 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 #streakbar div { background: rgba(0,0,0,.5); border-left: 3px solid #666; padding: 3px 10px; color: #aaa; }
 #streakbar div.ready { border-color: var(--accent); color: #fff; }
 #streakbar div.active { border-color: #7dffa0; color: #7dffa0; }
+
+/* ---------- start screen + zombies menu ---------- */
+#landing { background: radial-gradient(ellipse at 20% 0%, rgba(255, 138, 31, 0.18), transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(120, 220, 90, 0.14), transparent 50%), #0a0e13; }
+.landing-inner { width: min(980px, 94vw); text-align: center; }
+.logo.huge { font-size: clamp(44px, 9vw, 88px); letter-spacing: 10px; }
+.landing-inner .tag { margin-top: 8px; }
+.lcards { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin: 38px 0 24px; }
+.lcard { position: relative; text-align: left; font: inherit; color: var(--text); cursor: pointer; padding: 28px 26px 24px; min-height: 230px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); transition: transform .14s, border-color .14s, box-shadow .14s; overflow: hidden; }
+.lcard::before { content: ''; position: absolute; inset: 0; opacity: .55; pointer-events: none; }
+.lcard.mp::before { background: linear-gradient(135deg, rgba(88, 180, 255, 0.22), transparent 55%); }
+.lcard.zm::before { background: linear-gradient(135deg, rgba(110, 220, 70, 0.24), transparent 55%), radial-gradient(circle at 100% 100%, rgba(200, 30, 20, 0.28), transparent 45%); }
+.lcard:hover, .lcard:focus-visible { transform: translateY(-4px); outline: none; }
+.lcard.mp:hover, .lcard.mp:focus-visible { border-color: var(--ally); box-shadow: 0 0 0 1px var(--ally) inset, 0 12px 30px rgba(88, 180, 255, .15); }
+.lcard.zm:hover, .lcard.zm:focus-visible { border-color: #7bd94a; box-shadow: 0 0 0 1px #7bd94a inset, 0 12px 30px rgba(110, 220, 70, .15); }
+.lcard h2 { position: relative; margin: 0 0 12px; font-size: 32px; letter-spacing: 6px; }
+.lcard.zm h2 { color: #9be86a; }
+.lcard p { position: relative; margin: 0; color: var(--dim); font-size: 14px; line-height: 1.5; }
+.lcard .go { position: absolute; left: 26px; bottom: 20px; font-size: 14px; letter-spacing: 4px; color: var(--accent2); font-weight: 700; }
+.lcard.zm .go { color: #9be86a; }
+#landRank { justify-content: center; margin-top: 4px; }
+.landing-inner footer { margin-top: 26px; color: var(--dim); font-size: 11px; }
+#btnLandBack.back { margin: 0 6px 0 0 !important; align-self: center; }
+.zpanel { width: min(680px, 94vw); }
+.zpanel h2 { color: #9be86a; }
+.zpanel .zblurb { font-size: 13px; line-height: 1.55; margin: 0 0 14px; }
+.zkeys { font-size: 11px; color: var(--dim); margin: 6px 0 12px; line-height: 1.5; }
+#zmCode { display: block; margin: 8px auto 4px; width: 100%; text-align: center; font-size: 22px; letter-spacing: 8px; text-transform: uppercase; font-weight: 800; }
+.zpanel input { background: #0a0e13; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; font: inherit; font-size: 14px; user-select: text; }
+.zpanel { text-align: left; } .zpanel h2, .zpanel .zblurb, .zkeys, .zpanel .mpbox { text-align: center; }
+#zmBack { display: block; margin: 8px auto 0; }
+@media (max-width: 700px) { .lcards { grid-template-columns: 1fr; } }
+
+/* ---------- zombies HUD ---------- */
+#zmhud { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+#zmRound { position: absolute; left: 22px; bottom: 96px; display: flex; flex-direction: column; align-items: flex-start; }
+#zmRound b { font-size: 74px; line-height: .9; color: #c4261c; text-shadow: 0 0 14px rgba(190, 30, 20, .55), 2px 2px 0 #000; font-family: 'Bahnschrift', 'Impact', sans-serif; letter-spacing: 2px; }
+#zmRound i { font-style: normal; font-size: 12px; letter-spacing: 3px; color: #e8dccc; text-shadow: 1px 1px 0 #000; margin-top: 4px; }
+#zmPts { position: absolute; left: 22px; bottom: 28px; display: flex; flex-direction: column; gap: 3px; min-width: 190px; }
+#zmPts div { display: flex; align-items: baseline; gap: 10px; font-size: 13px; letter-spacing: 2px; color: #cfd6dc; text-shadow: 1px 1px 0 #000; }
+#zmPts div.me { font-size: 20px; color: #ffe08a; }
+#zmPts b { font-weight: 800; margin-left: auto; color: #fff; }
+#zmPts div.me b { color: #ffe08a; }
+#zmPts em { font-style: normal; font-size: 10px; color: #ff6a5a; }
+#zmPts .dn span { color: #ff8a7a; } #zmPts .dead { opacity: .5; }
+#zmPerks { position: absolute; left: 22px; bottom: 6px; display: flex; gap: 5px; }
+#zmPerks i { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #111; padding: 3px 6px; border-radius: 3px; box-shadow: 0 0 6px rgba(0, 0, 0, .6); }
+#zmPU { position: absolute; top: 62px; left: 50%; transform: translateX(-50%); display: flex; gap: 14px; font-size: 14px; letter-spacing: 3px; font-weight: 800; text-shadow: 1px 1px 0 #000; }
+#zmPU .insta { color: #ff6a5a; } #zmPU .dbl { color: #ffd23a; }
+#zmPrompt { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); padding: 8px 18px; background: rgba(8, 10, 14, .72); border: 1px solid rgba(255, 255, 255, .18); border-radius: 6px; font-size: 16px; letter-spacing: 1px; color: #fff; opacity: 0; transition: opacity .12s; white-space: nowrap; }
+#zmPrompt.show { opacity: 1; }
+#zmhud.hidden { display: none; }

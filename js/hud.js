@@ -22,7 +22,7 @@ export class HUD {
   constructor() {
     this.el = {};
     for (const id of ['hud', 'sbL', 'sbR', 'timer', 'radar', 'killfeed', 'crosshair', 'hitmarker', 'dmgind', 'vignette', 'hpfill', 'hptxt',
-      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'stance', 'sbhint', 'sbPanel', 'xppop', 'objhud', 'streakbar']) this.el[id] = $(id);
+      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'stance', 'sbhint', 'sbPanel', 'xppop', 'objhud', 'streakbar', 'zmhud', 'zmRound', 'zmPts', 'zmPerks', 'zmPU', 'zmPrompt']) this.el[id] = $(id);
     this.rctx = this.el.radar.getContext('2d');
     this.cache = {};
     this.msgT = 0; this.sbT = 0;
@@ -39,6 +39,7 @@ export class HUD {
     this.el.endscreen.classList.add('hidden'); this.el.pause.classList.add('hidden'); this.el.dead.classList.add('hidden');
     this.el.killfeed.innerHTML = ''; this.el.dmgind.innerHTML = '';
     this.sandbox = !!game.mode.sandbox; this.el.sbhint.classList.toggle('hidden', !this.sandbox);
+    this.el.zmhud.classList.toggle('hidden', !game.mode.zm);
     this.el.modeTag.textContent = `${game.mode.name} - ${game.cfg.mapName}` + (game.net ? ` - ROOM ${game.net.code}` : '');
     // static radar map
     const b = game.map.bounds, S = 4, cv = document.createElement('canvas');
@@ -99,8 +100,31 @@ export class HUD {
 
   showPause(on) { this.el.pause.classList.toggle('hidden', !on); this.el.sbPanel.classList.toggle('hidden', !(on && this.sandbox)); }
 
+  // Zombies HUD: round tally, everyone's points, perks, power-up timers and the "press F" prompt
+  updateZm(game) {
+    const z = game.zm, p = game.player, e = this.el; if (!z) return;
+    const sec = Math.ceil(z.phaseT);
+    const note = z.phase === 'pre' ? 'GET READY' : z.phase === 'break' ? `NEXT ROUND ${sec}` : '';
+    this.set('zmRound', `<b>${z.round || 0}</b><i>${note}</i>`, true);
+    const ps = game.actors.filter((a) => !a.zombie && !a.dummy).sort((a, b) => (b.isPlayer ? 1 : 0) - (a.isPlayer ? 1 : 0) || a.id - b.id);
+    this.set('zmPts', ps.map((a) => `<div class="${a.isPlayer ? 'me' : ''}${a.down ? ' dn' : ''}${!a.alive ? ' dead' : ''}"><span>${a.isPlayer ? 'YOU' : a.name}</span><b>${a.pts | 0}</b>${!a.alive ? '<em>DEAD</em>' : a.down ? `<em>DOWN ${Math.max(0, a.downT | 0)}</em>` : ''}</div>`).join(''), true);
+    const col = { 1: '#d23a3a', 2: '#3a8bff', 4: '#3ad26a', 8: '#e8901e', 16: '#e8d020' }, ab = { 1: 'JUG', 2: 'QR', 4: 'SC', 8: 'DT', 16: 'ST' };
+    this.set('zmPerks', [1, 2, 4, 8, 16].filter((b) => (p.perks | 0) & b).map((b) => `<i style="background:${col[b]}">${ab[b]}</i>`).join(''), true);
+    const pu = []; if (z.insta > 0) pu.push(`<span class="insta">INSTA-KILL ${Math.ceil(z.insta)}</span>`); if (z.dbl > 0) pu.push(`<span class="dbl">DOUBLE POINTS ${Math.ceil(z.dbl)}</span>`);
+    this.set('zmPU', pu.join(''), true);
+    let pr = z.prompt;
+    if (p.alive && p.down && !(p.selfT > 0)) pr = `DOWN - bleeding out ${Math.max(0, p.downT | 0)}s${p.revP > 0 ? ` - reviving ${Math.round(p.revP * 100)}%` : ''}`;
+    this.set('zmPrompt', pr || '');
+    e.zmPrompt.classList.toggle('show', !!pr);
+  }
+
   showEnd(game, win) {
     const e = this.el, p = game.player;
+    if (game.mode.zm) {
+      e.endTitle.textContent = 'GAME OVER'; e.endTitle.className = 'lose';
+      e.endSub.textContent = `You survived ${game.teamScore[0]} round${game.teamScore[0] === 1 ? '' : 's'}` + (game.endXp ? `  -  +${game.endXp} XP` : '');
+      this.buildTable(game, e.endTable); e.endscreen.classList.remove('hidden'); this.el.dead.classList.add('hidden'); return;
+    }
     const won = game.mode.team ? win === p.team : win === p.team;
     e.endTitle.textContent = win === null ? 'DRAW' : (won ? 'VICTORY' : 'DEFEAT');
     e.endTitle.className = win === null ? 'draw' : (won ? 'win' : 'lose');
@@ -112,6 +136,12 @@ export class HUD {
   }
 
   buildTable(game, table) {
+    if (game.mode.zm) {
+      const rows = game.actors.filter((a) => !a.zombie && !a.dummy).sort((a, b) => (b.pts | 0) - (a.pts | 0));
+      let h = '<tr><th>Player</th><th>Points</th><th>Kills</th><th>Deaths</th></tr>';
+      for (const a of rows) h += `<tr class="ally${a.isPlayer ? ' me' : ''}"><td>${a.name}${a.isPlayer ? ' (you)' : ''}</td><td>${a.pts | 0}</td><td>${a.kills}</td><td>${a.deaths}</td></tr>`;
+      table.innerHTML = h; return;
+    }
     const rows = [...game.actors].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     let html = '<tr><th>Player</th><th>Kills</th><th>Deaths</th><th>K/D</th></tr>';
     for (const a of rows) {
@@ -124,7 +154,8 @@ export class HUD {
   update(game) {
     const p = game.player, w = p.weapon, e = this.el;
     // scores + timer
-    if (game.mode.sandbox) { this.set('sbL', `DUMMIES ${game.actors.filter((a) => a.dummy).length}`); this.set('sbR', `KILLS ${p.kills}`); }
+    if (game.mode.zm) { const z = game.zm; this.set('sbL', `ROUND ${z && z.round ? z.round : '-'}`); this.set('sbR', `${z ? z.left : 0} ZOMBIES`); this.updateZm(game); }
+    else if (game.mode.sandbox) { this.set('sbL', `DUMMIES ${game.actors.filter((a) => a.dummy).length}`); this.set('sbR', `KILLS ${p.kills}`); }
     else if (game.mode.team) { this.set('sbL', `ALLIES ${game.teamScore[p.team % 2]}`); this.set('sbR', `${game.teamScore[1 - (p.team % 2)]} ENEMY`); }
     else {
       const sorted = [...game.actors].sort((a, b) => b.kills - a.kills);
@@ -133,7 +164,8 @@ export class HUD {
       this.set('sbR', `${top.name.toUpperCase()} ${top.kills}`);
     }
     const tl = Math.ceil(game.timeLeft);
-    this.set('timer', game.mode.sandbox ? 'SANDBOX' : `${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`);
+    const surv = game.zm ? game.zm.survT | 0 : 0;
+    this.set('timer', game.mode.zm ? `${Math.floor(surv / 60)}:${String(surv % 60).padStart(2, '0')}` : game.mode.sandbox ? 'SANDBOX' : `${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`);
     // health
     const hp = Math.max(0, Math.ceil(p.hp));
     e.hpfill.style.width = `${hp}%`;
@@ -155,7 +187,7 @@ export class HUD {
     if (this.xhGap !== gap.toFixed(1)) { this.xhGap = gap.toFixed(1); e.crosshair.style.setProperty('--gap', `${this.xhGap}px`); }
     e.crosshair.style.opacity = (p.ads > 0.3 && !game.tp) || !p.alive ? '0' : '1';
     // dead
-    if (!p.alive) this.set('deadSub', `${this.deadWeapon || ''}  -  ${game.mode.oneLife ? 'waiting for the next round' : `respawning in ${Math.max(0, Math.ceil(p.respawnT))}`}`);
+    if (!p.alive) this.set('deadSub', `${this.deadWeapon || ''}  -  ${game.mode.oneLife || game.mode.zm ? (game.mode.zm ? 'you come back at the start of the next round' : 'waiting for the next round') : `respawning in ${Math.max(0, Math.ceil(p.respawnT))}`}`);
     // scoreboard
     this.sbT -= game.dt || 1 / 60;
     e.scoreboard.classList.toggle('hidden', !game.showScore);
@@ -177,7 +209,7 @@ export class HUD {
     for (const a of game.actors) {
       if (a === p || !a.alive) continue;
       const ally = game.mode.team && a.team === p.team;
-      const pinged = game.time - a.lastShot < 1.6 || (game.streaks && game.streaks.uav > 0);
+      const pinged = game.time - a.lastShot < 1.6 || (game.streaks && game.streaks.uav > 0) || (a.zombie && Math.hypot(a.pos.x - p.pos.x, a.pos.z - p.pos.z) < 22);
       if (!ally && !pinged) continue;
       c.fillStyle = ally ? '#58b4ff' : '#ff5a4a';
       c.beginPath(); c.arc(a.pos.x, a.pos.z, 1.5, 0, Math.PI * 2); c.fill();

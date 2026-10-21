@@ -56,6 +56,9 @@ export const WEAPONS = {
   },
 };
 
+// not a real weapon: what zombies "hold" (kill feed name / damage source in Zombies mode)
+WEAPONS.zclaw = { id: 'zclaw', name: 'Zombie', slot: 'none', cls: 'melee', desc: '', dmg: 50, hs: 1, rpm: 60, auto: false, mag: 1, reserve: 0, reload: 1, spread: 0, adsSpread: 0, recoil: 0, recoilYaw: 0, range: [1, 2], minMul: 1, pellets: 1, zoom: 1, scope: false, moveMul: 1, snd: { f: 1000, len: 0.05, thump: 0.2 }, builder: 'm1911', attach: [] };
+
 export const PRIMARIES = ['vmp', 'm4a1', 'ak47', 'kar98k', 'm680'];
 export const SECONDARIES = ['g18', 'm1911', 'magnum'];
 

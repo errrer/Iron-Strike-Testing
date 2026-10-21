@@ -73,7 +73,7 @@ export class Net {
 
   assignTeams() {
     const m = mpMode(this.mode); let i = 0;
-    for (const p of this.players.values()) { p.team = m.team ? (i % 2) : p.id; i++; }
+    for (const p of this.players.values()) { p.team = m.coop ? 0 : m.team ? (i % 2) : p.id; i++; }
   }
 
   lobbyState() {
@@ -109,7 +109,8 @@ export class Net {
       const g = this.game;
       if (this.live()) {
         // late join: put them on the smaller team and drop them straight into the running match
-        if (mode.team) { const n = [0, 0]; for (const q of this.players.values()) if (q !== p) n[q.team]++; p.team = n[0] <= n[1] ? 0 : 1; } else p.team = id;
+        if (mode.coop) p.team = 0;
+        else if (mode.team) { const n = [0, 0]; for (const q of this.players.values()) if (q !== p) n[q.team]++; p.team = n[0] <= n[1] ? 0 : 1; } else p.team = id;
         const info = { id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec, ap: p.ap, as: p.as };
         this.ev(['add', info]);
         this.sendTo(c, { t: 'welcome', id });
@@ -143,6 +144,7 @@ export class Net {
         } else if (m.a === 'clear') g.clearDummies();
         break;
       }
+      case 'z': { const a = g.byId(id); if (a && this.live() && g.zm && m.a === 'use') g.zm.setUse(a, !!m.d); break; }
       case 'st': { const a = g.byId(id); if (a && this.live()) g.applyRemoteState(a, m); break; }
       case 'shot': { const a = g.byId(id); if (a && this.live()) g.remoteShot(a, m); break; }
       case 'ping': this.sendTo(c, { t: 'pong', n: m.n }); break;
@@ -152,6 +154,7 @@ export class Net {
   }
 
   validate(p) { // never trust loadout ids from the wire
+    if (this.mode === 'zm') { p.prim = p.sec = 'm1911'; p.ap = p.as = 0; return; }       // zombies: everybody starts with the pistol
     p.prim = ['vmp', 'm4a1', 'ak47', 'kar98k', 'm680'].includes(p.prim) ? p.prim : 'vmp';
     p.sec = ['g18', 'm1911', 'magnum'].includes(p.sec) ? p.sec : 'g18';
     p.ap = cleanMask(WEAPONS[p.prim], p.ap); p.as = cleanMask(WEAPONS[p.sec], p.as);
@@ -174,8 +177,9 @@ export class Net {
 
   beginInfo(me) {
     const g = this.game, live = this.live();
+    const zomb = live && g.zm ? g.actors.filter((a) => a.zombie && a.alive).map((a) => ({ id: a.id, x: +a.pos.x.toFixed(2), z: +a.pos.z.toFixed(2), yaw: +a.yaw.toFixed(3), hp: Math.ceil(a.hp) })) : [];
     const dummies = live ? g.actors.filter((a) => a.dummy && a.alive).map((a) => ({ id: a.id, x: +a.pos.x.toFixed(2), y: +a.pos.y.toFixed(2), z: +a.pos.z.toFixed(2), yaw: +a.yaw.toFixed(3) })) : [];
-    return { mode: this.mode, map: this.map, mapName: MAP_INFO[this.map].name, me, mt: live ? g.matchT : (MODES[this.mode].sandbox ? 0 : -3.5), ts: live ? g.teamScore : [0, 0], dummies,
+    return { mode: this.mode, map: this.map, mapName: MAP_INFO[this.map].name, me, mt: live ? g.matchT : (MODES[this.mode].sandbox ? 0 : -3.5), ts: live ? g.teamScore : [0, 0], dummies, zomb,
       players: [...this.players.values()].map((p) => ({ id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec, ap: p.ap, as: p.as })) };
   }
 
@@ -191,6 +195,7 @@ export class Net {
       if (sb) g.applyLoadout(g.player, prim, sec, ap, as);                  // instant on our own screen; the host confirms to everyone
     }
   }
+  sendUse(on) { if (this.conn) this.sendTo(this.conn, { t: 'z', a: 'use', d: on ? 1 : 0 }); }
   sendSandbox(m) { if (this.conn) this.sendTo(this.conn, { t: 'sb', ...m }); }
   setMode(mode) {
     if (this.role !== 'host' || !MODES[mode]) return null;
@@ -200,7 +205,8 @@ export class Net {
   setMap(map) { if (this.role === 'host' && MAP_IDS.includes(map)) { this.map = map; this.pushLobby(); } }
   start() {
     if (this.role !== 'host') return 'Only the host can start the match.';
-    if (this.players.size < (MODES[this.mode].sandbox ? 1 : 2)) return 'Need at least 2 players to start.';
+    if (this.mode === 'zm') this.map = 'outpost';
+    if (this.players.size < (MODES[this.mode].sandbox || MODES[this.mode].zm ? 1 : 2)) return 'Need at least 2 players to start.';
     this.assignTeams();
     for (const c of this.conns.values()) this.sendTo(c, { t: 'begin', ...this.beginInfo(c.pid) });
     this.evAll = []; this.evMap.clear();

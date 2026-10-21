@@ -80,6 +80,14 @@ export class Sound {
     if (!this.ctx) return; const t = this.ctx.currentTime, bus = this._bus(0.3, 0);
     this._tone(t, 400, 800, 0.15, 0.5, bus, 'triangle');
   }
+  groan(vol = 0.4, pan = 0, seed = 0) {
+    if (!this.ctx || vol < 0.03) return; const t = this.ctx.currentTime, bus = this._bus(vol, pan), f = 70 + (seed % 7) * 9;
+    this._tone(t, f * 1.6, f, 0.55, 0.55, bus, 'sawtooth'); this._noise(t, 0.5, 500, 0.25, bus, 'bandpass');
+  }
+  cash() {
+    if (!this.ctx) return; const t = this.ctx.currentTime, bus = this._bus(0.35, 0);
+    this._tone(t, 1400, 1400, 0.07, 0.5, bus, 'square'); this._tone(t + 0.07, 2100, 2100, 0.14, 0.5, bus, 'square');
+  }
   beep(high = false) {
     if (!this.ctx) return; const t = this.ctx.currentTime, bus = this._bus(0.3, 0);
     this._tone(t, high ? 1200 : 700, high ? 1200 : 700, 0.18, 0.6, bus, 'sine');

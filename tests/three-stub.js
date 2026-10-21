@@ -6,6 +6,7 @@ export class Vector3 {
   constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
   set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
   copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; return this; }
+  setScalar(s) { this.x = s; this.y = s; this.z = s; return this; }
   clone() { return new Vector3(this.x, this.y, this.z); }
   add(v) { this.x += v.x; this.y += v.y; this.z += v.z; return this; }
   multiplyScalar(s) { this.x *= s; this.y *= s; this.z *= s; return this; }
@@ -15,7 +16,7 @@ export class Vector3 {
   length() { return Math.hypot(this.x, this.y, this.z); }
   normalize() { const l = this.length() || 1; this.x /= l; this.y /= l; this.z /= l; return this; }
 }
-export class Color { constructor(c) { this.c = c; } setHex(c) { this.c = c; return this; } }
+export class Color { constructor(c) { this.c = c; } setHex(c) { this.c = c; return this; } getHex() { return this.c; } }
 class Rot { constructor() { this.x = 0; this.y = 0; this.z = 0; this.order = 'XYZ'; } set(x, y, z, o) { this.x = x; this.y = y; this.z = z; if (o) this.order = o; } }
 class Obj {
   constructor() { this.position = new Vector3(); this.rotation = new Rot(); this.scale = new Vector3(1, 1, 1); this.children = []; this.visible = true; this.userData = {}; this.parent = null; }
@@ -53,6 +54,8 @@ export class CylinderGeometry extends Geo { constructor(rt, rb, h) { super(); th
 export class ConeGeometry extends Geo { constructor(r, h) { super(); this.kind = 'cone'; this.p = [r, h]; } }
 export class PlaneGeometry extends Geo {}
 export class SphereGeometry extends Geo { constructor(r) { super(); this.kind = 'sphere'; this.p = [r]; } }
+export class OctahedronGeometry extends Geo { constructor(r) { super(); this.kind = 'octa'; this.p = [r]; } }
+export class Float32BufferAttribute extends Attr { constructor(a, n) { super(Float32Array.from(a), n); } }
 class Mat { constructor(o = {}) { Object.assign(this, o); this.color = new Color(o.color); } }
 export class MeshStandardMaterial extends Mat {}
 export class MeshBasicMaterial extends Mat {}
@@ -60,7 +63,7 @@ export class SpriteMaterial extends Mat {}
 export class PointsMaterial extends Mat {}
 export class ShaderMaterial extends Mat {}
 export class TextureLoader { load(u) { return { url: u, repeat: { set() {} }, colorSpace: null }; } }
-export class CanvasTexture { constructor(c) { this.image = c; this.repeat = { set() {} }; } clone() { return new CanvasTexture(this.image); } }
+export class CanvasTexture { constructor(c) { this.image = c; this.repeat = { set() {} }; } clone() { return new CanvasTexture(this.image); } dispose() {} }
 export class WebGLRenderer {
   constructor(o) { this.domElement = o.canvas; this.shadowMap = {}; this.frames = 0; }
   setPixelRatio() {} setSize() {} clear() {} clearDepth() {}

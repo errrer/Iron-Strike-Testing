@@ -196,3 +196,20 @@ MIT (see `LICENSE`). Three.js is MIT licensed by its authors.
 ## Easter egg
 
 Type `richtofen` anywhere (menu or in a match) and every soldier turns into the Richtofen model; type it again to turn it off. The model lives in `assets/models/richtofen.json`, baked from an OBJ with `python3 tools/obj2model.py model.obj richtofen`. It only changes your own screen, also in multiplayer.
+
+## V0.6 – Zombies (big update)
+
+The game now opens on a start screen: **Multiplayer** (all the existing modes) or **Zombies**.
+
+**Zombies** is a BO3-style co-op survival mode on a new night map, *Outpost* (3 rooms, 10 boardable windows). Solo, or 2-4 players online (Zombies screen -> Create room / Join with code).
+
+- Rounds of zombies pour in through the windows and tear the boards; hold **F** to rebuild them (+10 pts each). Round size and zombie health scale each round, and they get faster.
+- Points: +10 per hit, +60 per kill, +100 for a headshot kill. Spend them with **F**: wall guns (buy, then half-price ammo), doors (750 / 1250) that open the next rooms, the Mystery Box (950), Pack-a-Punch (5000).
+- Perks: Juggernog, Quick Revive, Speed Cola, Double Tap, Stamin-Up.
+- Power-ups from kills: Max Ammo, Insta-Kill, Double Points, Nuke, Carpenter.
+- Down at 0 HP (pistol only, crawl). A teammate holds **F** to revive you; solo Quick Revive gives self-revives. Everyone down = game over; the score is rounds survived. Dead players return next round.
+- Multiplayer is host-authoritative; zombies run on the host and are synced to clients.
+
+New tests: `tests/zombies-test.py` (rules, shops, power-ups, game over) and `tests/zm-mp-test.py` (host + clients co-op sync). Existing tests were updated for the start screen.
+
+Not in yet: dog rounds, box moving, multiple box spots, melee.

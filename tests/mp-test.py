@@ -57,7 +57,7 @@ with sync_playwright() as pw:
     pg.evaluate(HELPERS)
 
     # ---- host through the real UI
-    pg.click('#btnMP'); pg.fill('#mpName', 'HostMan'); pg.click('#mpHostBtn')
+    pg.click('#lMP'); pg.click('#btnMP'); pg.fill('#mpName', 'HostMan'); pg.click('#mpHostBtn')
     pg.evaluate("() => window.__bus.pump(0.3)"); pg.wait_for_timeout(100)
     code = pg.inner_text('#mpCodeTxt')
     print('room code:', code); assert len(code) == 6 and code.isalpha() and code.isupper(), code
@@ -189,7 +189,7 @@ with sync_playwright() as pw:
     SBX = pg.evaluate("""async () => {
       const M = await H.mods(), o = {}, closed = [], errs = [];
       document.getElementById('menu').classList.remove('hidden');
-      document.getElementById('btnMP').click(); document.getElementById('mpHostBtn').click();
+      document.getElementById('lMP').click(); document.getElementById('btnMP').click(); document.getElementById('mpHostBtn').click();
       await window.__bus.pumpAsync(0.5);
       const code = document.getElementById('mpCodeTxt').textContent, host = window.__game, hostNet = window.__mp.net;
       hostNet.setMode('sandbox'); hostNet.setMap('dust');
@@ -250,7 +250,7 @@ with sync_playwright() as pw:
       const M = await H.mods(), o = {}, closed = [], errs = [];
       // new host through the real UI again
       document.getElementById('menu').classList.remove('hidden');
-      document.getElementById('btnMP').click(); document.getElementById('mpHostBtn').click();
+      document.getElementById('lMP').click(); document.getElementById('btnMP').click(); document.getElementById('mpHostBtn').click();
       await window.__bus.pumpAsync(0.5);
       const code = document.getElementById('mpCodeTxt').textContent, host = window.__game, hostNet = window.__mp.net;
       const clients = [];

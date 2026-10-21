@@ -304,6 +304,88 @@ function frostbite() {
   });
 }
 
+
+// ------------------------------------------------------------------------------------------
+// 5. OUTPOST - zombies map. Three rooms in a row (start room, middle room, back room) inside a walled yard.
+//    Windows in the outer walls are where zombies break in (barricade boards are added by zombies.js; the openings are
+//    real gaps so the nav graph can route through them). Doors between rooms are bought. Everything gameplay related
+//    (windows, doors, wall guns, perk machines, box, Pack-a-Punch) is described in map.zm.
+// ------------------------------------------------------------------------------------------
+function outpost() {
+  const b = new Builder();
+  b.outerWalls(6, { tex: 'concrete', color: 0x3c4148, tile: 3 });
+  const H = 3.4, T = 0.5, wallO = { tex: 'brick', color: 0x6a5a4e, tile: 3 };
+  const windows = [];
+  const lintel = (cx, cz, w, d) => b.box(cx, cz, w, d, H - 2.7, { ...wallO, y0: 2.7 });
+  // outer wall piece of one room with 2 m wide full-height gaps (windows). side: 'n' | 's' | 'w' | 'e'
+  const room = (x0, x1, zone, gaps, sides) => {
+    for (const side of sides) {
+      const z = side === 'n' ? -10 : 10, ins = side === 'n' ? 1.7 : -1.7;
+      b.wall(x0, z, x1, z, T, H, wallO, gaps[side].map((g) => ({ at: g - x0, w: 2, type: 'door' })));
+      for (const g of gaps[side]) { lintel(g, z, 2, T); windows.push({ id: windows.length, zone, x: g, z, inx: g, inz: z + ins, outx: g, outz: z - ins, w: 2, axis: 'x' }); }
+    }
+  };
+  room(-30, -10, 0, { n: [-20], s: [-20] }, ['n', 's']);
+  room(-10, 10, 1, { n: [0], s: [0] }, ['n', 's']);
+  room(10, 30, 2, { n: [20], s: [20] }, ['n', 's']);
+  // west / east end walls
+  for (const [x, zone, ins] of [[-30, 0, 1.7], [30, 2, -1.7]]) {
+    b.wall(x, -10, x, 10, T, H, wallO, [-5, 5].map((g) => ({ at: g + 10, w: 2, type: 'door' })));
+    for (const g of [-5, 5]) { lintel(x, g, T, 2); windows.push({ id: windows.length, zone, x, z: g, inx: x + ins, inz: g, outx: x - ins, outz: g, w: 2, axis: 'z' }); }
+  }
+  // dividers between the rooms, each with a 3 m doorway (closed by a bought door in zombie mode)
+  for (const x of [-10, 10]) b.wall(x, -10, x, 10, T, H, wallO, [{ at: 10, w: 3, type: 'door' }]);
+  // roofs (visual only)
+  for (const cx of [-20, 0, 20]) b.deco(cx, 0, 20.6, 20.6, 0.3, { y0: H, tex: 'concrete', color: 0x30343a });
+  // some cover inside the rooms
+  b.box(-20, 0, 3, 1.2, 1.0, { tex: 'wood', color: 0x5a4430, tile: 2 });
+  b.box(0, 0, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 });
+  b.box(17, 3, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 }); b.box(23, -3, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 });
+  b.box(-26, 6, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 }); b.box(-14, -6, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 });
+  // yard: wrecks and barrels for the zombies to shamble around
+  for (const [x, z, w, d] of [[-34, -18, 4.2, 1.8], [-8, -21, 4.2, 1.8], [14, -19, 1.8, 4.2], [33, -17, 4.2, 1.8], [-34, 17, 1.8, 4.2], [-6, 20, 4.2, 1.8], [16, 21, 4.2, 1.8], [34, 20, 1.8, 4.2]]) {
+    b.box(x, z, w, d, 0.9, { tex: 'metal', color: 0x4a4038 }); b.box(x, z, w * 0.5, d * 0.5, 0.6, { y0: 0.9, tex: 'metal', color: 0x2a2622 });
+  }
+  for (const [x, z] of [[-24, -16], [26, 14], [0, 16], [-2, -16], [-36, 4]]) b.cyl(x, z, 0.4, 1.0, { tex: 'metal', color: 0x6a3a2a });
+
+  const zm = {
+    windows,
+    doors: [{ id: 0, x: -10, z: 0, w: 0.5, d: 3, h: H, cost: 750, opens: 1 }, { id: 1, x: 10, z: 0, w: 0.5, d: 3, h: H, cost: 1250, opens: 2 }],
+    // face = direction (radians, 0 = +z/south, PI/2 = +x/east ...) the panel looks into the room
+    buys: [
+      { id: 0, gun: 'vmp', cost: 1000, x: -29.7, z: 0, face: Math.PI / 2 },
+      { id: 1, gun: 'm680', cost: 1000, x: -25, z: -9.7, face: 0 },
+      { id: 2, gun: 'g18', cost: 600, x: -25, z: 9.7, face: Math.PI },
+      { id: 3, gun: 'm4a1', cost: 1500, x: -5, z: -9.7, face: 0 },
+      { id: 4, gun: 'magnum', cost: 800, x: -5, z: 9.7, face: Math.PI },
+      { id: 5, gun: 'ak47', cost: 1800, x: 14, z: -9.7, face: 0 },
+      { id: 6, gun: 'kar98k', cost: 1200, x: 14, z: 9.7, face: Math.PI },
+    ],
+    perks: [
+      { id: 'qr', x: -14, z: -9.1, face: 0, w: 1.7, d: 0.9 },
+      { id: 'sc', x: -9.1, z: 5.5, face: Math.PI / 2, w: 0.9, d: 1.7 },
+      { id: 'jug', x: 9.1, z: -5.5, face: -Math.PI / 2, w: 0.9, d: 1.7 },
+      { id: 'dt', x: 24, z: -9.1, face: 0, w: 1.7, d: 0.9 },
+      { id: 'st', x: 24, z: 9.1, face: Math.PI, w: 1.7, d: 0.9 },
+    ],
+    box: { x: 3, z: 9.1, face: Math.PI, w: 2.0, d: 0.9 },
+    pap: { x: 29.1, z: 0, face: -Math.PI / 2, w: 0.9, d: 1.8 },
+  };
+  // solid machines / box (players cannot walk through them)
+  for (const m of [...zm.perks, zm.box, zm.pap]) b.boxes.push({ x0: m.x - m.w / 2, x1: m.x + m.w / 2, y0: 0, y1: 2.2, z0: m.z - m.d / 2, z1: m.z + m.d / 2 });
+  const sp = { 0: { x0: -28, x1: -12, z0: -8, z1: 8 }, 1: { x0: -28, x1: -12, z0: -8, z1: 8 } };
+  const r = { ...finish(b, {
+    id: 'outpost', night: true,
+    sky: [0x05080f, 0x141c2a], fog: [0x0a0e15, 8, 58],
+    hemi: [0x6a7a96, 0x15161c, 0.55], sun: null,
+    lights: [[-20, 2.7, 0], [0, 2.7, 0], [20, 2.7, 0], [-34, 4.5, -19], [4, 4.5, -21], [34, 4.5, 18]],
+    ground: { tex: 'concrete', color: 0x2b2e33, tile: 6 },
+    impact: 0x9a948a,
+  }), zm };
+  r.spawns = sp;
+  return r;
+}
+
 function finish(b, theme) {
   return { ...theme, bounds: BOUNDS, boxes: b.boxes, visuals: b.visuals, spawns: SPAWNS };
 }
@@ -312,9 +394,11 @@ export const MAP_INFO = {
   warehouse: { name: 'Warehouse', desc: 'Indoor containers & a central catwalk. Tight lanes, close fights.', thumb: 'linear-gradient(135deg,#2b2f36,#59616b 55%,#c7842b)' },
   dust: { name: 'Dust', desc: 'Desert village. Buildings, windows and a busy central plaza.', thumb: 'linear-gradient(135deg,#f1d9a8,#c49a66 55%,#5f9fd6)' },
   skyline: { name: 'Skyline', desc: 'Rooftop at dusk. HVAC cover, stair huts, open sightlines.', thumb: 'linear-gradient(135deg,#2b2f5a,#d8725a 60%,#f0956a)' },
+  outpost: { name: 'Outpost', desc: 'Zombies map: three rooms, ten windows, doors, perks and the Mystery Box. (Also playable as a night arena.)', thumb: 'linear-gradient(135deg,#05080f,#2c4a2a 55%,#8a1c14)' },
   frostbite: { name: 'Frostbite', desc: 'Snow compound with watchtowers for long-range duels.', thumb: 'linear-gradient(135deg,#4f6f93,#dfe9f2 60%,#8a6a45)' },
 };
 
-export const MAP_BUILDERS = { warehouse, dust, skyline, frostbite };
-export const MAP_IDS = Object.keys(MAP_BUILDERS);
+export const MAP_BUILDERS = { warehouse, dust, skyline, frostbite, outpost };
+export const ZM_MAPS = ['outpost'];                                    // zombies-only maps (not offered in the normal map list)
+export const MAP_IDS = Object.keys(MAP_BUILDERS).filter((id) => !ZM_MAPS.includes(id));
 export function buildMap(id) { return MAP_BUILDERS[id](); }

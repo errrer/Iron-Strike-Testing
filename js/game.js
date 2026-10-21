@@ -6,7 +6,8 @@ import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js';
 import { buildWorld } from './world.js';
 import { Bot } from './bots.js';
 import { makeRichtofen, richtofenReady } from './easter.js';
-import { buildSoldier, holdGun } from './soldier.js';
+import { buildSoldier, holdGun, SKIN } from './soldier.js';
+import { Zombies, PERKS } from './zombies.js';
 import { Ragdoll, makeRagdoll } from './ragdoll.js';
 import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js';
 import { Objectives } from './objectives.js';
@@ -26,6 +27,7 @@ export const MODES = {
   hp: { id: 'hp', name: 'Hardpoint', team: true, perSide: 5, scoreLimit: 250, time: 600, obj: 'hp', solo: true, blurb: 'One zone that keeps moving - stand in it alone to score (offline)' },
   kc: { id: 'kc', name: 'Kill Confirmed', team: true, perSide: 5, scoreLimit: 40, time: 600, obj: 'kc', solo: true, blurb: 'Kills drop dog tags - grab red to confirm, blue to deny (offline)' },
   snd: { id: 'snd', name: 'Search & Destroy', team: true, perSide: 5, scoreLimit: 4, time: 1500, obj: 'snd', oneLife: true, solo: true, blurb: 'One life. Attack: plant at A or B (hold E). Defend: stop it. First to 4 rounds (offline)' },
+  zm: { id: 'zm', name: 'Zombies', team: true, coop: true, zm: true, perSide: 0, scoreLimit: 0, time: 0, blurb: 'Survive endless rounds of zombies. Solo or 4-player co-op.' },
   sandbox: { id: 'sandbox', name: 'Sandbox', team: false, count: 1, scoreLimit: 0, time: 0, sandbox: true, blurb: 'No score, no clock. Spawn dummies (B), swap your loadout any time (Esc)' },
 };
 export const MAX_DUMMIES = 20;
@@ -36,6 +38,7 @@ export const MP_OVERRIDES = {
   tdm: { scoreLimit: 50, time: 600, blurb: 'Two teams, auto-balanced - first team to 50' },
   '1v1': { blurb: 'Two players - first to 10 kills', max: 2 },
   ffa: { scoreLimit: 30, time: 600, blurb: 'Up to 18 players - first to 30' },
+  zm: { max: 4, blurb: 'Co-op zombies for up to 4 players - board windows, buy guns, open doors, survive.' },
   sandbox: { blurb: 'Up to 18 players share one sandbox: dummies (B), live loadout swaps (Esc)' },
 };
 export const mpMode = (id) => ({ ...MODES[id], ...MP_OVERRIDES[id], max: (MP_OVERRIDES[id] || {}).max || MAX_PLAYERS });
@@ -100,10 +103,11 @@ export class Game {
       if (e.code === 'KeyZ' && p.alive) { p.tacOn = !p.tacOn; this.hud.center(p.tacOn ? 'TAC STANCE ON' : 'TAC STANCE OFF', 0.7); }
       if (e.code === 'KeyB' && this.mode.sandbox) this.sandboxSpawn(e.shiftKey ? 5 : 1);
       if (e.code === 'KeyN' && this.mode.sandbox) this.sandboxClear();
-      if (e.code === 'KeyF' && p.alive && !p.reloading && !p.sprint && this.vmS.inspectT <= 0) this.vmS.inspectT = 2.8;
+      if (e.code === 'KeyF' && this.zm) this.zm.localUse(true);
+      else if (e.code === 'KeyF' && p.alive && !p.reloading && !p.sprint && this.vmS.inspectT <= 0) this.vmS.inspectT = 2.8;
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
-    document.addEventListener('keyup', (e) => { this.keys[e.code] = false; if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
+    document.addEventListener('keyup', (e) => { this.keys[e.code] = false; if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
     this.canvas.addEventListener('mousedown', (e) => {
       if (this.state !== 'playing') return;
       if (e.button === 0) { this.fireHeld = true; this.fireEdge = true; }
@@ -141,7 +145,7 @@ export class Game {
 
   lock() { try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
 
-  pause() { if (this.state !== 'playing') return; this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.hud.showPause(true); if (this.onPause) this.onPause(); }
+  pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.hud.showPause(true); if (this.onPause) this.onPause(); }
   resume() { if (this.state !== 'paused') return; this.state = 'playing'; this.hud.showPause(false); this.lock(); }
 
   // ------------------------------------------------------------------ match setup
@@ -151,7 +155,7 @@ export class Game {
     this.disposeMatch();
     this.map = buildMap(cfg.map);
     this.col = new Colliders(this.map.boxes);
-    this.nav = new NavGraph(this.col, this.map.bounds, 3);
+    this.nav = this.makeNav();
     this.world = buildWorld(this.map);
     this.scene = this.world.scene;
     this.fxGroup = new THREE.Group(); this.scene.add(this.fxGroup);
@@ -164,7 +168,8 @@ export class Game {
     const names = CALLSIGNS.slice().sort(() => Math.random() - 0.5);
     this.player = mk(0, 'You', 0, true, cfg.primary, cfg.secondary, cfg.attP | 0, cfg.attS | 0);
     this.actors.push(this.player);
-    if (mode.team) {
+    if (mode.zm) { /* no bots: just you (and your co-op friends online) against the zombies */ }
+    else if (mode.team) {
       for (let i = 0; i < mode.perSide * 2 - 1; i++) this.actors.push(mk(i + 1, names[i], i < mode.perSide - 1 ? 0 : 1, false));
     } else {
       for (let i = 1; i < mode.count; i++) this.actors.push(mk(i, names[i], i, false));
@@ -188,7 +193,8 @@ export class Game {
     this.matchXp = 0; this.xpDone = false; this.hud.begin(this);
     for (const a of this.actors) this.spawn(a, true);
     this.obj = mode.obj ? new Objectives(this, mode.obj) : null;
-    this.streaks = mode.sandbox ? null : new Streaks(this);
+    this.streaks = mode.sandbox || mode.zm ? null : new Streaks(this);
+    this.zm = mode.zm ? new Zombies(this) : null;
     this.setPlayerVm();
     this.state = 'playing';
     this.keys = {}; this.fireHeld = false; this.adsHeld = false;
@@ -200,9 +206,42 @@ export class Game {
     if (this.world) this.world.dispose();
     if (this.obj) this.obj.dispose();
     if (this.streaks) this.streaks.dispose();
-    this.streaks = null; this.obj = null; this.world = null; this.scene = null;
+    if (this.zm) this.zm.dispose();
+    this.zm = null; this.streaks = null; this.obj = null; this.world = null; this.scene = null;
     this.tracers = []; this.particles = []; this.gore = null;
     this.actors = [];
+  }
+
+  // zombies mode needs a fine navigation grid (windows are 2 m gaps); everything else uses the coarse one
+  makeNav() { return this.mode.zm ? new NavGraph(this.col, this.map.bounds, 1, { margin: 0.55, seg: 0.3 }) : new NavGraph(this.col, this.map.bounds, 3); }
+  get noRespawn() { return !!(this.mode.oneLife || this.mode.zm); }
+
+  // a stand-in killer for deaths that no living actor caused (bleeding out in Zombies)
+  fakeKiller(v) { return { id: -1, name: 'ZOMBIES', team: 1, isPlayer: false, kills: 0, streak: 0, pos: new V3(v.pos.x + 1, v.pos.y, v.pos.z), zombie: true }; }
+
+  makeZombieMesh() {
+    const m = this.makeBotMesh(0x55603f, WEAPONS.m1911, null);
+    m.gun.visible = false; m.zombie = true;
+    if (!Game._zskin) Game._zskin = [new THREE.MeshStandardMaterial({ color: 0x86a074, roughness: 0.9 }), new THREE.MeshStandardMaterial({ color: 0x6b8560, roughness: 0.9 })];
+    m.body.traverse((o) => {
+      if (!o.isMesh || !o.material || !o.material.color) return;
+      const h = o.material.color.getHex();
+      if (h === SKIN) o.material = Game._zskin[0]; else if (h === 0xac8361) o.material = Game._zskin[1];
+    });
+    const eye = new THREE.MeshBasicMaterial({ color: 0xff2a1a, fog: false });
+    for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.025, 0.012), eye); e.position.set(sx * 0.047, 0.03, -0.112); m.headG.add(e); }
+    return m;
+  }
+
+  // zombies shamble with both arms out in front
+  zombiePose(a, m) {
+    const t = this.time * 2.2 + a.id * 1.7, sp = Math.hypot(a.vel.x, a.vel.z);
+    m.arms.forEach((arm, i) => {
+      arm.rotation.set(1.38 + Math.sin(t + i * 1.4) * 0.14, 0, (i ? -1 : 1) * 0.1);
+      if (arm.userData.el) arm.userData.el.rotation.set(0.25 + Math.sin(t * 1.3 + i) * 0.12, 0, 0);
+    });
+    m.body.rotation.x = -(0.14 + Math.min(0.14, sp * 0.03));
+    m.headG.rotation.z = Math.sin(t * 0.6) * 0.18; m.headG.rotation.x = 0.1;
   }
 
   makeActor(id, name, team, isPlayer, prim, sec, ap = 0, as = 0) {
@@ -339,7 +378,7 @@ export class Game {
     this.disposeMatch();
     this.map = buildMap(info.map);
     this.col = new Colliders(this.map.boxes);
-    this.nav = net.role === 'host' ? new NavGraph(this.col, this.map.bounds, 3) : null;
+    this.nav = net.role === 'host' ? this.makeNav() : null;
     this.world = buildWorld(this.map);
     this.scene = this.world.scene;
     this.fxGroup = new THREE.Group(); this.scene.add(this.fxGroup);
@@ -347,13 +386,15 @@ export class Game {
     this.actors = []; this.player = null; this.hist = [];
     this.myTeam = (info.players.find((p) => p.id === info.me) || { team: 0 }).team;
     for (const p of info.players) this.addNetActor(p, p.id === info.me, true);
+    for (const d of info.zomb || []) { const a = this.addNetActor({ id: d.id, name: 'Zombie', team: 1, prim: 'm1911', sec: 'm1911', zombie: 1 }, false, true); this.placeActor(a, d.x, d.z, d.yaw, true, 0); a.hp = d.hp || 100; }
     for (const d of info.dummies || []) { const a = this.addNetActor({ id: d.id, name: 'Dummy', team: d.id, prim: 'm4a1', sec: 'g18', dummy: 1 }, false, true); this.placeActor(a, d.x, d.z, d.yaw, true, d.y); }
     this.teamScore = info.ts ? info.ts.slice() : [0, 0];
     this.timeLeft = this.mode.time; this.matchT = info.mt; this.ended = false;
     this.killer = null; this.lastCountdown = this.mode.sandbox ? 0 : 99; this.clockOff = null; this.snapT = 0; this.stT = 0; this.nextDummyId = 1000;
     this.matchXp = 0; this.xpDone = false; this.hud.begin(this);
     for (const a of this.actors) { a.alive = false; a.mesh.root.visible = false; }
-    if (net.role === 'host') for (const a of this.actors) this.spawn(a, true);
+    if (net.role === 'host') for (const a of this.actors) if (!a.zombie) this.spawn(a, true);
+    this.zm = this.mode.zm ? new Zombies(this) : null;
     this.setPlayerVm();
     this.state = 'playing';
     this.keys = {}; this.fireHeld = false; this.adsHeld = false;
@@ -363,15 +404,16 @@ export class Game {
 
   addNetActor(p, isLocal, batch) {
     const a = this.makeActor(p.id, String(p.name).replace(/[<>&"'`]/g, '').slice(0, 14), p.team, isLocal, p.prim, p.sec, p.ap | 0, p.as | 0);
-    a.remote = !isLocal; a.alive = false; a.ibuf = []; a.sseq = 0; a.dummy = !!p.dummy;
+    a.remote = !isLocal; a.alive = false; a.ibuf = []; a.sseq = 0; a.dummy = !!p.dummy; a.zombie = !!p.zombie;
     const team = this.mode.team;
     const color = a.dummy ? DUMMY_COLOR : team ? TEAM_COLORS[p.team % 2] : FFA_COLORS[p.id % FFA_COLORS.length];
     const label = team && !isLocal && p.team === this.myTeam ? p.name : null;
-    a.mesh = this.makeBotMesh(color, a.weapons[0], label);
+    a.mesh = a.zombie ? this.makeZombieMesh() : this.makeBotMesh(color, a.weapons[0], label);
     a.mesh.root.visible = false; this.scene.add(a.mesh.root);
     this.actors.push(a);
+    if (this.zm && !a.zombie && !a.dummy) this.zm.initPlayer(a);
     if (isLocal) this.player = a;
-    if (!batch && this.net.role === 'host') this.spawn(a, true);
+    if (!batch && this.net.role === 'host' && !a.zombie) this.spawn(a, true);
     return a;
   }
 
@@ -420,7 +462,7 @@ export class Game {
     if (m.cur === 0 || m.cur === 1) { if (m.cur !== a.cur) { a.cur = m.cur; a.weapon = a.weapons[m.cur]; this.setActorGun(a); } }
     const w = a.weapon;
     if (a.fireCd > 0.05) return;
-    a.fireCd += 60 / w.rpm; a.lastShot = this.time;
+    a.fireCd += 60 / w.rpm / ((a.perks & 8) ? 1.4 : 1); a.lastShot = this.time;
     let ox = m.ox, oy = m.oy, oz = m.oz;
     if (Math.hypot(ox - a.pos.x, oz - a.pos.z) > 3.5 || Math.abs(oy - a.pos.y - 1.5) > 2) { ox = a.pos.x; oy = a.pos.y + 1.6; oz = a.pos.z; }
     const rew = clamp(m.rt, this.time - 0.5, this.time);
@@ -523,22 +565,22 @@ export class Game {
         case 'lo': this.applyLoadout(this.byId(e[1]), e[2], e[3], e[4], e[5]); break;
         case 'hp': if (this.player.alive) this.player.hp = e[1]; break;
         case 'end': this.netEnd(e[1], e[2], e[3]); break;
-        default: break;
+        default: if (this.zm && typeof e[0] === 'string' && e[0][0] === 'z') this.zm.onEvent(e); break;
       }
     }
   }
 
   applyKill(kid, vid, wid, head) {
-    const k = this.byId(kid), v = this.byId(vid), w = WEAPONS[wid];
+    const v = this.byId(vid), k = this.byId(kid) || (kid < 0 && v ? this.fakeKiller(v) : null), w = WEAPONS[wid];
     if (!k || !v || !w) return;
     v.alive = false; v.hp = 0; v.deathT = 0; v.reloading = false; v.respawnT = 3.2; v.deaths++; if (k !== v) k.kills++;
     this.spawnGore(v, k, w, head); this.startRagdoll(v, k, w, head);
     this.killXp(k, v, head);
-    this.hud.feed(k, v, w, head, this);
-    if (v.isPlayer) { this.killer = k; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
+    if (!v.zombie) this.hud.feed(k, v, w, head, this);
+    if (v.isPlayer) { this.killer = k; v.down = false; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
     if (k.isPlayer && k !== v) {
       this.sound.kill();
-      for (let i = 0; i < 2; i++) { const am = k.ammo[i]; am.res = Math.min(k.weapons[i].reserve, am.res + Math.ceil(k.weapons[i].mag / 2)); }
+      if (!v.zombie) for (let i = 0; i < 2; i++) { const am = k.ammo[i]; am.res = Math.min(k.weapons[i].reserve, am.res + Math.ceil(k.weapons[i].mag / 2)); }
     }
   }
 
@@ -732,8 +774,8 @@ export class Game {
         if (a.tgt) { a.pos.lerp(a.tgt, 1 - Math.exp(-22 * dt)); a.pos.y = a.tgt.y; }
       } else {
         a.deathT += dt; a.respawnT -= dt;
-        if (a.dummy) { if (a.deathT > 8) this.removeNetActor(a.id); }          // dead dummies are cleared away
-        else if (a.respawnT <= 0 && !this.ended && !this.mode.oneLife) this.spawn(a);
+        if (a.dummy || a.zombie) { if (a.deathT > (a.zombie ? 6 : 8)) this.removeNetActor(a.id); }          // dead dummies / zombies are cleared away
+        else if (a.respawnT <= 0 && !this.ended && !this.noRespawn) this.spawn(a);
       }
     }
     for (const a of this.actors) {
@@ -742,13 +784,14 @@ export class Game {
       if (a.remote && a.fireCd < -0.25) a.fireCd = -0.25;
       if (a.reloading && !a.remote) { a.reloadT -= dt; if (a.reloadT <= 0) this.finishReload(a); }
       if (a.heat > 0) a.heat = Math.max(0, a.heat - dt * 3);
-      if (!client && this.time - a.lastHurt > 5 && a.hp < 100) a.hp = Math.min(100, a.hp + dt * 25);
+      if (!client && !a.down && !a.zombie && this.time - a.lastHurt > 5 && a.hp < 100) a.hp = Math.min(100, a.hp + dt * 25);
       this.stepSounds(a, dt);
       if (a.mesh) this.syncMesh(a, dt);
     }
     for (const a of this.actors) if (!a.alive && a.mesh) this.syncMesh(a, dt);
     if (this.obj && !this.ended && this.matchT >= 0) this.obj.update(dt);
     if (this.streaks && !this.ended) this.streaks.update(dt);
+    if (this.zm) this.zm.update(dt);
     this.updateFx(dt);
 
     if (!client && !this.ended) this.checkEnd();
@@ -757,6 +800,7 @@ export class Game {
   }
 
   stepSounds(a, dt) {
+    if (a.zombie) return;
     const sp = Math.hypot(a.vel.x, a.vel.z);
     if (!a.onGround || sp < 1.5 || (a.isPlayer && a.crouch)) { return; }
     a.stepT += sp * dt;
@@ -854,7 +898,7 @@ export class Game {
   startReload(a) {
     const am = a.ammo[a.cur], w = a.weapon;
     if (!a.alive || a.reloading || am.mag >= w.mag || (am.res <= 0 && !a.brain) || a.switchT > 0) return;
-    a.reloading = true; a.reloadT = w.reload;
+    a.reloading = true; a.reloadT = w.reload * ((a.perks & 4) ? 0.5 : 1);
     if (a.isPlayer) this.sound.reload(0);
   }
   finishReload(a) {
@@ -899,7 +943,7 @@ export class Game {
 
   fireShot(a, dir, spread, dmgMul = 1) {
     const w = a.weapon, am = a.ammo[a.cur];
-    am.mag--; a.fireCd = 60 / w.rpm; a.lastShot = this.time;
+    am.mag--; a.fireCd = 60 / w.rpm / ((a.perks & 8) ? 1.4 : 1); a.lastShot = this.time;
     const eyeH = a.isPlayer ? a.eye : 1.6;
     const ox = a.pos.x, oy = a.pos.y + eyeH, oz = a.pos.z;
     const rx = Math.cos(a.yaw), rz = -Math.sin(a.yaw);
@@ -951,30 +995,32 @@ export class Game {
 
   damage(v, attacker, amount, w, head) {
     if (!v.alive || v.protT > 0 || this.ended) return;
+    if (this.zm) { if (v.down) return; amount = this.zm.adjust(v, attacker, amount); if (v.zombie) this.zm.onHit(attacker, v); }
     v.hp -= amount; v.lastHurt = this.time;
     if (v.isPlayer) { this.hud.damageFrom(attacker, this.player); this.sound.hurt(); }
     if (v.remote && this.net) this.net.evTo(v.id, ['h', attacker.id]);
     if (attacker.isPlayer) { this.hud.hitmarker(v.hp <= 0, head); this.sound.hit(head); }
     else if (attacker.remote && this.net) this.net.evTo(attacker.id, ['hm', v.hp <= 0 ? 1 : 0, head ? 1 : 0]);
     if (v.brain) v.brain.onHurt(attacker);
-    if (v.hp <= 0) this.kill(v, attacker, w, head);
+    if (v.hp <= 0) { if (this.zm && !v.zombie) this.zm.down(v, attacker); else this.kill(v, attacker, w, head); }
   }
 
   kill(v, k, w, head) {
     v.alive = false; v.hp = 0; v.deaths++; v.deathT = 0; v.reloading = false; v.respawnT = v.isPlayer ? 3.2 : 3;
     this.spawnGore(v, k, w, head); this.startRagdoll(v, k, w, head);
-    if (k !== v) { k.kills++; k.streak++; if (this.mode.team && !this.mode.obj) this.teamScore[k.team]++; }
+    if (k !== v) { k.kills++; k.streak++; if (this.mode.team && !this.mode.obj && !this.mode.zm) this.teamScore[k.team]++; }
     v.streak = 0;
     if (this.obj) this.obj.onKill(v, k);
     if (this.streaks && k.isPlayer && k !== v && !v.dummy) this.streaks.earn(k.streak);
     this.killXp(k, v, head);
-    this.hud.feed(k, v, w, head, this);
+    if (!v.zombie) this.hud.feed(k, v, w, head, this);
     if (this.net) this.net.ev(['k', k.id, v.id, w.id, head ? 1 : 0]);
-    if (v.isPlayer) { this.killer = k; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
+    if (v.isPlayer) { this.killer = k; v.down = false; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
     if (k.isPlayer && k !== v) {
       this.sound.kill();
-      for (let i = 0; i < 2; i++) { const am = k.ammo[i]; am.res = Math.min(k.weapons[i].reserve, am.res + Math.ceil(k.weapons[i].mag / 2)); }
+      if (!v.zombie) for (let i = 0; i < 2; i++) { const am = k.ammo[i]; am.res = Math.min(k.weapons[i].reserve, am.res + Math.ceil(k.weapons[i].mag / 2)); }
     }
+    if (this.zm && v.zombie) this.zm.onKill(v, k, head);
   }
 
   // ------------------------------------------------------------------ progression (XP, ranks; see progress.js)
@@ -992,6 +1038,7 @@ export class Game {
     if (this.mode.sandbox || !k || !v) return;
     if (v.isPlayer) this.prog.stat('deaths');
     if (!k.isPlayer || k === v || v.dummy) return;
+    if (v.zombie) { this.prog.stat('kills'); this.award(10, head ? 'HEADSHOT' : 'ZOMBIE'); return; }
     this.prog.stat('kills'); this.award(XP_REWARD.kill, 'KILL');
     if (head) { this.prog.stat('heads'); this.award(XP_REWARD.headshot, 'HEADSHOT'); }
     if (k.streak >= 3) this.award(XP_REWARD.streak * Math.min(k.streak - 2, 6), `${k.streak} KILL STREAK`);
@@ -1001,13 +1048,14 @@ export class Game {
     if (this.mode.sandbox || this.xpDone) return; this.xpDone = true;
     const p = this.player; this.prog.stat('matches');
     this.award(XP_REWARD.played, 'MATCH COMPLETE');
+    if (this.mode.zm) { this.award(Math.min(1500, Math.max(0, this.teamScore[0] - 1) * 40), `ROUND ${this.teamScore[0]} REACHED`); this.endXp = this.matchXp; return; }
     if (win !== null && win === p.team) { this.prog.stat('wins'); this.award(XP_REWARD.win, 'VICTORY'); }
     this.endXp = this.matchXp;
   }
 
   checkEnd() {
     const m = this.mode;
-    if (m.sandbox) return;
+    if (m.sandbox || m.zm) return;
     let over = false;
     if (m.team) over = this.teamScore[0] >= m.scoreLimit || this.teamScore[1] >= m.scoreLimit;
     else over = this.actors.some((a) => a.kills >= m.scoreLimit);
@@ -1020,7 +1068,8 @@ export class Game {
     this.ended = true; this.state = 'ended';
     this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.showScore = false;
     let win;
-    if (this.mode.team) win = this.teamScore[0] === this.teamScore[1] ? null : (this.teamScore[0] > this.teamScore[1] ? 0 : 1);
+    if (this.mode.zm) win = null;
+    else if (this.mode.team) win = this.teamScore[0] === this.teamScore[1] ? null : (this.teamScore[0] > this.teamScore[1] ? 0 : 1);
     else {
       const sorted = [...this.actors].sort((a, b) => b.kills - a.kills);
       win = sorted.length > 1 && sorted[0].kills === sorted[1].kills ? null : sorted[0].team;
@@ -1036,7 +1085,7 @@ export class Game {
     const p = this.player, k = this.keys;
     if (!p.alive) {
       p.deathT += dt; p.respawnT -= dt;
-      if (p.respawnT <= 0 && !this.ended && !this.isClient && !this.mode.oneLife) this.spawn(p);
+      if (p.respawnT <= 0 && !this.ended && !this.isClient && !this.noRespawn) this.spawn(p);
       return;
     }
     p.protT = Math.max(0, p.protT - dt);
@@ -1044,9 +1093,11 @@ export class Game {
     const fwd = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), str = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
     const w = p.weapon;
     const wantCrouch = !!(k.KeyC || k.ControlLeft);
-    const ads = this.adsHeld && !frozen && p.switchT <= 0 && !p.reloading;
-    const sprint = !!k.ShiftLeft && fwd > 0 && !ads && !wantCrouch && !this.fireHeld;
-    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? (p.tacOn ? 0.86 : 0.62) : 1);
+    const down = !!p.down;
+    const ads = this.adsHeld && !frozen && p.switchT <= 0 && !p.reloading && !down;
+    const sprint = !!k.ShiftLeft && fwd > 0 && !ads && !wantCrouch && !this.fireHeld && !down;
+    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? (p.tacOn ? 0.86 : 0.62) : 1) * ((p.perks & 16) ? 1.12 : 1);
+    if (down) speed = 1.5;
     const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
     let wx = fx * fwd + rx * str, wz = fz * fwd + rz * str;
     const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
@@ -1057,7 +1108,7 @@ export class Game {
     if (crouchPress && p.sprint && p.onGround && !frozen && !p.mantle && p.slideCd <= 0 && p.speed2 > 5.8) {
       p.slideT = 0.9; p.slideSp = Math.min(10.5, p.speed2 * 1.3); p.slideDx = p.vel.x / p.speed2; p.slideDz = p.vel.z / p.speed2; p.slideCd = 1.1;
     }
-    let jump = !!k.Space && !frozen, crouchNow = wantCrouch;
+    let jump = !!k.Space && !frozen && !down, crouchNow = wantCrouch || down;
     if (p.slideT > 0) {
       p.slideT -= dt;
       if (!p.onGround || p.speed2 < 2.2 || p.mantle || (jump && p.onGround)) p.slideT = 0;     // slide-jump keeps the speed
@@ -1070,13 +1121,13 @@ export class Game {
     // --- mantle: jump into a ledge that is too high to step up and you pull yourself over it ---
     if (p.mantle) this.stepMantle(p, dt);
     else {
-      if (k.Space && !frozen && fwd > 0 && p.mantleCd <= 0) {
+      if (k.Space && !frozen && !down && fwd > 0 && p.mantleCd <= 0) {
         const L = this.col.findLedge(p, fx, fz, p.onGround ? 1.5 : 1.0);
         if (L) { const up = L.y - p.pos.y; p.mantle = { t: 0, dur: 0.36 + up * 0.14, sx: p.pos.x, sy: p.pos.y, sz: p.pos.z, ex: L.x, ey: L.y, ez: L.z }; p.slideT = 0; p.vel.set(0, 0, 0); p.mantleCd = 0.5; }
       }
       if (!p.mantle) this.moveActor(p, wx, wz, speed, dt, jump, crouchNow);
     }
-    p.eye += ((p.slideT > 0 ? 0.9 : p.crouch ? 1.12 : 1.65) - p.eye) * Math.min(1, dt * 12);
+    p.eye += ((down ? 0.6 : p.slideT > 0 ? 0.9 : p.crouch ? 1.12 : 1.65) - p.eye) * Math.min(1, dt * 12);
     { const S = this.vmS; S.slk += ((p.slideT > 0 ? 1 : 0) - S.slk) * Math.min(1, dt * 10); S.mvk += ((p.mantle ? Math.sin(Math.PI * Math.min(1, p.mantle.t / p.mantle.dur)) : 0) - S.mvk) * Math.min(1, dt * 16); }
     // with tac stance on, the aim button turns the gun on its side (p.tac) instead of looking down the sights (p.ads)
     p.ads += ((ads && !p.tacOn ? 1 : 0) - p.ads) * Math.min(1, dt * 11);
@@ -1093,7 +1144,7 @@ export class Game {
     // firing
     if (!frozen) {
       const want = w.auto ? this.fireHeld : this.fireEdge;
-      if (want && !sprint) {
+      if (want && !sprint && (!down || w.cls === 'pistol')) {
         if (p.ammo[p.cur].mag <= 0) { if (this.fireEdge) { this.sound.click(); } this.startReload(p); }
         else if (this.canFire(p)) this.playerShoot(p, ads);
       }
@@ -1162,7 +1213,8 @@ export class Game {
       m.body.position.y = -0.34 * ck;
       if (m.rich) m.rich.position.y = sp > 0.5 ? Math.abs(Math.sin(a.walkPhase)) * 0.05 : 0;
       if (m.goreHidden.length) { for (const o of m.goreHidden) o.visible = !(m.rich && m.rich.visible); m.goreHidden = []; }
-      m.body.rotation.x = 0; holdGun(m, a.isPlayer ? 0 : a.pitch * 0.7);
+      m.body.rotation.x = 0;
+      if (a.zombie) this.zombiePose(a, m); else holdGun(m, a.isPlayer ? 0 : a.pitch * 0.7);
       m.root.visible = true;
       if (a.protT > 0) m.root.visible = Math.floor(this.time * 12) % 2 === 0;
     } else {
