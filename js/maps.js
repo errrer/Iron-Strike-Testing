@@ -13,7 +13,14 @@ class Builder {
     this.visuals.push({ shape: 'box', x, z, y0, w, h, d, tex: o.tex || 'concrete', color: o.color ?? 0x888888, tile: o.tile || 4, emissive: o.emissive, cast: o.cast, opacity: o.opacity });
   }
   // Procedural prop (js/props.js) fitted into w(x) x d(z) x h(y), rot = quarter turns about Y. Visual only.
-  prop(model, x, z, w, d, h, o = {}) { this.visuals.push({ shape: 'prop', model, x, z, y0: o.y0 || 0, w, d, h, rot: o.rot || 0, tex: o.tex || model, tint: o.tint ?? 0xffffff, rough: o.rough, metal: o.metal }); }
+  prop(model, x, z, w, d, h, o = {}) { this.visuals.push({ shape: 'prop', model, x, z, y0: o.y0 || 0, w, d, h, rot: o.rot || 0, tex: o.tex || model, tint: o.tint ?? (model === 'barrel' ? 0x3f7fcc : 0xffffff), rough: o.rough, metal: o.metal }); }
+  // Procedural prop over an exact collision box (the plain box underneath is the fallback if the prop fails to build)
+  solid(model, x, z, w, d, h, o = {}) {
+    this.box(x, z, w - 0.06, d - 0.06, h - 0.06, { tex: o.tex || 'metal', color: o.color ?? 0x888888, tile: 3, cast: false });
+    this.boxes[this.boxes.length - 1] = { x0: x - w / 2, x1: x + w / 2, y0: o.y0 || 0, y1: (o.y0 || 0) + h, z0: z - d / 2, z1: z + d / 2 };
+    this.visuals[this.visuals.length - 1].fb = model;
+    this.prop(model, x, z, w, d, h, o);
+  }
   // Visual only (no collision)
   deco(x, z, w, d, h, o = {}) { this.box(x, z, w, d, h, { ...o, collide: false }); }
   // Cylinder (collides as a square box)
@@ -183,13 +190,13 @@ function dust() {
   b.box(-32, -8, 1.2, 7, 1.2, { tex: 'sand', color: 0x9b8a62 }); b.box(-32, 8, 1.2, 7, 1.2, { tex: 'sand', color: 0x9b8a62 });
   b.box(32, -8, 1.2, 7, 1.2, { tex: 'sand', color: 0x9b8a62 }); b.box(32, 8, 1.2, 7, 1.2, { tex: 'sand', color: 0x9b8a62 });
   // crates + barrels
-  const crate = (x, z, s = 1.6, h = 1.6) => b.box(x, z, s, s, h, { tex: 'crate', color: 0x9a6c3c, tile: 2 });
+  const crate = (x, z, s = 1.6, h = 1.6) => b.solid('crate', x, z, s, s, h, { tex: 'crate', color: 0x9a6c3c, rot: ((x * 7 + z * 3) | 0) & 3, rough: 0.9 });
   crate(-17, -2); crate(-17, 2, 1.6, 1.0); crate(17, -2, 1.6, 1.0); crate(17, 2); crate(-2, 11, 2.2, 1.2); crate(2, -11, 2.2, 1.2);
   crate(-14, -24); crate(14, 24); crate(-33, 0, 2, 1.2); crate(33, 0, 2, 1.2);
-  for (const [x, z] of [[-3, -3], [3, 3], [-20, 25], [20, -25], [-12, 12], [12, -12]]) b.cyl(x, z, 0.45, 1.0, { tex: 'metal', color: 0x7a4a2a });
+  for (const [x, z] of [[-3, -3], [3, 3], [-20, 25], [20, -25], [-12, 12], [12, -12]]) b.solid('barrel', x, z, 0.9, 0.9, 1.0, { color: 0x7a4a2a, tint: 0xb5703c, rough: 0.85 });
   // burnt-out car (a long low box + cabin)
-  b.box(-1, 17, 4.2, 1.8, 0.9, { tex: 'metal', color: 0x6e5d4b }); b.box(-1, 17, 2, 1.7, 0.6, { y0: 0.9, tex: 'metal', color: 0x4b4034 });
-  b.box(1, -17, 4.2, 1.8, 0.9, { tex: 'metal', color: 0x4b5a6b }); b.box(1, -17, 2, 1.7, 0.6, { y0: 0.9, tex: 'metal', color: 0x333d47 });
+  b.solid('car', -1, 17, 4.3, 1.9, 1.5, { color: 0x6e5d4b, tint: 0xb59a78, rough: 0.9 });
+  b.solid('car', 1, -17, 4.3, 1.9, 1.5, { color: 0x4b5a6b, tint: 0x8fa6c0, rough: 0.9, rot: 2 });
   return finish(b, {
     id: 'dust',
     sky: [0x5f9fd6, 0xf1d9a8], fog: [0xe6cfa0, 50, 160],
@@ -210,7 +217,7 @@ function skyline() {
   const inv = { tex: 'plain', color: 0x88aacc, opacity: 0.0, cast: false };
   b.box(0, B.z0 - t / 2 - 2, 90, t, H, inv); b.box(0, B.z1 + t / 2 + 2, 90, t, H, inv);
   b.box(B.x0 - t / 2 - 2, 0, t, 60, H, inv); b.box(B.x1 + t / 2 + 2, 0, t, 60, H, inv);
-  const hvac = (x, z, w, d, h = 2.4) => { b.box(x, z, w, d, h, { tex: 'metal', color: 0xb9bec4, tile: 2 }); b.deco(x, z, w * 0.6, d * 0.6, 0.15, { y0: h, tex: 'metal', color: 0x4c5056 }); };
+  const hvac = (x, z, w, d, h = 2.4) => b.solid('hvac', x, z, w, d, h, { color: 0xb9bec4, rough: 0.8, tint: 0xffffff });
   hvac(-14, -8, 5, 3); hvac(14, 8, 5, 3); hvac(-20, 10, 4, 3, 2.2); hvac(20, -10, 4, 3, 2.2); hvac(0, -19, 7, 3, 2.6); hvac(0, 19, 7, 3, 2.6);
   hvac(-10, 20, 3, 3, 2); hvac(10, -20, 3, 3, 2);
   // stair huts
@@ -221,7 +228,7 @@ function skyline() {
   b.cyl(0, 0, 2.3, 3.2, { y0: 2.4, tex: 'wood', color: 0x7d5a3a });
   for (const dx of [-1.6, 1.6]) for (const dz of [-1.6, 1.6]) b.box(dx, dz, 0.4, 0.4, 2.4, { tex: 'metal', color: 0x444a50 });
   // solar panel rows (jump-over cover)
-  for (const [x, z] of [[-9, -19], [9, 19], [-26, -20], [26, 20], [-26, 20], [26, -20]]) b.box(x, z, 6, 1.6, 1.0, { tex: 'metal', color: 0x23395b, tile: 2 });
+  for (const [x, z] of [[-9, -19], [9, 19], [-26, -20], [26, 20], [-26, 20], [26, -20]]) b.solid('solar', x, z, 6, 1.6, 1.1, { color: 0x23395b, rough: 0.5 });
   // vent stacks, low pipes
   for (const [x, z] of [[-5, 8], [5, -8], [-17, -17], [17, 17]]) b.cyl(x, z, 0.6, 2.2, { tex: 'metal', color: 0x8f959c });
   b.box(-12, 0, 0.5, 14, 0.5, { tex: 'metal', color: 0x5d6168, collide: true });
@@ -283,12 +290,7 @@ function frostbite() {
   b.box(-31, 10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 }); b.box(31, -10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 });
   // cargo containers
   // procedural props (js/props.js) over exact collision boxes
-  const solid = (model, x, z, w, d, h, o) => {
-    b.box(x, z, w - 0.06, d - 0.06, h - 0.06, { tex: o.tex || 'metal', color: o.color, tile: 3, cast: false });
-    b.boxes[b.boxes.length - 1] = { x0: x - w / 2, x1: x + w / 2, y0: 0, y1: h, z0: z - d / 2, z1: z + d / 2 };
-    b.visuals[b.visuals.length - 1].fb = model;
-    b.prop(model, x, z, w, d, h, o);
-  };
+  const solid = (...a) => b.solid(...a);
   const cont = (x, z, w, d, col) => solid('container', x, z, w, d, 2.6, { color: col, rot: d > w ? 1 : 0, tint: col, metal: 0.4, rough: 0.6 });
   cont(-7.5, 9, 6, 2.4, 0x6f9bd8); cont(7.5, -9, 6, 2.4, 0xd9675c); cont(-12, -22, 2.4, 6, 0x6fbf7a); cont(12, 22, 2.4, 6, 0xe0a94d);
   // crates
@@ -346,14 +348,14 @@ function outpost() {
   for (const cx of [-20, 0, 20]) b.deco(cx, 0, 20.6, 20.6, 0.3, { y0: H, tex: 'concrete', color: 0x30343a });
   // some cover inside the rooms
   b.box(-20, 0, 3, 1.2, 1.0, { tex: 'wood', color: 0x5a4430, tile: 2 });
-  b.box(0, 0, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 });
-  b.box(17, 3, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 }); b.box(23, -3, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 });
-  b.box(-26, 6, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 }); b.box(-14, -6, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45, tile: 2 });
+  b.solid('crate', 0, 0, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 });
+  b.solid('crate', 17, 3, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 }); b.solid('crate', 23, -3, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 });
+  b.solid('crate', -26, 6, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 }); b.solid('crate', -14, -6, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 });
   // yard: wrecks and barrels for the zombies to shamble around
   for (const [x, z, w, d] of [[-34, -18, 4.2, 1.8], [-8, -21, 4.2, 1.8], [14, -19, 1.8, 4.2], [33, -17, 4.2, 1.8], [-34, 17, 1.8, 4.2], [-6, 20, 4.2, 1.8], [16, 21, 4.2, 1.8], [34, 20, 1.8, 4.2]]) {
-    b.box(x, z, w, d, 0.9, { tex: 'metal', color: 0x4a4038 }); b.box(x, z, w * 0.5, d * 0.5, 0.6, { y0: 0.9, tex: 'metal', color: 0x2a2622 });
+    b.solid('car', x, z, w + 0.1, d + 0.1, 1.5, { color: 0x4a4038, tint: 0x6a5e52, rough: 0.95, rot: d > w ? 1 : 0 });
   }
-  for (const [x, z] of [[-24, -16], [26, 14], [0, 16], [-2, -16], [-36, 4]]) b.cyl(x, z, 0.4, 1.0, { tex: 'metal', color: 0x6a3a2a });
+  for (const [x, z] of [[-24, -16], [26, 14], [0, 16], [-2, -16], [-36, 4]]) b.solid('barrel', x, z, 0.8, 0.8, 1.0, { color: 0x6a3a2a, tint: 0x9a4a32, rough: 0.85 });
 
   const zm = {
     windows,

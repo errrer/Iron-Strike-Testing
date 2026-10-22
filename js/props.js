@@ -4,7 +4,7 @@ import * as THREE from 'three';
 // blocky style of the soldiers and guns. Each prop is ONE merged mesh with vertex colours (one draw call). Models are built at their natural size in
 // metres with the origin at the bottom centre; maps fit them into a w x h x d box. Crates use the wood-grain image (assets/tex/crate.jpg).
 export const PROPS = {};   // name -> { geo, size:[x,y,z] }
-export const PROP_NAMES = ['container', 'barrel', 'racking', 'shutter', 'crate', 'door'];
+export const PROP_NAMES = ['container', 'barrel', 'racking', 'shutter', 'crate', 'door', 'car', 'hvac', 'solar'];
 export const PROP_TEX = { crate: 'crate' };       // props that also use an image texture (box-projected UVs)
 
 const lin = (hex) => [((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255].map((c) => Math.pow(c, 2.2));
@@ -121,10 +121,10 @@ function crate() {
 
 // ---- barrel: 0.6 x 0.9 x 0.6, ribbed steel drum with hoops, rim and two bungs
 function barrel() {
-  const m = new Mesh(), BODY = 0x3f7fcc, HOOP = 0x2a5a96;
+  const m = new Mesh(), BODY = 0xffffff, HOOP = 0xb8b8b8;
   m.cyl(0, 0, 0, 0.27, 0.9, BODY, 14, { bottom: true });
   for (const y of [0.1, 0.45, 0.78]) m.cyl(0, y, 0, 0.292, 0.05, HOOP, 14, { top: false });
-  m.cyl(0, 0.86, 0, 0.285, 0.05, 0x3a79bd, 14);                                                // top rim
+  m.cyl(0, 0.86, 0, 0.285, 0.05, 0xe6e6e6, 14);                                                // top rim
   m.cyl(0, 0.0, 0, 0.285, 0.04, HOOP, 14, { top: false });                                     // bottom rim
   m.cyl(0.09, 0.9, 0.06, 0.04, 0.025, 0xc9cdd1, 8); m.cyl(-0.1, 0.9, -0.07, 0.028, 0.02, 0xc9cdd1, 8);   // bungs
   m.box(0, 0.905, 0, 0.3, 0.006, 0.02, 0x1f4373, 0, 0, 0, { shade: false });
@@ -189,7 +189,47 @@ function door() {
   return { geo: m.geometry(), size: [3.76, 3.57, 0.36] };
 }
 
-const BUILD = { container, crate, barrel, racking, shutter, door };
+// ---- wrecked / parked car: 4.2 x 1.7 x 1.9 (body white so maps can tint it)
+function car() {
+  const m = new Mesh(), TY = 0x1b1d20, GL = 0x2a3b48;
+  m.box(0, 0.62, 0, 4.2, 0.62, 1.8, 0xffffff, 0, 0, 0, { shade: false });                 // lower body
+  m.box(-0.15, 1.2, 0, 2.2, 0.55, 1.62, 0xf2f2f2);                                          // cabin
+  for (const s of [-1, 1]) m.box(-0.15, 1.22, s * 0.82, 1.9, 0.38, 0.03, GL);
+  m.box(0.95, 1.22, 0, 0.03, 0.36, 1.4, GL); m.box(-1.25, 1.22, 0, 0.03, 0.36, 1.4, GL);   // wind/rear screens
+  m.box(1.55, 0.97, 0, 1.0, 0.06, 1.7, 0xe0e0e0);                                           // bonnet
+  m.box(2.11, 0.55, 0, 0.06, 0.2, 1.5, 0x3a3f45);                                           // bumpers
+  m.box(-2.11, 0.55, 0, 0.06, 0.2, 1.5, 0x3a3f45);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { m.cyl(sx * 1.35, 0.0, sz * 0.9, 0.34, 0.2, TY, 12, { bottom: true }); m.box(sx * 1.35, 0.3, sz * 0.9, 0.7, 0.05, 0.22, 0x555a60); }
+  for (const s of [-1, 1]) m.box(2.12, 0.78, s * 0.6, 0.04, 0.12, 0.28, 0xf6e9a8);          // headlights
+  return { geo: m.geometry(), size: [4.3, 1.5, 1.9] };
+}
+
+// ---- rooftop HVAC unit: 5 x 3 x 2.4, casing, louvres, fan grille and a duct
+function hvac() {
+  const m = new Mesh(), C = 0xb9bec4;
+  m.box(0, 1.1, 0, 5, 2.2, 3, C, 0, 0, 0, { shade: false });
+  m.box(0, 2.25, 0, 5.1, 0.1, 3.1, 0x8a9098);
+  for (let i = 0; i < 10; i++) for (const s of [-1, 1]) m.box(-2.0 + i * 0.44, 1.2, s * 1.52, 0.3, 1.2, 0.04, 0x6f757c);   // louvres
+  m.cyl(-1.0, 2.3, 0, 0.8, 0.12, 0x2a2d31, 16); m.cyl(-1.0, 2.42, 0, 0.62, 0.03, 0x555a60, 16);
+  for (let i = 0; i < 4; i++) m.box(-1.0, 2.46, 0, 1.4, 0.02, 0.05, 0x2a2d31, 0, i * Math.PI / 4, 0);
+  m.box(1.5, 2.55, 0, 1.6, 0.45, 1.2, 0xa0a6ad);                                            // duct block
+  m.box(2.55, 0.55, 0, 0.1, 0.9, 1.6, 0x6f757c);                                            // service panel
+  m.box(0, 0.06, 0, 5.2, 0.12, 3.2, 0x3a3f45);                                              // base rail
+  return { geo: m.geometry(), size: [5.2, 2.6, 3.2] };
+}
+
+// ---- solar panel row: 6 x 1.6 x 1.0, tilted panels on a frame
+function solar() {
+  const m = new Mesh(), A = 0.4;
+  for (const x of [-2.6, 0, 2.6]) { m.box(x, 0.25, 0.55, 0.07, 0.5, 0.07, 0x9aa0a6); m.box(x, 0.5, -0.55, 0.07, 1.0, 0.07, 0x9aa0a6); }
+  m.box(0, 0.74, 0, 5.9, 0.07, 1.5, 0xc7ccd1, A, 0, 0, { shade: false });                    // frame
+  m.box(0, 0.775, 0, 5.74, 0.03, 1.34, 0x1e3a66, A, 0, 0, { shade: false });                // glass
+  for (let i = 1; i < 8; i++) m.box(-2.87 + i * 0.7175, 0.79, 0, 0.03, 0.03, 1.34, 0xaab4c4, A, 0, 0, { shade: false });
+  m.box(0, 0.79, 0, 5.74, 0.03, 0.03, 0xaab4c4, A, 0, 0, { shade: false });
+  return { geo: m.geometry(), size: [6, 1.1, 1.6] };
+}
+
+const BUILD = { container, crate, barrel, racking, shutter, door, car, hvac, solar };
 
 export async function loadProps(names = PROP_NAMES) {
   for (const n of names) {
