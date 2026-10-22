@@ -9,7 +9,7 @@
 // Movement is client-trusted, so this is meant for playing with friends, not for ranked play.
 import { MODES, MAX_PLAYERS, mpMode } from './game.js';
 import { MAP_IDS, MAP_INFO } from './maps.js';
-import { WEAPONS, cleanMask } from './weapons.js';
+import { WEAPONS, PRIMARIES, SECONDARIES, cleanMask } from './weapons.js';
 
 const PEER_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
 const PREFIX = 'ironstrike-v1-';
@@ -155,8 +155,8 @@ export class Net {
 
   validate(p) { // never trust loadout ids from the wire
     if (this.mode === 'zm') { p.prim = p.sec = 'm1911'; p.ap = p.as = 0; return; }       // zombies: everybody starts with the pistol
-    p.prim = ['vmp', 'm4a1', 'ak47', 'kar98k', 'm680'].includes(p.prim) ? p.prim : 'vmp';
-    p.sec = ['g18', 'm1911', 'magnum'].includes(p.sec) ? p.sec : 'g18';
+    p.prim = PRIMARIES.includes(p.prim) ? p.prim : 'vmp';
+    p.sec = SECONDARIES.includes(p.sec) ? p.sec : 'g18';
     p.ap = cleanMask(WEAPONS[p.prim], p.ap); p.as = cleanMask(WEAPONS[p.sec], p.as);
   }
 

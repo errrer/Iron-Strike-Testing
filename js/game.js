@@ -47,7 +47,7 @@ const CALLSIGNS = ['Ghost', 'Viper', 'Razor', 'Havoc', 'Nova', 'Falcon', 'Rook',
 const DUMMY_COLOR = 0x8a8f94;
 const FFA_COLORS = [0xc0392b, 0xd68910, 0x1e8449, 0x7d3c98, 0x148f77, 0xb7950b, 0xa04000, 0x2e86c1];
 const TEAM_COLORS = [0x2e6fbd, 0xc0392b];
-const BOT_PRIMARY_POOL = ['vmp', 'vmp', 'vmp', 'm4a1', 'm4a1', 'm4a1', 'ak47', 'ak47', 'ak47', 'm680', 'kar98k'];
+const BOT_PRIMARY_POOL = ['vmp', 'vmp', 'mp5', 'p90', 'm4a1', 'm4a1', 'm4a1', 'ak47', 'ak47', 'scar', 'lmg', 'm680', 'aa12', 'dmr', 'kar98k'];
 
 export class Game {
   constructor(canvas, hud, sound, settings) {
@@ -87,7 +87,7 @@ export class Game {
   // ------------------------------------------------------------------ input
   bindEvents() {
     window.addEventListener('resize', () => this.resize());
-    window.addEventListener('blur', () => { this.adsKey = false; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; });
+    window.addEventListener('blur', () => { this.adsKey = false; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; });
     document.addEventListener('keydown', (e) => {
       if (this.state !== 'playing') return;
       this.keys[e.code] = true;
@@ -146,7 +146,7 @@ export class Game {
 
   lock() { try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
 
-  pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.hud.showPause(true); if (this.onPause) this.onPause(); }
+  pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; this.hud.showPause(true); if (this.onPause) this.onPause(); }
   resume() { if (this.state !== 'paused') return; this.state = 'playing'; this.hud.showPause(false); this.lock(); }
 
   // ------------------------------------------------------------------ match setup
@@ -198,7 +198,7 @@ export class Game {
     this.zm = mode.zm ? new Zombies(this) : null;
     this.setPlayerVm();
     this.state = 'playing';
-    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false;
+    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0;
     this.lock();
     this.sound.init();
   }
@@ -398,7 +398,7 @@ export class Game {
     this.zm = this.mode.zm ? new Zombies(this) : null;
     this.setPlayerVm();
     this.state = 'playing';
-    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false;
+    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0;
     this.lock();
     this.sound.init();
   }
@@ -589,7 +589,7 @@ export class Game {
     if (this.ended) return;
     for (const r of kd) { const a = this.byId(r[0]); if (a) { a.kills = r[1]; a.deaths = r[2]; } }
     this.teamScore = ts; this.ended = true; this.state = 'ended';
-    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.showScore = false;
+    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; this.showScore = false;
     try { document.exitPointerLock(); } catch (e) { /* ignore */ }
     this.finishXp(win);
     this.hud.showEnd(this, win);
@@ -877,7 +877,7 @@ export class Game {
   // (head/torso/arm/leg each have 3 models, plus chunks and organs) leaving blood trails. See gore.js.
   spawnGore(v, k, w, head) {
     const gr = this.gore; if (!gr || !this.settings.gore || !v.mesh) return;
-    const m = v.mesh, cls = w.id === 'm680' ? 'shotgun' : w.id === 'kar98k' ? 'sniper' : 'other', big = cls !== 'other' || head;
+    const m = v.mesh, cls = (w.id === 'm680' || w.id === 'aa12') ? 'shotgun' : (w.id === 'kar98k' || w.id === 'dmr') ? 'sniper' : 'other', big = cls !== 'other' || head;
     let dx = v.pos.x - k.pos.x, dz = v.pos.z - k.pos.z; const dl = Math.hypot(dx, dz);
     if (dl < 0.01) { const a = Math.random() * 6.28; dx = Math.cos(a); dz = Math.sin(a); } else { dx /= dl; dz /= dl; }
     const x = v.pos.x, y = v.pos.y, z = v.pos.z, cy = y + (head ? 1.6 : 1.25);
@@ -1087,7 +1087,7 @@ export class Game {
   endMatch() {
     if (this.ended) return;
     this.ended = true; this.state = 'ended';
-    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.showScore = false;
+    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; this.showScore = false;
     let win;
     if (this.mode.zm) win = null;
     else if (this.mode.team) win = this.teamScore[0] === this.teamScore[1] ? null : (this.teamScore[0] > this.teamScore[1] ? 0 : 1);
@@ -1187,7 +1187,7 @@ export class Game {
   playerShoot(p, ads) {
     const w = p.weapon;
     const spread = this.currentSpread(p);
-    let dir = this.dirFrom(p.yaw, p.pitch, new V3());
+    let dir = this.dirFrom(p.yaw + (this.swX || 0), p.pitch + (this.swY || 0), new V3());
     if (this.tp) {
       // third person: bullets leave the player's eye but must land where the (offset) camera crosshair points
       const cp = this.camera.position, t = this.aimDistance(cp, dir, p, 150);
@@ -1267,7 +1267,8 @@ export class Game {
       cam.position.set(ox + dx * dist, Math.max(0.15, oy + dy * dist), oz + dz * dist);
     }
     const S = this.vmS; S.shake = Math.max(0, S.shake - dt * 5);
-    cam.rotation.set(p.pitch - S.mvk * 0.12 + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + (Math.random() - 0.5) * 0.004 * S.shake, roll + S.slk * 0.045 + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
+    this.updateAimSway(p, dt);
+    cam.rotation.set(p.pitch + this.swY - S.mvk * 0.12 + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + this.swX + (Math.random() - 0.5) * 0.004 * S.shake, roll + S.slk * 0.045 + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
     if (p.mesh) p.mesh.root.visible = this.tp && p.mesh.root.visible;
     const zoom = lerp(lerp(1, 1.12, p.tac), this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
     const fov = this.settings.fov / zoom;
@@ -1280,11 +1281,32 @@ export class Game {
     if (this.vmRoot.visible) { this.renderer.clearDepth(); this.renderer.render(this.vmScene, this.vmCam); }
   }
 
+  // COD-style aim sway: while aiming the sights drift in a slow figure-eight (breathing) - big with scoped rifles, small with everything else,
+  // worse while moving, better crouched. Holding Shift with a sniper / marksman rifle holds your breath for ~4.5 s (then a gasp makes it worse).
+  updateAimSway(p, dt) {
+    const w = p.weapon, t = this.time, sn = w.cls === 'sniper' || w.id === 'dmr';
+    if (this.breath === undefined) { this.breath = 1; this.breathEx = 0; this.holding = false; }
+    if (!(this.swX === this.swX) || this.swX === undefined) { this.swX = 0; this.swY = 0; }
+    const aiming = p.alive && p.ads > 0.7 && !this.tp;
+    const want = aiming && sn && !!this.keys.ShiftLeft && this.breathEx <= 0 && this.breath > 0;
+    if (want) { this.breath = Math.max(0, this.breath - dt / 4.5); if (this.breath <= 0) { this.breathEx = 2.2; this.hud.center('OUT OF BREATH', 0.8); } }
+    else this.breath = Math.min(1, this.breath + dt / (this.breathEx > 0 ? 9 : 5));
+    this.breathEx = Math.max(0, this.breathEx - dt);
+    if (want && !this.holding) this.hud.center('HOLDING BREATH', 0.5);
+    this.holding = want;
+    const held = want ? 0.08 : this.breathEx > 0 ? 2.2 : 1;
+    const moveF = clamp((p.speed2 || 0) / 5, 0, 1);
+    const amp = (w.id === 'kar98k' ? 0.0036 : w.id === 'dmr' ? 0.0024 : w.cls === 'pistol' ? 0.0006 : 0.0008) * p.ads * p.ads * (1 + moveF * 1.6) * (p.crouch ? 0.6 : 1) * held * (p.alive ? 1 : 0);
+    const tx = (Math.sin(t * 1.1) + 0.45 * Math.sin(t * 2.3 + 1.1)) * amp;
+    const ty = (0.7 * Math.sin(t * 2.2 + 0.6) + 0.35 * Math.sin(t * 0.8) + 0.5 * Math.sin(t * 1.5)) * amp;
+    this.swX += (tx - this.swX) * Math.min(1, dt * 10); this.swY += (ty - this.swY) * Math.min(1, dt * 10);
+  }
+
   // laser sight: a red dot where the crosshair ray lands (what the bullet will hit, spread aside)
   updateLaser(p, cam, scoped) {
     const ld = this.laserDot; if (!ld) return;
     if (!(p.weapon.attMask & ATT_LASER) || !p.alive || scoped || p.ads > 0.85) { ld.visible = false; return; }
-    const d = this.dirFrom(p.yaw, p.pitch, new V3());
+    const d = this.dirFrom(p.yaw + (this.swX || 0), p.pitch + (this.swY || 0), new V3());
     let t = this.aimDistance(cam.position, d, p, 90);
     if (d.y < -0.02) t = Math.min(t, -cam.position.y / d.y);                 // the ground plane counts too
     if (!(t < 90)) { ld.visible = false; return; }

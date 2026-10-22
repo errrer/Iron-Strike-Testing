@@ -284,11 +284,19 @@ function frostbite() {
   b.box(-31, -10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 }); b.box(31, 10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 });
   b.box(-31, 10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 }); b.box(31, -10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 });
   // cargo containers
-  b.box(-4, 9, 6, 2.4, 2.6, { tex: 'metal', color: 0x2f5fa6, tile: 3 }); b.box(4, -9, 6, 2.4, 2.6, { tex: 'metal', color: 0xb23a2f, tile: 3 });
-  b.box(-12, -22, 2.4, 6, 2.6, { tex: 'metal', color: 0x3f8a4a, tile: 3 }); b.box(12, 22, 2.4, 6, 2.6, { tex: 'metal', color: 0xc7842b, tile: 3 });
+  // real models (assets/props) over exact collision boxes; the plain box underneath is just a fallback if a model fails to load
+  const solid = (model, x, z, w, d, h, o) => {
+    b.box(x, z, w - 0.06, d - 0.06, h - 0.06, { tex: o.tex || 'metal', color: o.color, tile: 3, cast: false });
+    b.boxes[b.boxes.length - 1] = { x0: x - w / 2, x1: x + w / 2, y0: 0, y1: h, z0: z - d / 2, z1: z + d / 2 };
+    b.prop(model, x, z, w, d, h, o);
+  };
+  const cont = (x, z, w, d, col) => solid('container', x, z, w, d, 2.6, { color: col, rot: d > w ? 1 : 0, tint: col, metal: 0.4, rough: 0.6 });
+  cont(-4, 9, 6, 2.4, 0x6f9bd8); cont(4, -9, 6, 2.4, 0xd9675c); cont(-12, -22, 2.4, 6, 0x6fbf7a); cont(12, 22, 2.4, 6, 0xe0a94d);
   // crates
-  const crate = (x, z, s = 1.6, h = 1.6) => b.box(x, z, s, s, h, { tex: 'crate', color: 0x8a6a45, tile: 2 });
+  const crate = (x, z, s = 1.6, h = 1.6) => solid('crate', x, z, s, s, h, { color: 0x8a6a45, tex: 'crate', rot: ((x * 7 + z * 3) | 0) & 3, rough: 0.9, metal: 0 });
   crate(-15, 4); crate(15, -4); crate(-3, -2, 1.6, 1.0); crate(3, 2, 1.6, 1.0); crate(-33, 0, 2, 1.2); crate(33, 0, 2, 1.2);
+  // fuel barrels by the cabins
+  for (const [x, z] of [[-6, 17], [-6.9, 17.7], [6, -17], [6.9, -17.7], [-26, -1.5], [26, 1.5]]) solid('barrel', x, z, 0.6, 0.6, 0.9, { color: 0x2e6aa8, tex: 'metal', rot: ((x + z) | 0) & 3, metal: 0.5, rough: 0.6 });
   // pines
   const pine = (x, z, s = 1) => { b.box(x, z, 0.6, 0.6, 3 * s, { tex: 'wood', color: 0x4a3524 }); b.cone(x, z, 1.9 * s, 5 * s, { y0: 1.6 * s, color: 0x1f4a2e }); b.cone(x, z, 1.4 * s, 4 * s, { y0: 3.6 * s, color: 0x275a38 }); };
   for (const [x, z, s] of [[-12, -9, 1], [12, 9, 1], [-17, 21, 1.1], [17, -21, 1.1], [-31, -22, 1], [31, 22, 1], [-31, 22, 1], [31, -22, 1], [-5, 24, 1], [5, -24, 1], [13, -7, 0.9], [-13, 7, 0.9], [-26, 0, 1.2], [26, 0, 1.2], [0, 26, 1.1], [0, -26, 1.1]]) pine(x, z, s);

@@ -38,7 +38,7 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 | C | Crouch |
 | Space | Jump |
 | Left mouse | Fire |
-| Right mouse or Q | Aim down sights |
+| Right mouse or Q | Aim down sights (hold Shift with a sniper/SVD to steady your breath) |
 | R | Reload |
 | 1 / 2 / mouse wheel | Switch weapon |
 | V | Toggle first / third person camera (also in the menu and pause settings) |
@@ -229,3 +229,11 @@ Not in yet: dog rounds, box moving, multiple box spots, melee.
 - Mantle reach raised to about 2.5 m (newer-COD style). Low ledges (up to ~1.3 m) are vaulted quickly and keep your momentum; higher ones are climbed. Sprinting into a ledge up to 1.2 m vaults it automatically, no jump needed.
 - **Q** is now hold-to-aim (same as right mouse). Switch weapons with 1/2 or the mouse wheel.
 - Mantle poses in third person.
+
+## V0.7 – more guns, iron sights, sway
+
+- **8 new guns** (loadout menu, bots, online, unlocks, Zombies Mystery Box): MP5, P90, SCAR-H, M249 LMG, SVD marksman rifle (2.6x scope), AA-12 auto shotgun; secondaries Skorpion machine pistol and Desert Eagle. Primaries are now 11, secondaries 5.
+- **Iron sights rebuilt** for every gun: a proper rear aperture ring or notch plus a front post with guard ears (white-dot blades on pistols), centred on the aiming line. The VMP, which had none, now has them too. Hidden when a red dot is fitted.
+- **Aim sway** (COD style): sights drift in a figure-eight while aiming, strongest with the Kar98k, less with the SVD, small otherwise; worse while moving, better crouched. Hold **Shift** with the Kar98k or SVD to hold your breath (about 4.5 s, then a gasp).
+- **Crate texture** replaced with the new wood grain, recoloured brown.
+- **Frostbite** now uses the existing container, crate and barrel models.

@@ -60,12 +60,12 @@ with sync_playwright() as pw:
     # menu sanity
     counts = pg.evaluate("() => ({modes: document.querySelectorAll('#modes .card').length, maps: document.querySelectorAll('#maps .card').length, prim: document.querySelectorAll('#primaries .card').length, sec: document.querySelectorAll('#secondaries .card').length})")
     print('menu cards:', counts)
-    assert counts == {'modes': 8, 'maps': 4, 'prim': 5, 'sec': 3}, counts
+    assert counts == {'modes': 8, 'maps': 4, 'prim': 11, 'sec': 5}, counts
     chips = pg.evaluate("() => ({p: document.querySelectorAll('#attP .chip').length, s: document.querySelectorAll('#attS .chip').length})")
     pg.click('#attP .chip'); pg.click('#attS .chip:nth-of-type(2)')   # VMP red dot, G18 laser
     saved = pg.evaluate("() => JSON.parse(localStorage.getItem('ironstrike')).att")
     print('attachment chips:', chips, 'saved:', saved); assert chips == {'p': 3, 's': 2} and saved.get('vmp') == 1 and saved.get('g18') == 4, (chips, saved)
-    pg.click('#primaries .card:nth-child(4)'); print('kar98k chips:', pg.evaluate("() => document.querySelectorAll('#attP .chip').length"))   # sniper: grip + laser
+    pg.click('#primaries .card:nth-child(9)'); print('kar98k chips:', pg.evaluate("() => document.querySelectorAll('#attP .chip').length"))   # sniper: grip + laser
     pg.click('#primaries .card:nth-child(1)')
     # UI flow: click DEPLOY via the real button
     pg.click('#btnStart'); pg.wait_for_timeout(300)

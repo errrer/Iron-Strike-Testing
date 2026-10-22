@@ -4,7 +4,7 @@ export const MAX_LEVEL = 30;
 export const XP_REWARD = { kill: 100, headshot: 50, streak: 25, capture: 75, hold: 5, confirm: 60, deny: 40, plant: 150, defuse: 200, win: 300, played: 100 };
 export const RANKS = ['Recruit', 'Private', 'Corporal', 'Sergeant', 'Staff Sergeant', 'Lieutenant', 'Captain', 'Major', 'Colonel', 'General'];
 // level required for each weapon
-export const UNLOCK = { vmp: 1, m4a1: 1, g18: 1, m1911: 3, ak47: 5, m680: 8, magnum: 11, kar98k: 14 };
+export const UNLOCK = { vmp: 1, m4a1: 1, g18: 1, m1911: 3, mp5: 2, ak47: 5, skorp: 6, scar: 7, m680: 8, p90: 9, magnum: 11, lmg: 12, kar98k: 14, aa12: 16, deagle: 17, dmr: 19 };
 
 export const need = (level) => 300 + level * 100;                      // xp from this level to the next
 export const rankName = (level) => RANKS[Math.min(RANKS.length - 1, Math.floor((level - 1) / 3))] + (level >= MAX_LEVEL ? ' (MAX)' : '');

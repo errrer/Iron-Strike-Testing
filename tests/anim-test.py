@@ -51,6 +51,14 @@ async () => {
       }
     }
   }
+  // aim sway: scoped sniper drifts, holding breath steadies it, running out causes a gasp
+  g.start({mode:'ffa', map:'warehouse', mapName:'W', primary:'kar98k', secondary:'m1911', difficulty:'easy'}); g.state='playing'; g.matchT = 1;
+  const pl = g.player; pl.protT = 99; for (const x of g.actors) if (!x.isPlayer) { x.alive = false; x.respawnT = 9999; }
+  g.adsHeld = true; g.keys = {}; let mx = 0; for (let i = 0; i < 240; i++) { g.frame(1/60); mx = Math.max(mx, Math.abs(g.swX), Math.abs(g.swY)); } out.swayFree = +mx.toFixed(4);
+  g.keys.ShiftLeft = true; let mh = 0; for (let i = 0; i < 90; i++) { g.frame(1/60); if (i > 30) mh = Math.max(mh, Math.abs(g.swX), Math.abs(g.swY)); } out.swayHeld = +mh.toFixed(4); out.holding = g.holding;
+  for (let i = 0; i < 400; i++) g.frame(1/60); out.exhausted = g.breathEx > 0 || g.breath < 0.2;
+  g.adsHeld = false; g.keys = {}; for (let i = 0; i < 120; i++) g.frame(1/60); out.hipSway = +Math.max(Math.abs(g.swX), Math.abs(g.swY)).toFixed(5);
+  if (!(out.swayFree > 0.0015 && out.swayHeld < out.swayFree * 0.5 && out.holding && out.hipSway < 0.0003)) out.bad.push(['sway', out.swayFree, out.swayHeld, out.hipSway]);
   // zombie
   const z = g.makeZombieMesh(); const za = { id: 2001, vel: {x:0,z:-3,y:0}, pos: {x:0,z:0,y:0}, yaw: 0, zs: { atk: 0.8, win: null, tear: 0 }, zombie: true };
   for (let i = 0; i < 120; i++) { try { A.animateZombie(g, za, z, 1/60); g.time += 1/60; } catch (e) { out.errors.push('zombie ' + e.stack); break; } }

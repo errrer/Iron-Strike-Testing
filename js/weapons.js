@@ -1,4 +1,4 @@
-// 5 primaries + 3 secondaries.  Angles in radians, ranges in metres.
+// 11 primaries + 5 secondaries.  Angles in radians, ranges in metres.
 // dmg = damage per bullet/pellet, rpm = rounds per minute, range = [full damage until, minimum damage from].
 export const WEAPONS = {
   // ---------------- PRIMARIES ----------------
@@ -34,6 +34,42 @@ export const WEAPONS = {
     spread: 0.07, adsSpread: 0.045, recoil: 0.022, recoilYaw: 0.004, range: [5, 16], minMul: 0.15, pellets: 10,
     zoom: 1.2, scope: false, moveMul: 1.0, snd: { f: 1100, len: 0.2, thump: 1.2 }, builder: 'pump', attach: ['dot', 'grip', 'laser'],
   },
+  mp5: {
+    id: 'mp5', name: 'MP5', slot: 'primary', cls: 'smg', desc: 'Controllable 9mm SMG. Steady fire, good at medium-close range.',
+    dmg: 24, hs: 1.5, rpm: 800, auto: true, mag: 30, reserve: 180, reload: 1.9,
+    spread: 0.026, adsSpread: 0.005, recoil: 0.0040, recoilYaw: 0.0028, range: [12, 34], minMul: 0.5, pellets: 1,
+    zoom: 1.35, scope: false, moveMul: 1.05, snd: { f: 2900, len: 0.1, thump: 0.55 }, builder: 'mp5', attach: ['dot', 'grip', 'laser'],
+  },
+  p90: {
+    id: 'p90', name: 'P90', slot: 'primary', cls: 'smg', desc: 'Compact PDW with a 50-round mag. Low damage but nearly endless fire.',
+    dmg: 20, hs: 1.5, rpm: 900, auto: true, mag: 50, reserve: 200, reload: 2.6,
+    spread: 0.03, adsSpread: 0.005, recoil: 0.0035, recoilYaw: 0.0026, range: [12, 32], minMul: 0.5, pellets: 1,
+    zoom: 1.4, scope: false, moveMul: 1.04, snd: { f: 3400, len: 0.09, thump: 0.45 }, builder: 'p90', attach: ['dot', 'grip', 'laser'],
+  },
+  scar: {
+    id: 'scar', name: 'SCAR-H', slot: 'primary', cls: 'ar', desc: 'Battle rifle. Slower and heavier hitting than the assault rifles.',
+    dmg: 38, hs: 1.4, rpm: 430, auto: true, mag: 20, reserve: 100, reload: 2.4,
+    spread: 0.03, adsSpread: 0.0035, recoil: 0.0088, recoilYaw: 0.0040, range: [26, 60], minMul: 0.72, pellets: 1,
+    zoom: 1.5, scope: false, moveMul: 0.94, snd: { f: 1900, len: 0.14, thump: 0.9 }, builder: 'scar', attach: ['dot', 'grip', 'laser'],
+  },
+  lmg: {
+    id: 'lmg', name: 'M249', slot: 'primary', cls: 'ar', desc: 'Belt-fed LMG. 100 rounds and heavy suppressive fire, but slow to move and reload.',
+    dmg: 29, hs: 1.3, rpm: 720, auto: true, mag: 100, reserve: 200, reload: 5.2,
+    spread: 0.04, adsSpread: 0.006, recoil: 0.0055, recoilYaw: 0.0040, range: [22, 52], minMul: 0.65, pellets: 1,
+    zoom: 1.4, scope: false, moveMul: 0.84, snd: { f: 1800, len: 0.14, thump: 0.9 }, builder: 'lmg', attach: ['dot', 'laser'],
+  },
+  dmr: {
+    id: 'dmr', name: 'SVD', slot: 'primary', cls: 'ar', desc: 'Semi-auto marksman rifle with a 2.6x scope. Two body shots to kill.',
+    dmg: 62, hs: 2.0, rpm: 240, auto: false, mag: 10, reserve: 50, reload: 2.8,
+    spread: 0.06, adsSpread: 0.001, recoil: 0.016, recoilYaw: 0.004, range: [50, 100], minMul: 0.85, pellets: 1,
+    zoom: 2.6, scope: false, moveMul: 0.93, snd: { f: 1500, len: 0.2, thump: 1.0 }, builder: 'dmr', attach: ['grip', 'laser'],
+  },
+  aa12: {
+    id: 'aa12', name: 'AA-12', slot: 'primary', cls: 'smg', desc: 'Full-auto shotgun. Shreds at point-blank, burns through shells.',
+    dmg: 9, hs: 1.3, rpm: 300, auto: true, mag: 8, reserve: 48, reload: 3.2,
+    spread: 0.075, adsSpread: 0.05, recoil: 0.016, recoilYaw: 0.005, range: [5, 14], minMul: 0.15, pellets: 9,
+    zoom: 1.2, scope: false, moveMul: 0.95, snd: { f: 1000, len: 0.18, thump: 1.2 }, builder: 'aa12', attach: ['dot', 'grip', 'laser'],
+  },
 
   // ---------------- SECONDARIES ----------------
   g18: {
@@ -53,14 +89,25 @@ export const WEAPONS = {
     dmg: 70, hs: 1.5, rpm: 130, auto: false, mag: 6, reserve: 30, reload: 2.4,
     spread: 0.02, adsSpread: 0.002, recoil: 0.03, recoilYaw: 0.004, range: [20, 45], minMul: 0.7, pellets: 1,
     zoom: 1.3, scope: false, moveMul: 1.05, snd: { f: 1300, len: 0.18, thump: 1.1 }, builder: 'revolver', attach: ['dot', 'laser'],
+  },  deagle: {
+    id: 'deagle', name: 'Desert Eagle', slot: 'secondary', cls: 'pistol', desc: 'Huge .50 pistol. Heavy recoil, two body shots at close range.',
+    dmg: 58, hs: 1.6, rpm: 210, auto: false, mag: 7, reserve: 35, reload: 1.9,
+    spread: 0.02, adsSpread: 0.002, recoil: 0.026, recoilYaw: 0.004, range: [18, 42], minMul: 0.65, pellets: 1,
+    zoom: 1.3, scope: false, moveMul: 1.04, snd: { f: 1250, len: 0.18, thump: 1.1 }, builder: 'deagle', attach: ['dot', 'laser'],
+  },
+  skorp: {
+    id: 'skorp', name: 'Skorpion', slot: 'secondary', cls: 'pistol', desc: 'Light machine pistol. Fast and mobile, weak at range.',
+    dmg: 18, hs: 1.4, rpm: 950, auto: true, mag: 20, reserve: 100, reload: 1.5,
+    spread: 0.036, adsSpread: 0.014, recoil: 0.0040, recoilYaw: 0.0036, range: [7, 20], minMul: 0.45, pellets: 1,
+    zoom: 1.2, scope: false, moveMul: 1.12, snd: { f: 3100, len: 0.07, thump: 0.4 }, builder: 'skorp', attach: ['dot', 'laser'],
   },
 };
 
 // not a real weapon: what zombies "hold" (kill feed name / damage source in Zombies mode)
 WEAPONS.zclaw = { id: 'zclaw', name: 'Zombie', slot: 'none', cls: 'melee', desc: '', dmg: 50, hs: 1, rpm: 60, auto: false, mag: 1, reserve: 0, reload: 1, spread: 0, adsSpread: 0, recoil: 0, recoilYaw: 0, range: [1, 2], minMul: 1, pellets: 1, zoom: 1, scope: false, moveMul: 1, snd: { f: 1000, len: 0.05, thump: 0.2 }, builder: 'm1911', attach: [] };
 
-export const PRIMARIES = ['vmp', 'm4a1', 'ak47', 'kar98k', 'm680'];
-export const SECONDARIES = ['g18', 'm1911', 'magnum'];
+export const PRIMARIES = ['vmp', 'mp5', 'p90', 'm4a1', 'ak47', 'scar', 'lmg', 'dmr', 'kar98k', 'm680', 'aa12'];
+export const SECONDARIES = ['g18', 'm1911', 'skorp', 'magnum', 'deagle'];
 
 // Stats used by the loadout screen bars (0..1)
 export function weaponBars(w) {
