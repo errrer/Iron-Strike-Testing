@@ -237,3 +237,6 @@ Not in yet: dog rounds, box moving, multiple box spots, melee.
 - **Aim sway** (COD style): sights drift in a figure-eight while aiming, strongest with the Kar98k, less with the SVD, small otherwise; worse while moving, better crouched. Hold **Shift** with the Kar98k or SVD to hold your breath (about 4.5 s, then a gasp).
 - **Crate texture** replaced with the new wood grain, recoloured brown.
 - **Frostbite** now uses the existing container, crate and barrel models.
+
+### V0.7.1
+- Crate model re-UV-mapped so the wood grain (with plank grooves) covers every face; barrels brighter (were rendering black); plain-box fallbacks are no longer drawn once a model is loaded; Frostbite containers moved off the watchtower stairs.

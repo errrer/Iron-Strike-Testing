@@ -109,6 +109,7 @@ export function buildWorld(map) {
   // visuals
   const propMats = new Map();
   for (const v of map.visuals) {
+    if (v.fb && PROPS[v.fb]) continue;                    // plain-box fallback: not needed once the real model is loaded
     if (v.shape === 'prop') {
       const P = PROPS[v.model];
       if (!P) continue;                                   // model not loaded: the box underneath stays as the fallback

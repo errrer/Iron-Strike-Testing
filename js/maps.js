@@ -133,7 +133,7 @@ function warehouse() {
   crate(-30, 16, 2, 1.2); crate(-30, -16, 2, 1.2); crate(30, 16, 2, 1.2); crate(30, -16, 2, 1.2);
   crate(-3, -6, 1.6, 1.0); crate(3, 6, 1.6, 1.0);
   // barrels
-  for (const [x, z] of [[-14, -6], [-14, 6], [14, -6], [14, 6], [-24, 0], [24, 0]]) { b.boxes.push({ x0: x - 0.32, x1: x + 0.32, y0: 0, y1: 0.9, z0: z - 0.32, z1: z + 0.32 }); b.cyl(x, z, 0.26, 0.86, { tex: 'metal', color: 0x2e6aa8, collide: false }); b.prop('barrel', x, z, 0.6, 0.6, 0.9, { rot: ((x + z) | 0) & 3, metal: 0.5, rough: 0.6 }); }
+  for (const [x, z] of [[-14, -6], [-14, 6], [14, -6], [14, 6], [-24, 0], [24, 0]]) { b.boxes.push({ x0: x - 0.32, x1: x + 0.32, y0: 0, y1: 0.9, z0: z - 0.32, z1: z + 0.32 }); b.cyl(x, z, 0.26, 0.86, { tex: 'metal', color: 0x2e6aa8, collide: false }); b.prop('barrel', x, z, 0.6, 0.6, 0.9, { rot: ((x + z) | 0) & 3, metal: 0.1, rough: 0.8 }); }
   // pallet racking along the north/south walls (solid), roller shutters + big doors on the walls (decor)
   for (const z of [-26.9, 26.9]) for (const x of [-30, -25.6, -14, 14, 25.6, 30]) {
     b.boxes.push({ x0: x - 2.1, x1: x + 2.1, y0: 0, y1: 4, z0: z - 1.1, z1: z + 1.1 });
@@ -288,15 +288,16 @@ function frostbite() {
   const solid = (model, x, z, w, d, h, o) => {
     b.box(x, z, w - 0.06, d - 0.06, h - 0.06, { tex: o.tex || 'metal', color: o.color, tile: 3, cast: false });
     b.boxes[b.boxes.length - 1] = { x0: x - w / 2, x1: x + w / 2, y0: 0, y1: h, z0: z - d / 2, z1: z + d / 2 };
+    b.visuals[b.visuals.length - 1].fb = model;
     b.prop(model, x, z, w, d, h, o);
   };
   const cont = (x, z, w, d, col) => solid('container', x, z, w, d, 2.6, { color: col, rot: d > w ? 1 : 0, tint: col, metal: 0.4, rough: 0.6 });
-  cont(-4, 9, 6, 2.4, 0x6f9bd8); cont(4, -9, 6, 2.4, 0xd9675c); cont(-12, -22, 2.4, 6, 0x6fbf7a); cont(12, 22, 2.4, 6, 0xe0a94d);
+  cont(-7.5, 9, 6, 2.4, 0x6f9bd8); cont(7.5, -9, 6, 2.4, 0xd9675c); cont(-12, -22, 2.4, 6, 0x6fbf7a); cont(12, 22, 2.4, 6, 0xe0a94d);
   // crates
   const crate = (x, z, s = 1.6, h = 1.6) => solid('crate', x, z, s, s, h, { color: 0x8a6a45, tex: 'crate', rot: ((x * 7 + z * 3) | 0) & 3, rough: 0.9, metal: 0 });
   crate(-15, 4); crate(15, -4); crate(-3, -2, 1.6, 1.0); crate(3, 2, 1.6, 1.0); crate(-33, 0, 2, 1.2); crate(33, 0, 2, 1.2);
   // fuel barrels by the cabins
-  for (const [x, z] of [[-6, 17], [-6.9, 17.7], [6, -17], [6.9, -17.7], [-26, -1.5], [26, 1.5]]) solid('barrel', x, z, 0.6, 0.6, 0.9, { color: 0x2e6aa8, tex: 'metal', rot: ((x + z) | 0) & 3, metal: 0.5, rough: 0.6 });
+  for (const [x, z] of [[-6, 17], [-6.9, 17.7], [6, -17], [6.9, -17.7], [-26, -1.5], [26, 1.5]]) solid('barrel', x, z, 0.6, 0.6, 0.9, { color: 0x2e6aa8, tex: 'metal', rot: ((x + z) | 0) & 3, metal: 0.1, rough: 0.8 });
   // pines
   const pine = (x, z, s = 1) => { b.box(x, z, 0.6, 0.6, 3 * s, { tex: 'wood', color: 0x4a3524 }); b.cone(x, z, 1.9 * s, 5 * s, { y0: 1.6 * s, color: 0x1f4a2e }); b.cone(x, z, 1.4 * s, 4 * s, { y0: 3.6 * s, color: 0x275a38 }); };
   for (const [x, z, s] of [[-12, -9, 1], [12, 9, 1], [-17, 21, 1.1], [17, -21, 1.1], [-31, -22, 1], [31, 22, 1], [-31, 22, 1], [31, -22, 1], [-5, 24, 1], [5, -24, 1], [13, -7, 0.9], [-13, 7, 0.9], [-26, 0, 1.2], [26, 0, 1.2], [0, 26, 1.1], [0, -26, 1.1]]) pine(x, z, s);
