@@ -12,7 +12,7 @@ class Builder {
     if (o.collide !== false) this.boxes.push({ x0: x - w / 2, x1: x + w / 2, y0, y1: y0 + h, z0: z - d / 2, z1: z + d / 2 });
     this.visuals.push({ shape: 'box', x, z, y0, w, h, d, tex: o.tex || 'concrete', color: o.color ?? 0x888888, tile: o.tile || 4, emissive: o.emissive, cast: o.cast, opacity: o.opacity });
   }
-  // Baked 3D prop (assets/props/<model>.json) fitted into w(x) x d(z) x h(y), rot = quarter turns about Y. Visual only.
+  // Procedural prop (js/props.js) fitted into w(x) x d(z) x h(y), rot = quarter turns about Y. Visual only.
   prop(model, x, z, w, d, h, o = {}) { this.visuals.push({ shape: 'prop', model, x, z, y0: o.y0 || 0, w, d, h, rot: o.rot || 0, tex: o.tex || model, tint: o.tint ?? 0xffffff, rough: o.rough, metal: o.metal }); }
   // Visual only (no collision)
   deco(x, z, w, d, h, o = {}) { this.box(x, z, w, d, h, { ...o, collide: false }); }
@@ -106,7 +106,7 @@ function warehouse() {
     b.boxes.push({ x0: x - w / 2, x1: x + w / 2, y0, y1: y0 + 2.6, z0: z - d / 2, z1: z + d / 2 });
     b.visuals.push({ shape: 'box', x, z, y0: y0 + 0.05, w: w - 0.25, h: 2.5, d: d - 0.25, tex: 'metal', color: col, tile: 3, cast: false });
     const alongX = w >= d, half = (alongX ? w : d) / 2;
-    for (const s of [-1, 1]) b.prop('container', alongX ? x + s * half / 2 : x, alongX ? z : z + s * half / 2, alongX ? half : d, alongX ? d : half, 2.6, { y0, rot: alongX ? 0 : 1, tint: tint(col), metal: 0.4, rough: 0.6 });
+    for (const s of [-1, 1]) b.prop('container', alongX ? x + s * half / 2 : x, alongX ? z : z + s * half / 2, alongX ? half : d, alongX ? d : half, 2.6, { y0, rot: alongX ? (s < 0 ? 2 : 0) : (s < 0 ? 1 : 3), tint: tint(col), metal: 0.4, rough: 0.6 });
   };
   // two long rows of containers (gaps are lanes)
   for (const z of [-12, 12]) for (const x of [-26, -10, 10, 26]) cont(x, z, 12, 2.6);
@@ -284,7 +284,7 @@ function frostbite() {
   b.box(-31, -10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 }); b.box(31, 10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 });
   b.box(-31, 10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 }); b.box(31, -10, 1, 6, 1.15, { tex: 'sand', color: 0x9a9680 });
   // cargo containers
-  // real models (assets/props) over exact collision boxes; the plain box underneath is just a fallback if a model fails to load
+  // procedural props (js/props.js) over exact collision boxes
   const solid = (model, x, z, w, d, h, o) => {
     b.box(x, z, w - 0.06, d - 0.06, h - 0.06, { tex: o.tex || 'metal', color: o.color, tile: 3, cast: false });
     b.boxes[b.boxes.length - 1] = { x0: x - w / 2, x1: x + w / 2, y0: 0, y1: h, z0: z - d / 2, z1: z + d / 2 };

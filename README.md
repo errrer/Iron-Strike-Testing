@@ -68,7 +68,7 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 
 ## Warehouse props (V0.5 part 4)
 The warehouse now uses real 3D props and image textures: shipping containers (two halves per slot, tinted per colour), crates, barrels, pallet racking along the north/south walls, roller shutters and big doors on the walls, a concrete floor and corrugated wall texture.
-Collision stays simple boxes. Props are baked by `python3 tools/props2json.py model.fbx out.json --up y|z --scale 0.01 [--keep Part]` into `assets/props/*.json` (positions, normals, UVs) and loaded by `js/props.js`; textures live in `assets/tex/*.jpg`. If a prop file is missing the map falls back to the old boxes.
+Collision stays simple boxes. Map props are built in code in `js/props.js` (merged, vertex-coloured box/cylinder meshes; crates use `assets/tex/crate.jpg`). If a prop fails to build the map falls back to plain boxes.
 Not used yet: the ladder (no textures supplied, 10k+ triangles) and the 3 beam pieces (`Untitled_2.fbx`).
 
 ## Sandbox mode
@@ -240,3 +240,6 @@ Not in yet: dog rounds, box moving, multiple box spots, melee.
 
 ### V0.7.1
 - Crate model re-UV-mapped so the wood grain (with plank grooves) covers every face; barrels brighter (were rendering black); plain-box fallbacks are no longer drawn once a model is loaded; Frostbite containers moved off the watchtower stairs.
+
+## V0.7.2
+Removed the imported map-prop models. Containers (corrugated, locking bars, corner castings), wooden crates, steel drums, pallet racking, roller shutters and industrial doors are now procedural low-poly models in the game's blocky style. Imported VMP gun and Richtofen model unchanged.

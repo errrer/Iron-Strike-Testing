@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PROPS, imgTex } from './props.js';
+import { PROPS, PROP_TEX, imgTex } from './props.js';
 
 // ---- procedural textures (greyscale detail, tinted by material colour) ---------------------------
 const texCache = new Map();
@@ -114,7 +114,11 @@ export function buildWorld(map) {
       const P = PROPS[v.model];
       if (!P) continue;                                   // model not loaded: the box underneath stays as the fallback
       let m = propMats.get(v.model + v.tint);
-      if (!m) { m = new THREE.MeshStandardMaterial({ map: imgTex(v.tex), color: v.tint, roughness: v.rough ?? 0.75, metalness: v.metal ?? 0.25 }); propMats.set(v.model + v.tint, m); }
+      if (!m) {
+        const o = { vertexColors: true, color: v.tint, roughness: v.rough ?? 0.75, metalness: v.metal ?? 0.25 };
+        if (PROP_TEX[v.model]) o.map = imgTex(PROP_TEX[v.model]);
+        m = new THREE.MeshStandardMaterial(o); propMats.set(v.model + v.tint, m);
+      }
       const mesh = new THREE.Mesh(P.geo, m);
       const rot = v.rot || 0;
       // fit the model into w x h x d (w along world x, d along world z) after rotating it by rot*90deg about Y
