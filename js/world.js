@@ -101,10 +101,14 @@ export function buildWorld(map) {
   if (map.lights) for (const p of map.lights) { const l = new THREE.PointLight(0xfff0d8, 300, 45, 2); l.position.set(...p); scene.add(l); }
 
   // ground
-  const gt = map.ground.tex.startsWith('img:') ? imgTex(map.ground.tex.slice(4), true) : makeTex(map.ground.tex).clone(); gt.needsUpdate = true; gt.repeat.set(300 / map.ground.tile, 300 / map.ground.tile);
+  const gt = map.ground.tex.startsWith('img:') ? imgTex(map.ground.tex.slice(4), true) : makeTex(map.ground.tex).clone(); gt.needsUpdate = true; const GS = map.ground.size || [300, 300]; gt.repeat.set(GS[0] / map.ground.tile, GS[1] / map.ground.tile);
   const gm = new THREE.MeshStandardMaterial({ map: gt, color: map.ground.color, roughness: 1 });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), gm);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(GS[0], GS[1]), gm);
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  if (map.deep) {                                          // far-below ground (tower maps): hazy street level
+    const dg = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshBasicMaterial({ color: map.deep.color }));
+    dg.rotation.x = -Math.PI / 2; dg.position.y = map.deep.y; scene.add(dg);
+  }
 
   // visuals
   const propMats = new Map();

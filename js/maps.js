@@ -239,18 +239,33 @@ function skyline() {
   blk(-34, -18, 3, 3, 2); blk(34, 18, 3, 3, 2); blk(-34, 18, 3, 3, 2); blk(34, -18, 3, 3, 2);
   // helipad (decor)
   b.disc(0, -8.5, 3.6, { color: 0x30343a }); b.disc(0, -8.5, 2.6, { y0: 0.03, color: 0xe6c53a });
-  // distant skyline (decor, outside the arena)
+  // the tower itself: roof slab, cornice and the building below it (visible when you look over the parapet)
+  b.deco(0, 0, 86, 62, 1.6, { y0: -1.6, tex: 'concrete', color: 0x6d7076, tile: 4, cast: false });
+  b.deco(0, 0, 80, 56, 40, { y0: -41.6, tex: 'windows', color: 0xffe9c8, tile: 7, cast: false });
+  b.deco(0, 0, 84, 60, 0.35, { y0: -2.0, tex: 'concrete', color: 0x4a4d53, tile: 4, cast: false });
+  // parapet cap and corner lights
+  b.deco(0, B.z0 - 1, 84, 0.5, 0.25, { y0: 1.3, tex: 'concrete', color: 0xb4b7bc, cast: false });
+  b.deco(0, B.z1 + 1, 84, 0.5, 0.25, { y0: 1.3, tex: 'concrete', color: 0xb4b7bc, cast: false });
+  b.deco(B.x0 - 1, 0, 0.5, 58, 0.25, { y0: 1.3, tex: 'concrete', color: 0xb4b7bc, cast: false });
+  b.deco(B.x1 + 1, 0, 0.5, 58, 0.25, { y0: 1.3, tex: 'concrete', color: 0xb4b7bc, cast: false });
+  for (const [x, z] of [[-39, -27], [39, -27], [-39, 27], [39, 27]]) {
+    b.deco(x, z, 0.3, 0.3, 4.5, { tex: 'metal', color: 0x50565c, cast: false });
+    b.deco(x, z, 0.4, 0.4, 0.4, { y0: 4.5, tex: 'plain', color: 0xff3b30, emissive: 0xff3b30, cast: false });
+  }
+  // neighbouring towers rising out of the haze, some taller than this one, with the street far below
   const r = rng(7);
-  for (let i = 0; i < 46; i++) {
-    const ang = (i / 46) * Math.PI * 2, rad = 75 + r() * 70;
-    const w = 12 + r() * 20, h = 25 + r() * 90;
-    b.deco(Math.cos(ang) * rad * 1.35, Math.sin(ang) * rad, w, w, h, { y0: -2, tex: 'windows', color: 0xffffff, tile: 10, cast: false });
+  for (let i = 0; i < 60; i++) {
+    const ang = (i / 60) * Math.PI * 2 + r() * 0.08, rad = 70 + r() * 90;
+    const w = 12 + r() * 18, top = -45 + r() * 110 - (rad > 130 ? 20 : 0);
+    const x = Math.cos(ang) * rad * 1.35, z = Math.sin(ang) * rad;
+    b.deco(x, z, w, w * (0.8 + r() * 0.5), top + 160, { y0: -160, tex: 'windows', color: [0xffffff, 0xd8e4ff, 0xffe2c4][i % 3], tile: 10, cast: false });
+    if (top > 10 && i % 3 === 0) { b.deco(x, z, 0.5, 0.5, 14, { y0: top, tex: 'metal', color: 0x50565c, cast: false }); b.deco(x, z, 0.8, 0.8, 0.8, { y0: top + 14, tex: 'plain', color: 0xff3b30, emissive: 0xff3b30, cast: false }); }
   }
   return finish(b, {
     id: 'skyline',
     sky: [0x2b2f5a, 0xf0956a], fog: [0xd88a78, 60, 230],
     hemi: [0xffc9a8, 0x4a3f55, 0.95], sun: { color: 0xffb27a, intensity: 2.6, pos: [40, 22, -30] },
-    ground: { tex: 'tile', color: 0x8a8d92, tile: 6 },
+    ground: { tex: 'tile', color: 0x8a8d92, tile: 6, size: [84, 60] }, deep: { y: -150, color: 0xd88a78 },
     impact: 0xb8b8b8,
   });
 }
