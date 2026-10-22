@@ -89,7 +89,7 @@ export function buildSoldier(body, teamColor, seed = 0) {
     const knee = new THREE.Group(); knee.position.set(0, -0.42, 0); hip.add(knee); hip.userData.knee = knee;
     bx(0.17, 0.1, 0.07, dark, 0, 0.0, -0.1, knee);                                            // knee pad
     bx(0.15, 0.34, 0.17, khaki, 0, -0.19, 0, knee);                                           // shin
-    const ft = new THREE.Group(); ft.position.set(0, -0.38, 0); knee.add(ft);
+    const ft = new THREE.Group(); ft.position.set(0, -0.38, 0); knee.add(ft); knee.userData.foot = ft;
     bx(0.14, 0.07, 0.15, black, 0, 0.01, 0, ft);                                              // ankle
     bx(0.17, 0.06, 0.29, black, 0, -0.015, -0.04, ft);                                        // boot
     bx(0.17, 0.02, 0.3, dark, 0, -0.045, -0.04, ft);                                          // sole
@@ -126,11 +126,24 @@ export function solveArm(sh, T, side) {
 const rotX = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c]; };
 
 // Puts the gun in the soldier's hands: trigger hand on the grip, support hand on the foregrip.
-// pitchRot tilts the gun around the grip; crouch (0..1) is only used for pistols' hand height.
-export function holdGun(m, pitchRot) {
+// pitchRot tilts the gun around the grip. o = optional animation state:
+//   low (0..1) gun lowered to a low-ready carry (sprinting), kick (0..1) recoil impulse, sw (0..1) draw/holster dip,
+//   rel (0..1 reload progress, or -1/undefined when not reloading) support hand fetches a mag from the vest pouch.
+const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const magOf = (gun) => {                                 // average mag position in gun space (cached on the gun)
+  const u = gun.userData; if (u._mag) return u._mag;
+  let n = 0, sx = 0, sy = 0, sz = 0;
+  gun.traverse((o) => { if (o !== gun && o.userData && o.userData.mag) { sx += o.position.x; sy += o.position.y; sz += o.position.z; n++; } });
+  const f = u.fore ? [u.fore.x, u.fore.y, u.fore.z] : [0, 0, -0.25];
+  return (u._mag = n ? [sx / n, sy / n, sz / n] : [f[0], f[1] - 0.04, f[2] + 0.2]);
+};
+export function holdGun(m, pitchRot, o = {}) {
   const gun = m.gun, u = gun.userData || {}, grip = u.grip ? [u.grip.x, u.grip.y, u.grip.z] : [0, -0.07, 0.1], fore = u.fore ? [u.fore.x, u.fore.y, u.fore.z] : [0, 0, -0.25];
-  const pistol = !!u.pistol;
-  const HR = pistol ? [0.07, 1.31, -0.36] : [0.07, 1.2, -0.1];            // where the trigger hand holds the gun (body space)
+  const pistol = !!u.pistol, low = o.low || 0, kick = o.kick || 0, sw = o.sw || 0, rel = o.rel == null ? -1 : o.rel;
+  const env = rel >= 0 ? sstep(0, 0.14, rel) * (1 - sstep(0.82, 0.96, rel)) : 0;
+  const HR0 = pistol ? [0.07, 1.31, -0.36] : [0.07, 1.2, -0.1];            // where the trigger hand holds the gun (body space)
+  const HR = [HR0[0] - 0.05 * low + 0.01 * env, HR0[1] - 0.2 * low - 0.34 * sw + 0.03 * env, HR0[2] + 0.1 * low + 0.035 * kick - 0.06 * sw - 0.03 * env];
+  pitchRot = pitchRot - 0.55 * low - 0.8 * sw + 0.07 * kick + 0.28 * env;
   const g = rotX(grip, pitchRot), f = rotX(fore, pitchRot);
   let sx = 0, sy = 0, sz = 0;
   // long guns: if the foregrip is out of the support arm's reach, pull the whole gun in toward that shoulder
@@ -139,9 +152,16 @@ export function holdGun(m, pitchRot) {
     const d = [S.x - T[0], S.y - T[1], S.z - T[2]], dl = Math.hypot(d[0], d[1], d[2]);
     if (dl > reach) { const k = (dl - reach) / dl; sx = d[0] * k; sy = d[1] * k; sz = d[2] * k; } }
   const hr = [HR[0] + sx, HR[1] + sy, HR[2] + sz];
-  gun.position.set(hr[0] - g[0], hr[1] - g[1], hr[2] - g[2]); gun.rotation.x = pitchRot;
-  const TL = [hr[0] - g[0] + f[0], hr[1] - g[1] + f[1], hr[2] - g[2] + f[2]];
+  gun.position.set(hr[0] - g[0], hr[1] - g[1], hr[2] - g[2]); gun.rotation.set(pitchRot, 0, 0.32 * env * (pistol ? 0.6 : 1));
+  let TL = [hr[0] - g[0] + f[0], hr[1] - g[1] + f[1], hr[2] - g[2] + f[2]];
+  if (env > 0) {                                                            // support hand: off the foregrip, down to the vest pouch, then up to the magazine well
+    const mg = rotX(magOf(gun), pitchRot), MG = [hr[0] - g[0] + mg[0], hr[1] - g[1] + mg[1] - 0.05, hr[2] - g[2] + mg[2] + 0.03];
+    const POUCH = [-0.08, 1.12, -0.2], pk = Math.sin(Math.PI * Math.max(0, Math.min(1, (rel - 0.22) / 0.26)));
+    const a1 = Math.min(1, env * 1.0);
+    const mid = [TL[0] + (MG[0] - TL[0]) * a1, TL[1] + (MG[1] - TL[1]) * a1, TL[2] + (MG[2] - TL[2]) * a1];
+    TL = [mid[0] + (POUCH[0] - mid[0]) * pk, mid[1] + (POUCH[1] - mid[1]) * pk, mid[2] + (POUCH[2] - mid[2]) * pk];
+  }
   // palm sits slightly under the grip/foregrip line
-  const miss = Math.max(solveArm(m.arms[1], [hr[0], hr[1] - 0.01, hr[2]], 1), solveArm(m.arms[0], [TL[0] + (pistol ? 0.03 : 0), TL[1] - 0.04, TL[2]], -1));
+  const miss = Math.max(solveArm(m.arms[1], [hr[0], hr[1] - 0.01, hr[2]], 1), solveArm(m.arms[0], [TL[0] + (pistol ? 0.03 : 0), TL[1] - 0.04 * (1 - env), TL[2]], -1));
   return miss;
 }

@@ -6,7 +6,8 @@ import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js';
 import { buildWorld } from './world.js';
 import { Bot } from './bots.js';
 import { makeRichtofen, richtofenReady } from './easter.js';
-import { buildSoldier, holdGun, SKIN } from './soldier.js';
+import { buildSoldier, SKIN } from './soldier.js';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js';
 import { Zombies, PERKS } from './zombies.js';
 import { Ragdoll, makeRagdoll } from './ragdoll.js';
 import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js';
@@ -668,19 +669,28 @@ export class Game {
     const sleeve = new THREE.MeshStandardMaterial({ color: 0x3b4a3a, roughness: 0.95 });
     const lh = new THREE.Group(); gun.add(lh);                      // support hand: animated separately (reloads, pumping, inspecting)
     const add = (w_, h_, d_, mt, x, y, z, rx = 0, ry = 0, rz = 0, parent = gun) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w_, h_, d_), mt); me.position.set(x, y, z); me.rotation.set(rx, ry, rz); parent.add(me); };
-    // trigger hand: palm on the grip, thumb, trigger finger, forearm back towards the camera
-    add(0.048, 0.07, 0.055, glove, G.x + 0.004, G.y + 0.005, G.z);
-    add(0.014, 0.026, 0.05, glove, G.x - 0.03, G.y + 0.02, G.z - 0.005, 0, 0, 0.2);          // thumb
-    add(0.012, 0.012, 0.04, glove, G.x + 0.002, G.y + 0.03, G.z - 0.045);                    // trigger finger
+    // trigger hand: the palm sits on the back of the grip, three fingers wrap round the front, the index finger rests on the
+    // trigger, the thumb lies along the left side. The whole hand is raked to match the angle of the grip.
+    const rake = u.pistol ? -0.3 : -0.36;
+    const hand = new THREE.Group(); hand.position.set(G.x, G.y, G.z); hand.rotation.x = rake; gun.add(hand);
+    add(0.05, 0.085, 0.034, glove, 0.0, 0.0, 0.034, 0, 0, 0, hand);                         // palm / back of the hand on the backstrap
+    add(0.046, 0.024, 0.05, glove, 0.0, 0.048, 0.016, 0, 0, 0, hand);                       // knuckles above the grip
+    for (let i = 0; i < 3; i++) add(0.044, 0.022, 0.046, glove, 0.0, -0.002 - i * 0.026, -0.03, 0, 0, 0, hand);   // fingers wrapped round the front
+    add(0.014, 0.014, 0.05, glove, 0.004, 0.046, -0.048, 0, 0, 0, hand);                    // index finger on the trigger
+    add(0.016, 0.03, 0.06, glove, -0.03, 0.03, 0.005, -0.15, 0, 0.12, hand);                // thumb along the left of the frame
     add(0.07, 0.07, 0.36, sleeve, G.x + 0.045, G.y - 0.07, G.z + 0.24, 0.5, 0.18, 0);
     // support hand
     if (u.pistol) {
-      add(0.05, 0.06, 0.05, glove, F.x - 0.004, F.y + 0.01, F.z, 0, 0, 0, lh);
+      // two-handed pistol grip: left palm on the left of the grip, fingers over the right hand's fingers, thumb forward on the frame
+      add(0.026, 0.075, 0.05, glove, G.x - 0.036, G.y - 0.004, G.z + 0.01, rake, 0, 0, lh);
+      for (let i = 0; i < 3; i++) add(0.05, 0.02, 0.026, glove, G.x - 0.008, G.y - 0.03 - i * 0.022, G.z - 0.052, rake, 0, 0, lh);
+      add(0.014, 0.016, 0.06, glove, G.x - 0.042, G.y + 0.025, G.z - 0.045, 0, 0, 0, lh);
       add(0.07, 0.07, 0.34, sleeve, F.x - 0.09, F.y - 0.08, F.z + 0.22, 0.5, -0.4, 0, lh);
     } else {
-      add(0.075, 0.05, 0.1, glove, F.x, F.y - 0.045, F.z, 0, 0, 0, lh);                       // palm under the handguard
-      add(0.016, 0.05, 0.09, glove, F.x + 0.04, F.y - 0.015, F.z, 0, 0, -0.2, lh);            // fingers around the side
-      add(0.016, 0.05, 0.07, glove, F.x - 0.04, F.y - 0.015, F.z, 0, 0, 0.2, lh);             // thumb side
+      // C-clamp under the handguard: palm underneath, fingers up the right side, thumb up the left
+      add(0.07, 0.034, 0.1, glove, F.x, F.y - 0.05, F.z + 0.005, 0, 0, 0, lh);                // palm under the handguard
+      for (let i = 0; i < 4; i++) add(0.02, 0.05, 0.02, glove, F.x + 0.042, F.y - 0.022, F.z - 0.032 + i * 0.022, 0, 0, -0.35, lh);   // four fingers curled up the right side
+      add(0.016, 0.05, 0.05, glove, F.x - 0.04, F.y - 0.018, F.z - 0.005, 0, 0, 0.3, lh);     // thumb up the left side
       add(0.075, 0.07, 0.42, sleeve, F.x - 0.075, F.y - 0.1, F.z + 0.3, 0.38, -0.28, 0, lh);
     }
     const flash = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: this.flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -919,7 +929,7 @@ export class Game {
     const ox = a.pos.x, oy = a.pos.y + 1.6, oz = a.pos.z;
     const dx = e.pos.x - ox, dy = e.pos.y + e.h * 0.62 - oy, dz = e.pos.z - oz, d = Math.hypot(dx, dy, dz);
     if (d < 0.01) return true;
-    return this.col.ray(ox, oy, oz, dx / d, dy / d, dz / d, d) >= d - 0.35;
+    return this.col.ray(ox, oy, oz, dx / d, dy / d, dz / d, d, true) >= d - 0.35;
   }
 
   dirFrom(yaw, pitch, out) {
@@ -1202,19 +1212,9 @@ export class Game {
     if (a.alive) {
       const sp = Math.hypot(a.vel.x, a.vel.z);
       a.walkPhase += sp * dt * 2.2;
-      const sw = sp > 0.5 ? Math.sin(a.walkPhase) * 0.8 : 0, moving = sp > 0.5 ? 1 : 0;
       m.crouchK = (m.crouchK || 0) + ((a.crouch ? 1 : 0) - (m.crouchK || 0)) * Math.min(1, dt * 12);
-      const ck = m.crouchK;
-      for (let i = 0; i < 2; i++) {
-        const hip = m.legs[i], kn = hip.userData.knee, ph = i === 0 ? 1 : -1;
-        hip.rotation.x = sw * ph * (1 - ck) + 1.15 * ck;                                      // thigh swings (or folds when crouched)
-        if (kn) kn.rotation.x = -(Math.max(0, Math.cos(a.walkPhase) * ph) * 0.9 * moving * (1 - ck)) - 1.3 * ck;   // knee bends
-      }
-      m.body.position.y = -0.34 * ck;
-      if (m.rich) m.rich.position.y = sp > 0.5 ? Math.abs(Math.sin(a.walkPhase)) * 0.05 : 0;
       if (m.goreHidden.length) { for (const o of m.goreHidden) o.visible = !(m.rich && m.rich.visible); m.goreHidden = []; }
-      m.body.rotation.x = 0;
-      if (a.zombie) this.zombiePose(a, m); else holdGun(m, a.isPlayer ? 0 : a.pitch * 0.7);
+      if (a.zombie) animateZombie(this, a, m, dt); else animateSoldier(this, a, m, dt);
       m.root.visible = true;
       if (a.protT > 0) m.root.visible = Math.floor(this.time * 12) % 2 === 0;
     } else {
@@ -1329,6 +1329,10 @@ export class Game {
       rx += -0.25 * sprint; ry += (0.62 + Math.sin(ph * 0.5) * 0.04) * sprint; rz += (0.06 + Math.sin(ph) * 0.035) * sprint;
     }
 
+    // --- ADS transition arc (the gun dips and comes in along a curve), breathing, strafe/step roll ------
+    { const arc = Math.sin(Math.PI * clamp(a, 0, 1)); y -= arc * 0.014; z += arc * 0.012; rz += arc * 0.03;
+      const br = Math.sin(t * 1.35) * (a > 0.5 ? 0.0011 : 0.0016) * (sp < 0.5 ? 1 : 0.3); y += br; rx += br * 0.5;
+      if (p.onGround && sp > 0.5 && !p.sprint) { const sw = Math.sin(t * 8) * Math.min(1, sp / 5) * free; z += Math.abs(Math.sin(t * 8)) * 0.004 * free; ry += sw * 0.006; } }
     // --- look sway + recoil kick -----------------------------------------------------------------
     x += this.swayX * free; ry += this.swayX * 0.8 * free; y += (this.swayY || 0) * free; rx += (this.swayY || 0) * 0.6 * free;
     const kick = this.vmKick;

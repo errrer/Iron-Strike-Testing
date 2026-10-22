@@ -52,6 +52,14 @@ async () => {
   const pp = zm.pap; put(pp.x - 1.6, pp.z); use(); out.pap1 = pp.st; run(60 * 3.5); out.pap2 = [pp.st, p.weapons.map(w => !!w.pap)];
   // ---- barricade: rebuild
   const W = zm.windows[0]; W.boards = 2; put(W.inx, W.inz); for (const z of zs()) z.pos.set(0, 0, 20); g.zm.setUse(p, true); run(60 * 3); g.zm.setUse(p, false); out.rebuild = W.boards;
+  // ---- shoot through barricades, but never walk out
+  { const W2 = zm.windows[2]; W2.boards = 6; zm.refreshViews(false);
+    const nx = W2.axis === 'x' ? 0 : Math.sign(W2.inx - W2.outx), nz = W2.axis === 'x' ? Math.sign(W2.inz - W2.outz) : 0;
+    const t = g.col.ray(W2.inx, 1.5, W2.inz, -nx, 0, -nz, 6); out.shootThrough = t > 5.9;
+    W2.boards = 0; zm.refreshViews(false); put(W2.inx, W2.inz); p.vel.set(-nx * 5, 0, -nz * 5);
+    for (let i = 0; i < 90; i++) { p.vel.set(-nx * 5, 0, -nz * 5); g.col.move(p, 1 / 60); }
+    out.stayIn = Math.hypot(p.pos.x - W2.outx, p.pos.z - W2.outz) > 1.5;
+    W2.boards = 6; zm.refreshViews(false); }
   // ---- power-ups
   zm.pus.push({ id: 99, type: 'dbl', x: p.pos.x, z: p.pos.z, t: 30, view: null }); run(5); out.dbl = zm.dbl > 0;
   zm.pus.push({ id: 100, type: 'insta', x: p.pos.x, z: p.pos.z, t: 30, view: null }); run(5); out.insta = zm.insta > 0;

@@ -13,7 +13,7 @@ export class Colliders {
   }
 
   // dynamic boxes (zombie-mode barricades and doors)
-  add(b) { if (this.boxes.includes(b)) return; this.boxes.push(b); if (isBlocker(b)) this.blockers.push(b); }
+  add(b) { if (this.boxes.includes(b)) return; this.boxes.push(b); if (isBlocker(b) && !b.noZ) this.blockers.push(b); }
   remove(b) {
     const i = this.boxes.indexOf(b); if (i >= 0) this.boxes.splice(i, 1);
     const j = this.blockers.indexOf(b); if (j >= 0) this.blockers.splice(j, 1);
@@ -35,7 +35,7 @@ export class Colliders {
     p.x += v.x * dt;
     if (v.x !== 0) {
       for (let i = 0; i < boxes.length; i++) {
-        const b = boxes[i];
+        const b = boxes[i]; if (b.noZ && a.zombie) continue;
         if (p.y + h > b.y0 && p.y < b.y1 && p.x + hw > b.x0 && p.x - hw < b.x1 && p.z + hw > b.z0 && p.z - hw < b.z1) {
           if (b.y1 - p.y <= STEP_H && !this.overlaps(p.x, b.y1, p.z, hw, h)) { p.y = b.y1; continue; }
           p.x = v.x > 0 ? b.x0 - hw - 1e-3 : b.x1 + hw + 1e-3;
@@ -47,7 +47,7 @@ export class Colliders {
     p.z += v.z * dt;
     if (v.z !== 0) {
       for (let i = 0; i < boxes.length; i++) {
-        const b = boxes[i];
+        const b = boxes[i]; if (b.noZ && a.zombie) continue;
         if (p.y + h > b.y0 && p.y < b.y1 && p.x + hw > b.x0 && p.x - hw < b.x1 && p.z + hw > b.z0 && p.z - hw < b.z1) {
           if (b.y1 - p.y <= STEP_H && !this.overlaps(p.x, b.y1, p.z, hw, h)) { p.y = b.y1; continue; }
           p.z = v.z > 0 ? b.z0 - hw - 1e-3 : b.z1 + hw + 1e-3;
@@ -61,7 +61,7 @@ export class Colliders {
     a.onGround = false;
     if (p.y <= 0) { p.y = 0; if (v.y < 0) v.y = 0; a.onGround = true; }
     for (let i = 0; i < boxes.length; i++) {
-      const b = boxes[i];
+      const b = boxes[i]; if (b.noZ && a.zombie) continue;
       if (p.y + h > b.y0 && p.y < b.y1 && p.x + hw > b.x0 && p.x - hw < b.x1 && p.z + hw > b.z0 && p.z - hw < b.z1) {
         if (v.y <= 0 && prevY >= b.y1 - 0.02) { p.y = b.y1; v.y = 0; a.onGround = true; }
         else if (v.y > 0 && prevY + h <= b.y0 + 0.02) { p.y = b.y0 - h - 1e-3; v.y = 0; }
@@ -91,11 +91,12 @@ export class Colliders {
   }
 
   // Distance along a normalised ray to the first box hit (or maxD).
-  ray(ox, oy, oz, dx, dy, dz, maxD) {
+  // solid=true also counts barricades (noRay boxes), used by zombie sight checks; bullets and cameras ignore them
+  ray(ox, oy, oz, dx, dy, dz, maxD, solid) {
     let best = maxD;
     const boxes = this.boxes;
     for (let i = 0; i < boxes.length; i++) {
-      const b = boxes[i];
+      const b = boxes[i]; if (b.noRay && !solid) continue;
       let t0 = 0, t1 = best;
       if (Math.abs(dx) < 1e-9) { if (ox < b.x0 || ox > b.x1) continue; }
       else {

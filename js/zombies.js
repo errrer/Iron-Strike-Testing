@@ -53,7 +53,7 @@ export class Zombies {
     this.nextZid = 2000; this.t = 0; this.stT = 0; this.fieldT = 0; this.fields = []; this.blocked = new Set(); this.survT = 0; this.grT = 2;
     this.prompt = ''; this.shownRound = 0; this.clientPts = new Map(); this.rollT = 0; this.nukeKill = false;
     const copyBox = (b) => ({ x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1, z0: b.z0, z1: b.z1 });
-    this.windows = M.windows.map((w) => { const o = { ...w, boards: 6, box: slab(w), blocking: false, view: buildWindow(w), tearing: 0 }; this.group.add(o.view.group); return o; });
+    this.windows = M.windows.map((w) => { const o = { ...w, boards: 6, box: Object.assign(slab(w), { noRay: true }), wall: Object.assign(slab(w), { noZ: true, noRay: true }), blocking: false, view: buildWindow(w), tearing: 0 }; this.group.add(o.view.group); return o; });
     this.doors = M.doors.map((d) => {
       const o = { ...d, open: false, blocking: false, box: { x0: d.x - d.w / 2, x1: d.x + d.w / 2, y0: 0, y1: d.h, z0: d.z - d.d / 2, z1: d.z + d.d / 2 }, view: buildDoor(d) };
       this.group.add(o.view.group); return o;
@@ -70,6 +70,7 @@ export class Zombies {
       { kind: 'pap', o: this.pap, x: this.pap.x, z: this.pap.z, r: 2.3 },
     ];
     for (const a of g.actors) if (!a.zombie) this.initPlayer(a);
+    for (const w of this.windows) g.col.add(w.wall);      // players can never climb out through a window, bullets still pass
     this.refreshViews(true);
     this.rebuildBlocked();
   }

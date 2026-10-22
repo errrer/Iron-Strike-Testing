@@ -213,3 +213,13 @@ The game now opens on a start screen: **Multiplayer** (all the existing modes) o
 New tests: `tests/zombies-test.py` (rules, shops, power-ups, game over) and `tests/zm-mp-test.py` (host + clients co-op sync). Existing tests were updated for the start screen.
 
 Not in yet: dog rounds, box moving, multiple box spots, melee.
+
+## V0.6.1 – animation, grips, fixes
+
+- **Containers** were baked on their side; re-oriented so they stand upright.
+- **Leg glitch** fixed: every joint is rewritten each frame (and reset after ragdolls), so limbs can no longer stay twisted sideways.
+- **Third-person animation** (`js/anim.js`): speed-scaled stride, legs that turn with the travel direction (strafing, walking backwards), pelvis bounce, torso lean, jump/fall/landing poses, crouch and slide, head look, breathing, low-ready sprint carry, recoil kick, draw dip, and a reload where the support hand goes to the vest pouch and then the magazine well.
+- **Grips**: first-person hands rebuilt with palm, wrapped fingers, trigger finger and thumb raked to the grip angle (two-handed hold on pistols, C-clamp under the handguard on long guns). Added an ADS arc, breathing and step sway to the viewmodel.
+- **Zombies**: shamblers, limpers and sprinters have different gaits, swipe when a player is in reach, and pull at boards when tearing windows.
+- **Barricades**: bullets pass through boards; players can never climb out through a window (zombies still can).
+- New test: `tests/anim-test.py`.

@@ -231,7 +231,9 @@ export class Ragdoll {
   // put a mesh back the way syncMesh expects a living soldier
   static reset(m) {
     m.root.rotation.order = 'XYZ'; m.root.rotation.set(0, 0, 0); m.body.position.set(0, 0, 0); m.body.rotation.set(0, 0, 0);
-    if (m.headG) m.headG.rotation.set(0, 0, 0); m.gun.rotation.order = 'XYZ';
+    if (m.headG) m.headG.rotation.set(0, 0, 0); m.gun.rotation.order = 'XYZ'; m.gun.rotation.set(0, 0, 0);
+    for (const hip of m.legs) { hip.rotation.order = 'XYZ'; hip.rotation.set(0, 0, 0); const kn = hip.userData.knee; if (kn) { kn.rotation.set(0, 0, 0); if (kn.userData.foot) kn.userData.foot.rotation.set(0, 0, 0); } }
+    for (const sh of m.arms) { sh.rotation.set(0, 0, 0); if (sh.userData.el) sh.userData.el.rotation.set(0, 0, 0); }
   }
 }
 
