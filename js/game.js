@@ -1143,7 +1143,7 @@ export class Game {
     if (p.mantle) this.stepMantle(p, dt);
     else {
       if (!frozen && !down && fwd > 0 && p.mantleCd <= 0) {
-        if (k.Space) this.tryMantle(p, fx, fz, p.onGround ? 2.2 : Math.max(0.6, 2.25 - Math.max(0, p.pos.y - (p.mantleBase || 0))));                                        // newer-COD reach: climb up to ~2.2 m
+        if (k.Space) this.tryMantle(p, fx, fz, p.onGround ? 2.5 : Math.max(0.6, 2.55 - Math.max(0, p.pos.y - (p.mantleBase || 0))));                                        // newer-COD reach: climb up to ~2.2 m
         else if (sprint && p.onGround && p.speed2 > 6) this.tryMantle(p, fx, fz, 1.2, true);                   // sprinting into a waist/chest-high ledge vaults it automatically
       }
       if (!p.mantle) this.moveActor(p, wx, wz, speed, dt, jump, crouchNow);

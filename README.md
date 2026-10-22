@@ -226,6 +226,6 @@ Not in yet: dog rounds, box moving, multiple box spots, melee.
 
 ## V0.6.2 – movement
 
-- Mantle reach raised to about 2.2 m (newer-COD style). Low ledges (up to ~1.3 m) are vaulted quickly and keep your momentum; higher ones are climbed. Sprinting into a ledge up to 1.2 m vaults it automatically, no jump needed.
+- Mantle reach raised to about 2.5 m (newer-COD style). Low ledges (up to ~1.3 m) are vaulted quickly and keep your momentum; higher ones are climbed. Sprinting into a ledge up to 1.2 m vaults it automatically, no jump needed.
 - **Q** is now hold-to-aim (same as right mouse). Switch weapons with 1/2 or the mouse wheel.
 - Mantle poses in third person.
