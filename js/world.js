@@ -50,7 +50,7 @@ const matCache = new Map();
 function getMat(tex, color, emissive, opacity) {
   const k = `${tex}|${color}|${emissive}|${opacity}`;
   if (matCache.has(k)) return matCache.get(k);
-  const m = new THREE.MeshStandardMaterial({ map: tex === 'plain' ? null : makeTex(tex), color, roughness: tex === 'metal' ? 0.55 : 0.92, metalness: tex === 'metal' ? 0.35 : 0.0 });
+  const m = new THREE.MeshStandardMaterial({ map: tex === 'plain' ? null : makeTex(tex), color, roughness: tex === 'metal' ? 0.55 : 0.92, metalness: tex === 'metal' ? 0.05 : 0.0 });
   if (emissive !== undefined) { m.emissive = new THREE.Color(emissive); m.emissiveIntensity = 1.2; }
   if (opacity !== undefined) { m.transparent = true; m.opacity = opacity; m.depthWrite = false; }
   matCache.set(k, m);
@@ -115,7 +115,7 @@ export function buildWorld(map) {
       if (!P) continue;                                   // model not loaded: the box underneath stays as the fallback
       let m = propMats.get(v.model + v.tint);
       if (!m) {
-        const o = { vertexColors: true, color: v.tint, roughness: v.rough ?? 0.75, metalness: v.metal ?? 0.25 };
+        const o = { vertexColors: true, color: v.tint, roughness: v.rough ?? 0.75, metalness: 0.03 };
         if (PROP_TEX[v.model]) o.map = imgTex(PROP_TEX[v.model]);
         m = new THREE.MeshStandardMaterial(o); propMats.set(v.model + v.tint, m);
       }
@@ -126,7 +126,7 @@ export function buildWorld(map) {
       else mesh.scale.set(v.w / P.size[0], v.h / P.size[1], v.d / P.size[2]);
       mesh.rotation.y = rot * Math.PI / 2;
       mesh.position.set(v.x, v.y0, v.z);
-      mesh.castShadow = false; mesh.receiveShadow = true;
+      mesh.castShadow = true; mesh.receiveShadow = true;
       scene.add(mesh);
       continue;
     }

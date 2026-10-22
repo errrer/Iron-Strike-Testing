@@ -74,7 +74,7 @@ class Mesh {
 
 // ---- 20 ft shipping container: 6 x 2.6 x 2.4 (white body so the map can tint it), corrugated sides and roof, steel frame, locking-bar doors
 function container() {
-  const m = new Mesh(), L = 5.9, W = 2.3, H = 2.5, STEEL = 0x2b2f33;
+  const m = new Mesh(), L = 5.9, W = 2.3, H = 2.5, STEEL = 0x6b737b;
   m.box(0, 0.1 + H / 2, 0, L, H, W, 0xdedede, 0, 0, 0, { shade: false });                       // body
   for (let i = 0; i < 38; i++) {                                                                  // corrugated side ribs (both sides)
     const x = -2.8 + i * 0.1514, c = i % 2 ? 0xffffff : 0xcfcfcf;
@@ -83,16 +83,16 @@ function container() {
   for (let i = 0; i < 38; i++) m.box(-2.8 + i * 0.1514, 0.1 + H + 0.02, 0, 0.085, 0.045, W - 0.2, i % 2 ? 0xffffff : 0xcfcfcf);   // roof ribs
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     m.box(sx * (L / 2 + 0.03), 1.3, sz * (W / 2 + 0.02), 0.16, 2.6, 0.16, STEEL, 0, 0, 0, { shade: false });        // corner posts
-    m.box(sx * (L / 2 - 0.12), 2.6 - 0.04, sz * (W / 2 - 0.05), 0.24, 0.1, 0.24, 0x16181a, 0, 0, 0, { shade: false });   // corner casting
+    m.box(sx * (L / 2 - 0.12), 2.6 - 0.04, sz * (W / 2 - 0.05), 0.24, 0.1, 0.24, 0x3a3f45, 0, 0, 0, { shade: false });   // corner casting
   }
   for (const sz of [-1, 1]) { m.box(0, 2.56, sz * (W / 2 + 0.03), L + 0.1, 0.12, 0.14, STEEL); m.box(0, 0.08, sz * (W / 2 + 0.03), L + 0.1, 0.16, 0.14, STEEL); }   // top / bottom rails
   for (const sx of [-1, 1]) { m.box(sx * (L / 2 + 0.03), 2.56, 0, 0.14, 0.12, W + 0.08, STEEL); m.box(sx * (L / 2 + 0.03), 0.08, 0, 0.14, 0.16, W + 0.08, STEEL); }   // end rails
-  for (const x of [-1.2, 1.2]) m.box(x, 0.0, 0, 0.5, 0.1, W - 0.1, 0x1b1d20);                      // forklift skids
+  for (const x of [-1.2, 1.2]) m.box(x, 0.0, 0, 0.5, 0.1, W - 0.1, 0x3a3f45);                      // forklift skids
   // door end (+x): two leaves with four locking bars and handles
   for (const sz of [-1, 1]) {
     m.box(L / 2 + 0.01, 1.35, sz * 0.58, 0.05, 2.28, 1.08, 0xe8e8e8);
     for (const dz of [0.14, 0.5, 0.9]) m.cyl(L / 2 + 0.07, 0.25, sz * dz - sz * 0.02, 0.022, 2.18, 0x6c7176, 8);
-    m.box(L / 2 + 0.1, 1.1, sz * 0.2, 0.05, 0.22, 0.05, 0x3c4146);
+    m.box(L / 2 + 0.1, 1.1, sz * 0.2, 0.05, 0.22, 0.05, 0x8a9199);
   }
   m.box(L / 2 + 0.04, 1.3, 0, 0.06, 2.3, 0.05, STEEL);                                            // centre seam
   m.box(-L / 2 - 0.005, 1.35, 0, 0.04, 2.3, W - 0.2, 0xd0d0d0);                                     // closed back end
@@ -121,7 +121,7 @@ function crate() {
 
 // ---- barrel: 0.6 x 0.9 x 0.6, ribbed steel drum with hoops, rim and two bungs
 function barrel() {
-  const m = new Mesh(), BODY = 0x2f64a5, HOOP = 0x1f4373;
+  const m = new Mesh(), BODY = 0x3f7fcc, HOOP = 0x2a5a96;
   m.cyl(0, 0, 0, 0.27, 0.9, BODY, 14, { bottom: true });
   for (const y of [0.1, 0.45, 0.78]) m.cyl(0, y, 0, 0.292, 0.05, HOOP, 14, { top: false });
   m.cyl(0, 0.86, 0, 0.285, 0.05, 0x3a79bd, 14);                                                // top rim
@@ -172,7 +172,7 @@ function shutter() {
 
 // ---- industrial double door in a steel frame: 3.76 x 3.57 x 0.36
 function door() {
-  const m = new Mesh(), FR = 0x384046;
+  const m = new Mesh(), FR = 0x66707a;
   for (const sx of [-1, 1]) m.box(sx * 1.78, 1.785, 0, 0.2, 3.57, 0.36, FR, 0, 0, 0, { shade: false });   // posts
   m.box(0, 3.45, 0, 3.76, 0.25, 0.36, FR, 0, 0, 0, { shade: false });                                      // lintel
   m.box(0, 0.03, 0, 3.4, 0.06, 0.34, 0x24292d);                                                           // threshold

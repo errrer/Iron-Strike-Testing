@@ -111,8 +111,6 @@ function warehouse() {
   // two long rows of containers (gaps are lanes)
   for (const z of [-12, 12]) for (const x of [-26, -10, 10, 26]) cont(x, z, 12, 2.6);
   cont(-10, -12, 12, 2.6, 2.6); cont(26, 12, 12, 2.6, 2.6);   // stacked
-  // perpendicular containers near spawns
-  cont(-32, -3, 2.6, 8); cont(32, 3, 2.6, 8);
   // central catwalk (reached by stairs both ends)
   b.box(0, 0, 20, 6, 0.4, { y0: 2.8, tex: 'metal', color: 0x3c4046, tile: 2 });
   b.stairs(16.4, 0, 'nx', 8, 3, 0.4, 0.8, { tex: 'metal', color: 0x4b5058, tile: 2 });
@@ -133,7 +131,7 @@ function warehouse() {
   crate(-30, 16, 2, 1.2); crate(-30, -16, 2, 1.2); crate(30, 16, 2, 1.2); crate(30, -16, 2, 1.2);
   crate(-3, -6, 1.6, 1.0); crate(3, 6, 1.6, 1.0);
   // barrels
-  for (const [x, z] of [[-14, -6], [-14, 6], [14, -6], [14, 6], [-24, 0], [24, 0]]) { b.boxes.push({ x0: x - 0.32, x1: x + 0.32, y0: 0, y1: 0.9, z0: z - 0.32, z1: z + 0.32 }); b.cyl(x, z, 0.26, 0.86, { tex: 'metal', color: 0x2e6aa8, collide: false }); b.prop('barrel', x, z, 0.6, 0.6, 0.9, { rot: ((x + z) | 0) & 3, metal: 0.1, rough: 0.8 }); }
+  for (const [x, z] of [[-14, -6], [-14, 6], [14, -6], [14, 6], [-24, 0], [24, 0]]) { b.boxes.push({ x0: x - 0.32, x1: x + 0.32, y0: 0, y1: 0.9, z0: z - 0.32, z1: z + 0.32 }); b.prop('barrel', x, z, 0.6, 0.6, 0.9, { rot: ((x + z) | 0) & 3, metal: 0.1, rough: 0.8 }); }
   // pallet racking along the north/south walls (solid), roller shutters + big doors on the walls (decor)
   for (const z of [-26.9, 26.9]) for (const x of [-30, -25.6, -14, 14, 25.6, 30]) {
     b.boxes.push({ x0: x - 2.1, x1: x + 2.1, y0: 0, y1: 4, z0: z - 1.1, z1: z + 1.1 });
