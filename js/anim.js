@@ -70,6 +70,7 @@ export function animateSoldier(g, a, m, dt) {
     const fall = clamp(-a.vel.y / 8, 0, 1);
     th = lerp(th, lead * 0.5 + 0.1 - fall * lead * 0.2, an.air * (1 - ck * 0.5));
     kf = lerp(kf, lead > 0 ? 0.95 - fall * 0.5 : 0.35 + fall * 0.2, an.air * (1 - ck * 0.5));
+    if (a.mantle) { const sc = Math.sin(t * 17 + i * Math.PI); th = 0.95 + sc * (a.mantle.vault ? 0.25 : 0.5) * (i ? 1 : -1) * -1; kf = 1.2 + (sc > 0 ? 0.35 : 0); }
     hip.rotation.order = 'YXZ';
     hip.rotation.set(th, -an.ang * clamp(an.k / 1.5, 0, 1) * (1 - ck * 0.5), 0);
     if (kn) { kn.rotation.set(-kf, 0, 0); if (ft) ft.rotation.set(clamp(-(th - kf) * 0.55, -0.5, 0.5) + (c * an.rev > 0.4 ? 0.15 : 0), 0, 0); }
@@ -84,7 +85,7 @@ export function animateSoldier(g, a, m, dt) {
   const leanF = clamp(lf * 0.022, -0.1, 0.16) + 0.1 * sprintK;
   const leanS = clamp(-lr * 0.016, -0.1, 0.1);
   an.lean = damp(an.lean, leanF, 8, dt); an.lat = damp(an.lat, leanS, 8, dt);
-  m.body.rotation.set(an.lean + (a.slideT > 0 ? -0.35 : 0), 0, an.lat);
+  m.body.rotation.set(an.lean + (a.slideT > 0 ? -0.35 : 0) + (a.mantle ? 0.28 : 0), 0, an.lat);
   if (m.rich) m.rich.position.y = moving ? Math.abs(Math.sin(an.ph)) * 0.05 : 0;
 
   // ---- head: looks where the soldier aims, with a slow idle glance
@@ -100,7 +101,7 @@ export function animateSoldier(g, a, m, dt) {
   if (a.reloading) { if (an.relT < 0) an.relT = 0; an.relT += dt; } else an.relT = -1;
   const rl = Math.max(0.3, (a.weapon && a.weapon.reload) || 2);
   const rel = an.relT >= 0 ? clamp(an.relT / rl, 0, 1) : -1;
-  an.low = damp(an.low, an.sprintK > 0.5 && !a.reloading && kick < 0.01 ? 1 : 0, 10, dt);
+  an.low = damp(an.low, (an.sprintK > 0.5 || a.mantle) && !a.reloading && kick < 0.01 ? 1 : 0, 10, dt);
   const sway = Math.sin(t * 1.7 + an.seed) * 0.012 * idle;
   holdGun(m, (a.isPlayer ? 0 : a.pitch * 0.7) + sway + (a.ads > 0.5 ? 0.02 : 0), { low: an.low, kick, sw: an.sw, rel });
 }

@@ -38,9 +38,9 @@ A free, browser-based **3D first-person shooter** in the style of modern arena s
 | C | Crouch |
 | Space | Jump |
 | Left mouse | Fire |
-| Right mouse | Aim down sights |
+| Right mouse or Q | Aim down sights |
 | R | Reload |
-| 1 / 2 / Q / mouse wheel | Switch weapon |
+| 1 / 2 / mouse wheel | Switch weapon |
 | V | Toggle first / third person camera (also in the menu and pause settings) |
 | Tab (hold) | Scoreboard |
 | Esc | Pause |
@@ -223,3 +223,9 @@ Not in yet: dog rounds, box moving, multiple box spots, melee.
 - **Zombies**: shamblers, limpers and sprinters have different gaits, swipe when a player is in reach, and pull at boards when tearing windows.
 - **Barricades**: bullets pass through boards; players can never climb out through a window (zombies still can).
 - New test: `tests/anim-test.py`.
+
+## V0.6.2 – movement
+
+- Mantle reach raised to about 2.2 m (newer-COD style). Low ledges (up to ~1.3 m) are vaulted quickly and keep your momentum; higher ones are climbed. Sprinting into a ledge up to 1.2 m vaults it automatically, no jump needed.
+- **Q** is now hold-to-aim (same as right mouse). Switch weapons with 1/2 or the mouse wheel.
+- Mantle poses in third person.

@@ -71,14 +71,14 @@ export class Colliders {
 
   // Mantling: finds a ledge in front of an actor that is too high to step onto but within reach.
   // Returns the spot to climb to ({x, y, z}) or null. The spot must have standing room above it.
-  findLedge(a, fx, fz, maxUp = 1.6) {
+  findLedge(a, fx, fz, maxUp = 2.2) {
     const hw = a.hw, p = a.pos;
     const px = p.x + fx * (hw + 0.3), pz = p.z + fz * (hw + 0.3);      // probe just in front of the body
     let best = null;
     for (const b of this.boxes) {
       const up = b.y1 - p.y;
       if (up < STEP_H + 0.08 || up > maxUp) continue;
-      if (b.y0 > p.y + 1.0) continue;                                    // has to reach down to where the hands are
+      if (b.y0 > p.y + 1.3) continue;                                    // has to reach down to where the hands are
       if (px < b.x0 || px > b.x1 || pz < b.z0 || pz > b.z1) continue;
       if (b.x1 - b.x0 < hw * 1.4 || b.z1 - b.z0 < hw * 1.4) continue;   // too thin to stand on
       const m = hw * 0.7;

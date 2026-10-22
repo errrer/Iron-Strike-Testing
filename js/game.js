@@ -87,7 +87,7 @@ export class Game {
   // ------------------------------------------------------------------ input
   bindEvents() {
     window.addEventListener('resize', () => this.resize());
-    window.addEventListener('blur', () => { this.keys = {}; this.fireHeld = false; this.adsHeld = false; });
+    window.addEventListener('blur', () => { this.adsKey = false; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; });
     document.addEventListener('keydown', (e) => {
       if (this.state !== 'playing') return;
       this.keys[e.code] = true;
@@ -98,7 +98,7 @@ export class Game {
       if (e.code === 'KeyR') this.startReload(p);
       if (e.code === 'Digit1') this.switchWeapon(p, 0);
       if (e.code === 'Digit2') this.switchWeapon(p, 1);
-      if (e.code === 'KeyQ') this.switchWeapon(p, 1 - p.cur);
+      if (e.code === 'KeyQ') this.adsKey = true;
       if (this.streaks && !this.net) { const s = STREAKS.find((x) => x.code === e.code); if (s) this.streaks.use(s.id); }
       if (e.code === 'KeyV') this.toggleView();
       if (e.code === 'KeyZ' && p.alive) { p.tacOn = !p.tacOn; this.hud.center(p.tacOn ? 'TAC STANCE ON' : 'TAC STANCE OFF', 0.7); }
@@ -108,7 +108,7 @@ export class Game {
       else if (e.code === 'KeyF' && p.alive && !p.reloading && !p.sprint && this.vmS.inspectT <= 0) this.vmS.inspectT = 2.8;
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
-    document.addEventListener('keyup', (e) => { this.keys[e.code] = false; if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
+    document.addEventListener('keyup', (e) => { this.keys[e.code] = false; if (e.code === 'KeyQ') this.adsKey = false; if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
     this.canvas.addEventListener('mousedown', (e) => {
       if (this.state !== 'playing') return;
       if (e.button === 0) { this.fireHeld = true; this.fireEdge = true; }
@@ -146,7 +146,7 @@ export class Game {
 
   lock() { try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
 
-  pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.hud.showPause(true); if (this.onPause) this.onPause(); }
+  pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.hud.showPause(true); if (this.onPause) this.onPause(); }
   resume() { if (this.state !== 'paused') return; this.state = 'playing'; this.hud.showPause(false); this.lock(); }
 
   // ------------------------------------------------------------------ match setup
@@ -198,7 +198,7 @@ export class Game {
     this.zm = mode.zm ? new Zombies(this) : null;
     this.setPlayerVm();
     this.state = 'playing';
-    this.keys = {}; this.fireHeld = false; this.adsHeld = false;
+    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false;
     this.lock();
     this.sound.init();
   }
@@ -398,7 +398,7 @@ export class Game {
     this.zm = this.mode.zm ? new Zombies(this) : null;
     this.setPlayerVm();
     this.state = 'playing';
-    this.keys = {}; this.fireHeld = false; this.adsHeld = false;
+    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false;
     this.lock();
     this.sound.init();
   }
@@ -589,7 +589,7 @@ export class Game {
     if (this.ended) return;
     for (const r of kd) { const a = this.byId(r[0]); if (a) { a.kills = r[1]; a.deaths = r[2]; } }
     this.teamScore = ts; this.ended = true; this.state = 'ended';
-    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.showScore = false;
+    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.showScore = false;
     try { document.exitPointerLock(); } catch (e) { /* ignore */ }
     this.finishXp(win);
     this.hud.showEnd(this, win);
@@ -841,10 +841,21 @@ export class Game {
   stepMantle(a, dt) {
     const m = a.mantle; m.t += dt;
     const u = Math.min(1, m.t / m.dur), sm = (x) => x * x * (3 - 2 * x);
-    const v = sm(Math.min(1, u / 0.65)), h = sm(Math.max(0, (u - 0.5) / 0.5));
+    // vault (low ledge): hop up and carry on over in one flowing motion. climb (high ledge): haul up the face first, then forward over the lip.
+    const v = m.vault ? sm(Math.min(1, u / 0.55)) : sm(Math.min(1, u / 0.65)), h = m.vault ? sm(Math.max(0, (u - 0.25) / 0.75)) : sm(Math.max(0, (u - 0.5) / 0.5));
     a.pos.set(m.sx + (m.ex - m.sx) * h, m.sy + (m.ey - m.sy) * v, m.sz + (m.ez - m.sz) * h);
     a.vel.set(0, 0, 0); a.onGround = false;
-    if (u >= 1) { a.pos.set(m.ex, m.ey, m.ez); a.mantle = null; a.onGround = true; }
+    if (u >= 1) { a.pos.set(m.ex, m.ey, m.ez); a.mantle = null; a.onGround = true; a.vel.x = m.cx; a.vel.z = m.cz; }
+  }
+
+  // starts a mantle if there is a ledge ahead that can be reached; returns true when it did
+  tryMantle(p, fx, fz, maxUp, auto) {
+    const L = this.col.findLedge(p, fx, fz, maxUp);
+    if (!L) return false;
+    const up = L.y - p.pos.y, vault = up <= 1.3, carry = Math.min(5.5, Math.max(p.speed2 || 0, 3)) * (vault ? 0.85 : 0.35);
+    p.mantle = { t: 0, vault, dur: vault ? 0.28 + up * 0.12 : 0.4 + up * 0.17, sx: p.pos.x, sy: p.pos.y, sz: p.pos.z, ex: L.x, ey: L.y, ez: L.z, cx: fx * carry, cz: fz * carry };
+    p.slideT = 0; p.vel.set(0, 0, 0); p.mantleCd = 0.45; p.sprint = false;
+    return true;
   }
 
   // world position of a point on a dead actor's body (the corpse falls over, so stump positions follow it)
@@ -1076,7 +1087,7 @@ export class Game {
   endMatch() {
     if (this.ended) return;
     this.ended = true; this.state = 'ended';
-    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.showScore = false;
+    this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.showScore = false;
     let win;
     if (this.mode.zm) win = null;
     else if (this.mode.team) win = this.teamScore[0] === this.teamScore[1] ? null : (this.teamScore[0] > this.teamScore[1] ? 0 : 1);
@@ -1104,7 +1115,7 @@ export class Game {
     const w = p.weapon;
     const wantCrouch = !!(k.KeyC || k.ControlLeft);
     const down = !!p.down;
-    const ads = this.adsHeld && !frozen && p.switchT <= 0 && !p.reloading && !down;
+    const ads = (this.adsHeld || this.adsKey) && !frozen && p.switchT <= 0 && !p.reloading && !down;
     const sprint = !!k.ShiftLeft && fwd > 0 && !ads && !wantCrouch && !this.fireHeld && !down;
     let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? (p.tacOn ? 0.86 : 0.62) : 1) * ((p.perks & 16) ? 1.12 : 1);
     if (down) speed = 1.5;
@@ -1131,9 +1142,9 @@ export class Game {
     // --- mantle: jump into a ledge that is too high to step up and you pull yourself over it ---
     if (p.mantle) this.stepMantle(p, dt);
     else {
-      if (k.Space && !frozen && !down && fwd > 0 && p.mantleCd <= 0) {
-        const L = this.col.findLedge(p, fx, fz, p.onGround ? 1.5 : 1.0);
-        if (L) { const up = L.y - p.pos.y; p.mantle = { t: 0, dur: 0.36 + up * 0.14, sx: p.pos.x, sy: p.pos.y, sz: p.pos.z, ex: L.x, ey: L.y, ez: L.z }; p.slideT = 0; p.vel.set(0, 0, 0); p.mantleCd = 0.5; }
+      if (!frozen && !down && fwd > 0 && p.mantleCd <= 0) {
+        if (k.Space) this.tryMantle(p, fx, fz, p.onGround ? 2.2 : Math.max(0.6, 2.25 - Math.max(0, p.pos.y - (p.mantleBase || 0))));                                        // newer-COD reach: climb up to ~2.2 m
+        else if (sprint && p.onGround && p.speed2 > 6) this.tryMantle(p, fx, fz, 1.2, true);                   // sprinting into a waist/chest-high ledge vaults it automatically
       }
       if (!p.mantle) this.moveActor(p, wx, wz, speed, dt, jump, crouchNow);
     }

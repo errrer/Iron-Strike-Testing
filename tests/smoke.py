@@ -166,12 +166,18 @@ with sync_playwright() as pw:
       g.keys.KeyW = true; g.keys.Space = true; let sawMantle = false;
       for (let f = 0; f < 120; f++) { g.frame(1/60); if (p.mantle) sawMantle = true; if (!p.mantle && sawMantle) break; }
       out.mantled = sawMantle; out.topY = +p.pos.y.toFixed(2); out.onTop = Math.abs(p.pos.y - 1.2) < 0.05 && p.pos.z < 499.6 && p.pos.z > 496.5; out.finite = [p.pos.x, p.pos.y, p.pos.z].every(isFinite);
+      // newer-COD reach: a 2.0 m wall can be climbed, and sprinting into a 1.0 m ledge vaults it with no jump key
+      g.keys = {}; p.pos.set(300, 0, 300); p.vel.set(0, 0, 0); p.yaw = 0; g.col.boxes.push({x0: 298.5, x1: 301.5, z0: 296.5, z1: 299.6, y0: 0, y1: 2.0});
+      g.keys.KeyW = true; g.keys.Space = true; let hiM = false; for (let f = 0; f < 150; f++) { g.frame(1/60); if (p.mantle) hiM = true; if (hiM && !p.mantle) break; } out.climb2m = hiM && Math.abs(p.pos.y - 2.0) < 0.05;
+      g.keys = {}; p.pos.set(320, 0, 330); p.vel.set(0, 0, 0); p.yaw = 0; g.col.boxes.push({x0: 318.5, x1: 321.5, z0: 316.5, z1: 326.0, y0: 0, y1: 1.0});
+      g.keys.KeyW = true; g.keys.ShiftLeft = true; let vz = false; for (let f = 0; f < 200; f++) { g.frame(1/60); if (p.mantle && p.mantle.vault) vz = true; } out.autoVault = vz;
       // too high to mantle
       g.keys = {}; p.pos.set(700, 0, 700); p.vel.set(0, 0, 0); g.col.boxes.push({x0: 698.5, x1: 701.5, z0: 696.5, z1: 699.6, y0: 0, y1: 2.6});
       g.keys.KeyW = true; g.keys.Space = true; let tall = false; for (let f = 0; f < 60; f++) { g.frame(1/60); if (p.mantle) tall = true; } out.tallBlocked = !tall;
       return out; }""")
     print('slide/mantle:', M)
     assert M['sprintSp'] > 5.8 and M['sliding'] and M['slideSp'] > M['sprintSp'] and M['crouched'] and M['eyeLow'] and M['slideEnded'] and M['noStandSlide'], M
+    assert M['climb2m'] and M['autoVault'], M
     assert M['mantled'] and M['onTop'] and M['finite'] and M['tallBlocked'], M
     # gore: 12 gib models, head popping, parts hidden then restored, toggle
     GR = pg.evaluate("""() => { const g = window.__game, out = {};
