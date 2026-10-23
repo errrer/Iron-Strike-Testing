@@ -30,10 +30,19 @@ export function loadPeerLib() {
   });
 }
 
+// STUN for the usual NATs plus a public TURN relay as the fallback for strict / symmetric NATs (mobile data, school and office wifi)
+const ICE = {
+  iceServers: [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
+    { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
+  ],
+  iceCandidatePoolSize: 4,
+};
+
 function openPeer(id) {
   return new Promise((res, rej) => {
     let done = false;
-    const p = id ? new window.Peer(id, { debug: 0 }) : new window.Peer({ debug: 0 });
+    const p = id ? new window.Peer(id, { debug: 0, config: ICE }) : new window.Peer({ debug: 0, config: ICE });
     const t = setTimeout(() => { if (!done) { done = true; try { p.destroy(); } catch (e) { /* ignore */ } rej(new Error('Could not reach the matchmaking server.')); } }, 15000);
     p.on('open', () => { if (!done) { done = true; clearTimeout(t); res(p); } });
     p.on('error', (e) => { if (!done) { done = true; clearTimeout(t); try { p.destroy(); } catch (x) { /* ignore */ } rej(e); } });
@@ -44,7 +53,7 @@ export class Net {
   constructor(game, ui) {
     this.game = game; this.ui = ui;
     this.role = null; this.code = ''; this.ping = 0;
-    this.peer = null; this.conn = null; this.conns = new Map(); this.players = new Map();
+    this.peer = null; this.conn = null; this.conns = new Map(); this.fast = new Map(); this.players = new Map();
     this.mode = 'tdm'; this.map = MAP_IDS[0]; this.lobby = null;
     this.evAll = []; this.evMap = new Map(); this.nextId = 1; this.snapAcc = 0; this.stAcc = 0; this.pingAcc = 0;
   }
@@ -64,7 +73,7 @@ export class Net {
     this.role = 'host'; this.code = code; this.peer = peer; this.mode = mode; this.map = map;
     this.players.set(0, { id: 0, name: cleanName(name), prim: loadout.prim, sec: loadout.sec, ap: loadout.ap | 0, as: loadout.as | 0, team: 0 });
     this.validate(this.players.get(0));
-    peer.on('connection', (c) => this.hostConn(c));
+    peer.on('connection', (c) => (c.metadata && c.metadata.u ? this.hostFast(c) : this.hostConn(c)));
     peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) { /* ignore */ } });
     peer.on('error', (e) => console.warn('[net] peer error', e && e.type));
     this.assignTeams(); this.pushLobby();
@@ -89,8 +98,25 @@ export class Net {
 
   sendTo(c, m) { try { if (c.open) c.send(m); } catch (e) { /* ignore */ } }
 
+  // second, unordered data channel per client for snapshots and movement: a lost packet no longer stalls everything behind it
+  hostFast(c) {
+    c.on('data', (m) => {
+      try {
+        if (!m || typeof m !== 'object') return;
+        if (m.t === 'u') { const rc = this.conns.get(m.pid); if (rc && rc.uid === m.key) { c.pid = m.pid; this.fast.set(m.pid, c); } return; }
+        if (c.pid == null || this.fast.get(c.pid) !== c) return;
+        const rc = this.conns.get(c.pid); if (rc) rc.lastRx = performance.now();
+        if (m.t === 'st') { if ((m.k | 0) <= (c.lastK | 0) && m.k) return; c.lastK = m.k | 0; }
+        this.hostData(rc || c, m);
+      } catch (e) { console.error('[net] fast data', e); }
+    });
+    c.on('close', () => { if (c.pid != null && this.fast.get(c.pid) === c) this.fast.delete(c.pid); });
+    c.on('error', () => { if (c.pid != null && this.fast.get(c.pid) === c) this.fast.delete(c.pid); });
+  }
+
   hostConn(c) {
-    c.on('data', (m) => { try { this.hostData(c, m); } catch (e) { console.error('[net] host data', e); } });
+    c.lastRx = performance.now();
+    c.on('data', (m) => { c.lastRx = performance.now(); try { this.hostData(c, m); } catch (e) { console.error('[net] host data', e); } });
     c.on('close', () => this.hostDrop(c));
     c.on('error', () => this.hostDrop(c));
   }
@@ -104,7 +130,7 @@ export class Net {
       if (this.players.size >= mode.max) { this.sendTo(c, { t: 'deny', why: this.mode === '1v1' ? 'Duel is full (2 players).' : 'Room is full.' }); setTimeout(() => c.close(), 300); return; }
       const id = this.nextId++;
       const p = { id, name: this.uniqueName(cleanName(m.name)), prim: m.prim, sec: m.sec, ap: m.ap, as: m.as, team: 0 };
-      c.pid = id; this.conns.set(id, c); this.players.set(id, p);
+      c.pid = id; c.uid = Math.random().toString(36).slice(2); this.conns.set(id, c); this.players.set(id, p);
       this.validate(p);
       const g = this.game;
       if (this.live()) {
@@ -113,12 +139,12 @@ export class Net {
         else if (mode.team) { const n = [0, 0]; for (const q of this.players.values()) if (q !== p) n[q.team]++; p.team = n[0] <= n[1] ? 0 : 1; } else p.team = id;
         const info = { id: p.id, name: p.name, team: p.team, prim: p.prim, sec: p.sec, ap: p.ap, as: p.as };
         this.ev(['add', info]);
-        this.sendTo(c, { t: 'welcome', id });
+        this.sendTo(c, { t: 'welcome', id, key: c.uid });
         this.sendTo(c, { t: 'begin', ...this.beginInfo(id) });
         g.addNetActor(info, false, false);
       } else {
         this.assignTeams();
-        this.sendTo(c, { t: 'welcome', id });
+        this.sendTo(c, { t: 'welcome', id, key: c.uid });
       }
       this.pushLobby();
       return;
@@ -169,6 +195,7 @@ export class Net {
   hostDrop(c) {
     const id = c.pid; if (id == null || !this.players.has(id)) return;
     this.players.delete(id); this.conns.delete(id); this.evMap.delete(id);
+    const fc = this.fast.get(id); this.fast.delete(id); if (fc) { try { fc.close(); } catch (e) { /* ignore */ } }
     try { c.close(); } catch (e) { /* ignore */ }
     if (this.game.net === this && this.game.scene) this.game.removeNetActor(id);
     if (!this.live()) this.assignTeams();
@@ -244,23 +271,44 @@ export class Net {
       conn.send({ t: 'join', v: PROTOCOL, name: cleanName(name), prim: loadout.prim, sec: loadout.sec, ap: loadout.ap | 0, as: loadout.as | 0 });
     }).catch((e) => { this.cleanup(); throw e; });
     this.peer.on('error', (e) => console.warn('[net] peer error', e && e.type));
+    this.peer.on('disconnected', () => { try { this.peer.reconnect(); } catch (e) { /* ignore */ } });
     return code;
   }
 
   clientData(m) {
     if (!m || typeof m !== 'object') return;
+    this.lastRx = performance.now();
     const g = this.game;
     switch (m.t) {
-      case 'welcome': this.myId = m.id; if (this.onWelcome) this.onWelcome(); break;
+      case 'welcome': this.myId = m.id; this.key = m.key; if (this.onWelcome) this.onWelcome(); this.openFast(); break;
       case 'deny': if (this.onDeny) this.onDeny(m.why); break;
       case 'lobby': this.lobby = m.lobby; this.ui.lobby(m.lobby); break;
-      case 'begin': g.startNet(this, m); this.ui.started(); break;
-      case 'snap': if (g.net === this && g.scene && (g.state === 'playing' || g.state === 'paused')) g.applySnap(m); break;
+      case 'begin': this.lastSnap = 0; g.startNet(this, m); this.ui.started(); break;
+      case 'snap': if (m.n && m.n <= (this.lastSnap || 0) && m.n > (this.lastSnap || 0) - 200) break; this.lastSnap = m.n || 0;
+        if (g.net === this && g.scene && (g.state === 'playing' || g.state === 'paused')) g.applySnap(m); break;
       case 'ev': if (g.net === this && g.scene && g.state !== 'menu') g.applyEvents(m.e); break;
       case 'pong': this.ping = this.ping ? this.ping * 0.7 + (performance.now() - m.n) * 0.3 : performance.now() - m.n; break;
       case 'bye': this.clientClosed('The host closed the room.'); break;
       default: break;
     }
+  }
+
+  // open the unordered channel; if it never opens everything just keeps using the reliable one
+  openFast() {
+    try {
+      const u = this.peer.connect(PREFIX + this.code, { reliable: false, serialization: 'json', metadata: { u: 1 } });
+      u.on('open', () => { this.fastConn = u; try { u.send({ t: 'u', pid: this.myId, key: this.key }); } catch (e) { /* ignore */ } });
+      u.on('data', (m) => { try { this.clientData(m); } catch (e) { console.error('[net] fast data', e); } });
+      const gone = () => { if (this.fastConn === u) this.fastConn = null; };
+      u.on('close', gone); u.on('error', gone);
+    } catch (e) { this.fastConn = null; }
+    this.lastRx = performance.now();
+    clearInterval(this.hb);
+    this.hb = setInterval(() => {                       // heartbeat + watchdog, independent of the frame loop (paused / background tabs still count as alive)
+      if (!this.role || !this.conn) return;
+      this.sendTo(this.conn, { t: 'ping', n: performance.now() });
+      if (performance.now() - (this.lastRx || 0) > 15000) this.clientClosed('Connection lost (no data from the host for 15 s).');
+    }, 2000);
   }
 
   clientClosed(why) {
@@ -276,6 +324,7 @@ export class Net {
   leave() {
     if (this.role === 'host') for (const c of this.conns.values()) this.sendTo(c, { t: 'bye' });
     else if (this.conn) this.sendTo(this.conn, { t: 'bye' });
+    clearInterval(this.hb); this.fastConn = null; this.fast.clear(); this.lastSnap = 0;
     const peer = this.peer;
     setTimeout(() => { try { if (peer) peer.destroy(); } catch (e) { /* ignore */ } }, 250);   // let the bye message out first
     this.role = null; this.peer = null; this.conn = null; this.conns.clear(); this.players.clear();
@@ -288,14 +337,17 @@ export class Net {
     const g = this.game;
     if (this.role === 'host') {
       g.recordHistory();
+      const nowT = performance.now();
+      for (const c of [...this.conns.values()]) if (nowT - (c.lastRx || nowT) > 25000) this.hostDrop(c);      // silent for 25 s: gone
       this.snapAcc += dt;
       if (this.snapAcc >= 1 / 15) {
         this.snapAcc = 0; this.snapN = (this.snapN || 0) + 1;
-        const snap = { t: 'snap', ...g.buildSnap(this.snapN % 15 === 1) };
+        const snap = { t: 'snap', n: this.snapN, ...g.buildSnap(this.snapN % 15 === 1) };
         for (const [id, c] of this.conns) {
           const a = g.byId(id); if (a) this.evTo(id, ['hp', Math.max(0, Math.ceil(a.hp))]);
           const buf = c.dataChannel ? c.dataChannel.bufferedAmount : 0;
-          if (buf < 96 * 1024) this.sendTo(c, snap);
+          const fc = this.fast.get(id), fb = fc && fc.open && fc.dataChannel ? fc.dataChannel.bufferedAmount : 0;
+          if (fc && fc.open) { if (fb < 96 * 1024) this.sendTo(fc, snap); } else if (buf < 96 * 1024) this.sendTo(c, snap);
         }
       }
       if (this.evAll.length || this.evMap.size) {
@@ -312,10 +364,10 @@ export class Net {
       if (this.stAcc >= 1 / 30 && p && p.alive) {
         this.stAcc = 0;
         const f = (v) => +v.toFixed(2);
-        this.sendTo(this.conn, { t: 'st', q: p.sseq, x: f(p.pos.x), y: f(p.pos.y), z: f(p.pos.z), yaw: +p.yaw.toFixed(3), pitch: +p.pitch.toFixed(3),
+        this.stK = (this.stK || 0) + 1;
+        this.sendTo(this.fastConn && this.fastConn.open ? this.fastConn : this.conn, { t: 'st', k: this.stK, q: p.sseq, x: f(p.pos.x), y: f(p.pos.y), z: f(p.pos.z), yaw: +p.yaw.toFixed(3), pitch: +p.pitch.toFixed(3),
           vx: f(p.vel.x), vz: f(p.vel.z), f: (p.crouch ? 1 : 0) | (p.reloading ? 2 : 0) | (p.ads > 0.5 ? 4 : 0) | (p.cur << 3) });
       }
-      if (this.pingAcc >= 2) { this.pingAcc = 0; this.sendTo(this.conn, { t: 'ping', n: performance.now() }); }
     }
   }
 }

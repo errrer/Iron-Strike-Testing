@@ -20,10 +20,10 @@
       if (B.peers.has(this.id)) { setTimeout(() => this.emit('error', { type: 'unavailable-id' }), 0); return; }
       B.peers.set(this.id, this); setTimeout(() => this.emit('open', this.id), 0);
     }
-    connect(id) {
+    connect(id, opts) {
       const target = B.peers.get(id), c1 = new Conn(this, id); this.conns.push(c1);
       if (!target) { setTimeout(() => this.emit('error', { type: 'peer-unavailable' }), 0); return c1; }
-      const c2 = new Conn(target, this.id); target.conns.push(c2); c1.other = c2; c2.other = c1;
+      const c2 = new Conn(target, this.id); c2.metadata = opts && opts.metadata; target.conns.push(c2); c1.other = c2; c2.other = c1;
       setTimeout(() => { c1.open = c2.open = true; target.emit('connection', c2); c1.emit('open'); c2.emit('open'); }, 0);
       return c1;
     }

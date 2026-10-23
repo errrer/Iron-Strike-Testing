@@ -253,3 +253,8 @@ Removed the imported map-prop models. Containers (corrugated, locking bars, corn
 - Fixed a navigation bug (distance field used 32-bit floats, which left holes in the field, so zombies could freeze in some spots).
 - Skyline floor z-fighting fixed. Lights can have colours (`lights: [x, y, z, colour]`).
 - Tests: tests/zm-maps-test.py (every zombies map: stairs, VMP buy, zombies climbing up, crawler rush); nav-test.mjs now checks the zombies maps too.
+
+## V0.8.1 - Multiplayer robustness
+- STUN servers plus a public TURN relay as the fallback, so strict NATs (mobile data, school/office wifi) can connect.
+- A second *unordered* data channel per client carries snapshots and movement, so one lost packet no longer stalls everything behind it (falls back to the reliable channel if it can't open). Stale snapshots/states are dropped.
+- Heartbeat independent of the frame loop; the client shows "Connection lost" after 15 s of silence and the host drops silent clients after 25 s. Signalling reconnect on both sides.
