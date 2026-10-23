@@ -231,7 +231,7 @@ export class NavGraph {
   // Dijkstra distance field over the graph from the node nearest (x, z). `blocked` = Set of node ids that may not be crossed.
   // Returns a Float32Array of path lengths (Infinity = unreachable). Zombies walk downhill on it.
   field(x, z, blocked) {
-    const N = this.nodes, dist = new Float32Array(N.length).fill(Infinity), src = this.nearest(x, z);
+    const N = this.nodes, dist = new Float64Array(N.length).fill(Infinity), src = this.nearest(x, z);
     if (src < 0) return dist;
     const heap = [[0, src]]; dist[src] = 0;
     const push = (e) => { heap.push(e); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };

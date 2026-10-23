@@ -49,7 +49,7 @@ export class Zombies {
     const g = this.g = game, M = this.M = g.map.zm;
     this.group = new THREE.Group(); g.scene.add(this.group);
     this.round = 0; this.phase = 'pre'; this.phaseT = 6; this.left = 0; this.toSpawn = 0; this.spawnT = 2; this.cap = 24;
-    this.zones = [true, false, false]; this.insta = 0; this.dbl = 0; this.pus = []; this.nextPu = 1; this.drops = 0;
+    this.zones = Array.from({ length: M.nz || 3 }, (_, i) => i === 0); this.up = M.upper || null; this.dogRound = false; this.crawlers = 0; this.insta = 0; this.dbl = 0; this.pus = []; this.nextPu = 1; this.drops = 0;
     this.nextZid = 2000; this.t = 0; this.stT = 0; this.fieldT = 0; this.fields = []; this.blocked = new Set(); this.survT = 0; this.grT = 2;
     this.prompt = ''; this.shownRound = 0; this.clientPts = new Map(); this.rollT = 0; this.nukeKill = false;
     const copyBox = (b) => ({ x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1, z0: b.z0, z1: b.z1 });
@@ -64,7 +64,7 @@ export class Zombies {
     this.pap = { ...M.pap, st: 0, t: 0, owner: -1, slot: 0, wid: '', view: buildPap(M.pap), shown: '' }; this.group.add(this.pap.view.group);
     this.items = [
       ...this.doors.map((o) => ({ kind: 'door', o, x: o.x, z: o.z, r: 2.3 })),
-      ...this.buys.map((o) => ({ kind: 'buy', o, x: o.x + Math.sin(o.face) * 0.9, z: o.z + Math.cos(o.face) * 0.9, r: 1.5 })),
+      ...this.buys.map((o) => ({ kind: 'buy', o, x: o.x + Math.sin(o.face) * 0.9, z: o.z + Math.cos(o.face) * 0.9, r: 1.5, y: o.y || 0 })),
       ...this.perks.map((o) => ({ kind: 'perk', o, x: o.x, z: o.z, r: 2.1 })),
       { kind: 'box', o: this.box, x: this.box.x, z: this.box.z, r: 2.3 },
       { kind: 'pap', o: this.pap, x: this.pap.x, z: this.pap.z, r: 2.3 },
@@ -191,7 +191,7 @@ export class Zombies {
     this.left = this.toSpawn + alive;
     this.spawnT -= dt;
     if (this.toSpawn > 0 && alive < Math.min(24, this.cap) && this.spawnT <= 0) {
-      if (this.spawnZombie()) { this.toSpawn--; this.spawnT = Math.max(0.45, 2.4 - this.round * 0.12) / (1 + 0.25 * (ps.length - 1)); }
+      if (this.spawnZombie()) { this.toSpawn--; this.spawnT = Math.max(0.45, 2.4 - this.round * 0.12) / (1 + 0.25 * (ps.length - 1)) * (this.dogRound ? 0.5 : 1); }
       else this.spawnT = 0.5;
     }
     if (this.toSpawn <= 0 && alive === 0) { this.phase = 'break'; this.phaseT = 8; this.left = 0; this.emit(['zz']); }
@@ -200,7 +200,11 @@ export class Zombies {
   startRound(ps) {
     const g = this.g;
     this.round++; this.phase = 'active'; this.drops = 0;
-    this.toSpawn = zCount(this.round, ps.length || 1); this.left = this.toSpawn; this.spawnT = 2.2;
+    this.dogRound = this.round >= 5 && this.round % 4 === 1;                    // every fourth round from 5: a rush of fast crawlers
+    this.toSpawn = zCount(this.round, ps.length || 1);
+    if (this.dogRound) this.toSpawn = Math.max(8, Math.round(this.toSpawn * 0.6));
+    this.left = this.toSpawn; this.spawnT = 2.2;
+    if (this.dogRound) this.emit(['zn', 'CRAWLER RUSH']);
     this.cap = clamp(8 + this.round * 2, 8, 24) + (ps.length - 1) * 4;
     // dead players come back at the start of the next round with a fresh start
     for (const a of ps) if (!a.alive) this.respawn(a);
@@ -233,14 +237,15 @@ export class Zombies {
     const g = this.g, w = this.pickWindow(); if (!w) return false;
     const x = w.outx + (w.axis === 'x' ? rand(-0.6, 0.6) : 0), z = w.outz + (w.axis === 'z' ? rand(-0.6, 0.6) : 0);
     for (const e of g.actors) if (e.zombie && e.alive && Math.hypot(e.pos.x - x, e.pos.z - z) < 0.7) return false;
-    const id = this.nextZid++, spd = zSpeed(this.round);
+    const id = this.nextZid++, crawl = this.dogRound, spd = crawl ? 5.6 + Math.min(1.6, this.round * 0.08) : zSpeed(this.round);
     const a = g.makeActor(id, 'Zombie', 1, false, START_GUN, START_GUN);
-    a.zombie = true; a.alive = false; a.remote = false;
+    a.zombie = true; a.alive = false; a.remote = false; a.crawl = crawl;
     a.mesh = g.makeZombieMesh(); g.scene.add(a.mesh.root); g.actors.push(a);
-    const hp = zHp(this.round);
-    if (g.net && g.isHost) g.net.ev(['add', { id, name: 'Zombie', team: 1, prim: START_GUN, sec: START_GUN, zombie: 1 }]);
+    if (crawl) a.mesh.root.scale.setScalar(0.78);
+    const hp = crawl ? Math.floor(zHp(this.round) * 0.45) : zHp(this.round);
+    if (g.net && g.isHost) g.net.ev(['add', { id, name: 'Zombie', team: 1, prim: START_GUN, sec: START_GUN, zombie: 1, crawl: crawl ? 1 : 0 }]);
     g.placeActor(a, x, z, Math.atan2(-(w.x - x), -(w.z - z)), true, 0);
-    a.hp = a.maxHp = hp; a.protT = 0; a.hw = 0.33; a.h = 1.8;
+    a.hp = a.maxHp = hp; a.protT = 0; a.hw = crawl ? 0.3 : 0.33; a.h = crawl ? 1.35 : 1.8;
     a.zs = { win: w.boards > 0 ? w : null, tear: 0, rise: 0.9, atk: 0.6, spd, stuck: 0, lx: x, lz: z, tgt: null, wob: Math.random() * 6 };
     return true;
   }
@@ -248,8 +253,16 @@ export class Zombies {
   updateFields(ps) {
     this.fieldT = 0.45; this.fields = [];
     const nav = this.g.nav; if (!nav) return;
-    for (const p of ps) if (p.alive && !p.down) this.fields.push({ a: p, d: nav.field(p.pos.x, p.pos.z, this.blocked) });
+    let stairF = null;
+    for (const p of ps) if (p.alive && !p.down) {
+      const up = this.lvl(p) === 1;
+      if (up && !stairF) stairF = nav.field(this.up.bot.x, this.up.bot.z, this.blocked);
+      this.fields.push({ a: p, up, d: up ? stairF : nav.field(p.pos.x, p.pos.z, this.blocked) });
+    }
   }
+
+  // 0 = ground, 1 = on the raised level (or the top half of its stairs)
+  lvl(a) { return this.up && a.pos.y > 1.7 ? 1 : 0; }
 
   rebuildBlocked() {
     this.blocked = new Set();
@@ -278,14 +291,33 @@ export class Zombies {
         return;
       }
     }
-    // pick the nearest living, standing player by walking distance
-    const nav = g.nav, node = nav.nodeAt(z.pos.x, z.pos.z);
+    // pick the nearest living, standing player by walking distance (players on the raised level count as a few metres further)
+    const nav = g.nav, node = nav.nodeAt(z.pos.x, z.pos.z), zl = this.lvl(z), up = this.up;
+    const onSt = !!up && z.pos.x < up.bot.x - 1.2 && z.pos.x > up.x1 && Math.abs(z.pos.z - up.bot.z) < 1.8;
     let best = null, bf = null, bd = Infinity;
-    for (const f of this.fields) { const d = f.d[node]; if (d < bd) { bd = d; best = f.a; bf = f.d; } }
+    for (const f of this.fields) {
+      if (zl === 1 && !f.up) continue;
+      let d = f.d[node]; if (f.up) d += 6;
+      if (zl === 1) d = Math.hypot(f.a.pos.x - z.pos.x, f.a.pos.z - z.pos.z);
+      if (d < bd) { bd = d; best = f.a; bf = f.d; }
+    }
+    if (!best && zl === 1) {                                   // nobody up here any more: walk back down
+      const dx = up.top.x - z.pos.x, dz = up.top.z - z.pos.z;
+      const inside = z.pos.x > up.x0 && z.pos.x < up.x1 && z.pos.z > up.z0 && z.pos.z < up.z1;
+      const tx = inside && Math.hypot(dx, dz) > 1.2 ? up.top : up.bot;
+      const ex = tx.x - z.pos.x, ez = tx.z - z.pos.z, el = Math.hypot(ex, ez) || 1;
+      g.moveActor(z, ex / el, ez / el, Math.min(zs.spd, 2.4), dt, false, false); turn(ex, ez); return;
+    }
     if (!best) { g.moveActor(z, 0, 0, 0, dt, false, false); return; }
     const dx = best.pos.x - z.pos.x, dz = best.pos.z - z.pos.z, dist = Math.hypot(dx, dz);
+    const bl = this.lvl(best);
     let wx, wz;
-    if (dist < 3.5 && g.los(z, best)) { wx = dx / dist; wz = dz / dist; }
+    if (bl === 1 && zl === 0 && (onSt || Math.hypot(up.bot.x - z.pos.x, up.bot.z - z.pos.z) < 3.6)) {   // at the foot of the stairs: line up, then climb
+      const started = z.pos.x < up.bot.x - 1.3 && Math.abs(z.pos.z - up.bot.z) < 1.1;
+      const align = !started && Math.abs(z.pos.z - up.bot.z) > 0.6, tx = align ? up.bot.x : up.top.x, tz = align ? up.bot.z : up.top.z;
+      const ex = tx - z.pos.x, ez = (started ? up.bot.z : tz) - z.pos.z, el = Math.hypot(ex, ez) || 1; wx = ex / el; wz = ez / el;
+    } else if (bl === zl && dist < 3.5 && g.los(z, best)) { wx = dx / dist; wz = dz / dist; }
+    else if (bl === 1 && zl === 1) { wx = dx / (dist || 1); wz = dz / (dist || 1); }
     else {
       let bn = -1, bv = bf[node];
       for (const m of nav.adj[node]) if (bf[m] < bv) { bv = bf[m]; bn = m; }
@@ -293,19 +325,20 @@ export class Zombies {
       else { const n = nav.nodes[bn]; const ex = n.x - z.pos.x, ez = n.z - z.pos.z, el = Math.hypot(ex, ez) || 1; wx = ex / el; wz = ez / el; }
     }
     // keep a little space from the other zombies
-    for (const o of g.actors) {
+    for (const o of onSt ? [] : g.actors) {
       if (o === z || !o.zombie || !o.alive) continue;
       const ox = z.pos.x - o.pos.x, oz = z.pos.z - o.pos.z, od = Math.hypot(ox, oz);
       if (od < 0.75 && od > 0.001) { wx += (ox / od) * (0.75 - od) * 1.4; wz += (oz / od) * (0.75 - od) * 1.4; }
     }
     const wl = Math.hypot(wx, wz) || 1; wx /= wl; wz /= wl;
     const near = dist < 1.3 && Math.abs(best.pos.y - z.pos.y) < 1.4;
-    g.moveActor(z, near ? 0 : wx, near ? 0 : wz, zs.spd, dt, false, false);
+    g.moveActor(z, near ? 0 : wx, near ? 0 : wz, zs.spd * (zs.stag > 0 ? 0.35 : 1), dt, false, false);
+    if (zs.stag > 0) zs.stag -= dt;
     turn(near ? dx : wx, near ? dz : wz);
     zs.atk -= dt;
     if (near && zs.atk <= 0) {
       zs.atk = 1.0;
-      g.damage(best, z, 50, WEAPONS.zclaw, false);
+      g.damage(best, z, z.crawl ? 35 : 50, WEAPONS.zclaw, false);
     }
     // stuck for a long time: put it back at a window
     zs.stuck += dt;
@@ -326,6 +359,7 @@ export class Zombies {
   onHit(attacker, v) {
     if (!attacker || attacker.zombie || attacker.zHitT === this.g.time) return;
     attacker.zHitT = this.g.time; this.award(attacker, HIT_PTS);
+    if (v.zs && !v.crawl) v.zs.stag = 0.22;
   }
   award(a, n) { if (!a || a.zombie) return; a.pts = Math.max(0, (a.pts | 0) + Math.round(n * (n > 0 && this.dbl > 0 ? 2 : 1))); }
 
@@ -333,6 +367,7 @@ export class Zombies {
     if (!v.zombie || !this.auth) return;
     if (!this.nukeKill && k && !k.zombie) this.award(k, head ? HEAD_PTS - HIT_PTS : KILL_PTS - HIT_PTS);   // the hit that killed it already paid 10
     if (!this.nukeKill) this.maybeDrop(v);
+    if (this.dogRound && this.toSpawn <= 0 && this.zombies().length === 0) this.pus.push({ id: this.nextPu++, type: 'max', x: v.pos.x, z: v.pos.z, t: 30, view: null });
   }
 
   maybeDrop(z) {
@@ -398,7 +433,7 @@ export class Zombies {
     let best = null, bd = Infinity;
     for (const it of this.items) {
       const d = Math.hypot(a.pos.x - it.x, a.pos.z - it.z);
-      if (d > it.r || d >= bd) continue;
+      if (d > it.r || d >= bd || Math.abs(a.pos.y - (it.y || 0)) > 2.3) continue;
       if (it.kind === 'door' && it.o.open) continue;
       if (it.kind === 'perk' && (a.perks & it.o.perk.bit)) continue;
       best = it; bd = d;

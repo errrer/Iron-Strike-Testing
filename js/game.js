@@ -405,11 +405,12 @@ export class Game {
 
   addNetActor(p, isLocal, batch) {
     const a = this.makeActor(p.id, String(p.name).replace(/[<>&"'`]/g, '').slice(0, 14), p.team, isLocal, p.prim, p.sec, p.ap | 0, p.as | 0);
-    a.remote = !isLocal; a.alive = false; a.ibuf = []; a.sseq = 0; a.dummy = !!p.dummy; a.zombie = !!p.zombie;
+    a.remote = !isLocal; a.alive = false; a.ibuf = []; a.sseq = 0; a.dummy = !!p.dummy; a.zombie = !!p.zombie; a.crawl = !!p.crawl;
     const team = this.mode.team;
     const color = a.dummy ? DUMMY_COLOR : team ? TEAM_COLORS[p.team % 2] : FFA_COLORS[p.id % FFA_COLORS.length];
     const label = team && !isLocal && p.team === this.myTeam ? p.name : null;
     a.mesh = a.zombie ? this.makeZombieMesh() : this.makeBotMesh(color, a.weapons[0], label);
+    if (a.crawl) a.mesh.root.scale.setScalar(0.78);
     a.mesh.root.visible = false; this.scene.add(a.mesh.root);
     this.actors.push(a);
     if (this.zm && !a.zombie && !a.dummy) this.zm.initPlayer(a);

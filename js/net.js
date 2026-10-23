@@ -8,7 +8,7 @@
 // Hits are resolved by the host with lag compensation (targets are rewound to what the shooter saw).
 // Movement is client-trusted, so this is meant for playing with friends, not for ranked play.
 import { MODES, MAX_PLAYERS, mpMode } from './game.js';
-import { MAP_IDS, MAP_INFO } from './maps.js';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js';
 import { WEAPONS, PRIMARIES, SECONDARIES, cleanMask } from './weapons.js';
 
 const PEER_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
@@ -205,7 +205,7 @@ export class Net {
   setMap(map) { if (this.role === 'host' && MAP_IDS.includes(map)) { this.map = map; this.pushLobby(); } }
   start() {
     if (this.role !== 'host') return 'Only the host can start the match.';
-    if (this.mode === 'zm') this.map = 'outpost';
+    if (this.mode === 'zm' && !ZM_MAPS.includes(this.map)) this.map = 'outpost';
     if (this.players.size < (MODES[this.mode].sandbox || MODES[this.mode].zm ? 1 : 2)) return 'Need at least 2 players to start.';
     this.assignTeams();
     for (const c of this.conns.values()) this.sendTo(c, { t: 'begin', ...this.beginInfo(c.pid) });

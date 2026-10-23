@@ -240,7 +240,7 @@ function skyline() {
   // helipad (decor)
   b.disc(0, -8.5, 3.6, { color: 0x30343a }); b.disc(0, -8.5, 2.6, { y0: 0.03, color: 0xe6c53a });
   // the tower itself: roof slab, cornice and the building below it (visible when you look over the parapet)
-  b.deco(0, 0, 86, 62, 1.6, { y0: -1.6, tex: 'concrete', color: 0x6d7076, tile: 4, cast: false });
+  b.deco(0, 0, 86, 62, 1.6, { y0: -1.64, tex: 'concrete', color: 0x6d7076, tile: 4, cast: false });
   b.deco(0, 0, 80, 56, 40, { y0: -41.6, tex: 'windows', color: 0xffe9c8, tile: 7, cast: false });
   b.deco(0, 0, 84, 60, 0.35, { y0: -2.0, tex: 'concrete', color: 0x4a4d53, tile: 4, cast: false });
   // parapet cap and corner lights
@@ -330,6 +330,69 @@ function frostbite() {
 
 
 // ------------------------------------------------------------------------------------------
+// Zombies map kit: a chain of rooms (walls with 2 m window gaps, bought doorways between rooms) and the raised VMP room.
+// ------------------------------------------------------------------------------------------
+function zmChain(b, S) {
+  const { H, T, wallO, roofO, xs, z0, z1 } = S, zc = (z0 + z1) / 2, windows = [], doors = [];
+  const lintel = (cx, cz, w, d) => b.box(cx, cz, w, d, H - 2.7, { ...wallO, y0: 2.7 });
+  const nr = xs.length - 1;
+  const winsOf = (r, side) => (S.wins || []).filter((w) => w.r === r && w.side === side);
+  const hwall = (r, z, side, ins) => {
+    const ws = winsOf(r, side), xa = xs[r], xb = xs[r + 1];
+    b.wall(xa, z, xb, z, T, H, wallO, ws.map((w) => ({ at: w.at - xa, w: 2, type: 'door' })));
+    for (const w of ws) {
+      lintel(w.at, z, 2, T);
+      windows.push({ id: windows.length, zone: r, x: w.at, z, inx: w.at, inz: z + ins * 1.7, outx: w.at, outz: z - ins * 1.7, w: 2, axis: 'x' });
+    }
+  };
+  for (let r = 0; r < nr; r++) { hwall(r, z0, 'n', 1); hwall(r, z1, 's', -1); }
+  const vwall = (x, side, ins, zone, gaps) => {
+    b.wall(x, z0, x, z1, T, H, wallO, gaps.map((g) => ({ at: g - z0, w: g === zc && side === 'd' ? 3 : 2, type: 'door' })));
+    if (side === 'd') return;
+    for (const g of gaps) { lintel(x, g, T, 2); windows.push({ id: windows.length, zone, x, z: g, inx: x + ins * 1.7, inz: g, outx: x - ins * 1.7, outz: g, w: 2, axis: 'z' }); }
+  };
+  vwall(xs[0], 'w', 1, 0, (S.wins || []).filter((w) => w.side === 'w').map((w) => w.at));
+  vwall(xs[nr], 'e', -1, nr - 1, (S.wins || []).filter((w) => w.side === 'e').map((w) => w.at));
+  for (let i = 1; i < nr; i++) {
+    vwall(xs[i], 'd', 0, 0, [zc]);
+    doors.push({ id: i - 1, x: xs[i], z: zc, w: 0.5, d: 3, h: H, cost: S.doorCost[i - 1], opens: i });
+  }
+  for (let r = 0; r < nr; r++) b.deco((xs[r] + xs[r + 1]) / 2, zc, xs[r + 1] - xs[r] + 0.6, z1 - z0 + 0.6, 0.3, { y0: H, ...roofO });
+  return { windows, doors, nz: nr };
+}
+
+// Raised room on a solid base (3 m up) reached by a stair on its east side. Holds the VMP wall-buy.
+// Zombies climb it through the stair foot / top waypoints described in `upper` (see Zombies.aiZombie).
+function zmUpper(b, U) {
+  const T = 0.4, { bx0, bx1, bz0, bz1, zc } = U, w = bx1 - bx0, d = bz1 - bz0, cx = (bx0 + bx1) / 2, cz = (bz0 + bz1) / 2;
+  const wo = { tex: U.tex || 'concrete', color: U.color || 0x6a6e74, tile: 3 }, y0 = 3, H = 3.4;
+  b.box(cx, cz, w, d, 3, { tex: 'concrete', color: U.baseColor || 0x4a4e54, tile: 3 });                      // solid base (the floor of the room is its top)
+  b.stairs(bx1 + 6.4, zc, 'nx', 8, 2.4, 0.375, 0.8, { tex: 'metal', color: 0x5a6068, tile: 2 });
+  const slit = (z, face) => {                                                                                  // wall with a shooting slit
+    b.box((bx0 + cx - 1) / 2, z, cx - 1 - bx0, T, H, { ...wo, y0 }); b.box((cx + 1 + bx1) / 2, z, bx1 - cx - 1, T, H, { ...wo, y0 });
+    b.box(cx, z, 2, T, 0.9, { ...wo, y0 }); b.box(cx, z, 2, T, 1.3, { ...wo, y0: y0 + 2.1 });
+  };
+  slit(bz0 + T / 2); slit(bz1 - T / 2);
+  b.box(bx0 + T / 2, cz, T, d, H, { ...wo, y0 });                                                              // west wall (the VMP panel hangs on it)
+  b.box(bx1 - T / 2, (bz0 + zc - 1.3) / 2, T, zc - 1.3 - bz0, H, { ...wo, y0 });                               // east wall with a doorway
+  b.box(bx1 - T / 2, (zc + 1.3 + bz1) / 2, T, bz1 - zc - 1.3, H, { ...wo, y0 });
+  b.box(bx1 - T / 2, zc, T, 2.6, 0.8, { ...wo, y0: y0 + 2.6 });
+  b.box(cx, cz, w + 0.8, d + 0.8, 0.3, { tex: 'concrete', color: U.roofColor || 0x30343a, y0: y0 + H });       // roof
+  b.deco(cx, cz, w - 1.2, d - 1.2, 0.02, { y0: 3.0, tex: 'plain', color: 0x24282c, cast: false });              // dark floor mat
+  b.deco(bx1 - 0.5, zc, 0.12, 2.6, 0.04, { y0: 3.0, tex: 'plain', color: 0xd9a11a, emissive: 0xd9a11a, cast: false });   // threshold strip
+  return {
+    upper: { x0: bx0, x1: bx1, z0: bz0, z1: bz1, y: 3, bot: { x: bx1 + 7.8, z: zc }, top: { x: bx1 - 1.6, z: zc } },
+    vmp: { gun: 'vmp', cost: 1000, x: bx0 + T + 0.03, z: zc, y: 3, face: Math.PI / 2 },
+    light: [cx, 4.9, cz, 0xffe2b0],
+  };
+}
+
+// solid machines / box / PaP (players cannot walk through them)
+function zmMachines(b, zm) {
+  for (const m of [...zm.perks, zm.box, zm.pap]) b.boxes.push({ x0: m.x - m.w / 2, x1: m.x + m.w / 2, y0: 0, y1: 2.2, z0: m.z - m.d / 2, z1: m.z + m.d / 2 });
+}
+
+// ------------------------------------------------------------------------------------------
 // 5. OUTPOST - zombies map. Three rooms in a row (start room, middle room, back room) inside a walled yard.
 //    Windows in the outer walls are where zombies break in (barricade boards are added by zombies.js; the openings are
 //    real gaps so the nav graph can route through them). Doors between rooms are bought. Everything gameplay related
@@ -367,23 +430,26 @@ function outpost() {
   b.solid('crate', 17, 3, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 }); b.solid('crate', 23, -3, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 });
   b.solid('crate', -26, 6, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 }); b.solid('crate', -14, -6, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 });
   // yard: wrecks and barrels for the zombies to shamble around
-  for (const [x, z, w, d] of [[-34, -18, 4.2, 1.8], [-8, -21, 4.2, 1.8], [14, -19, 1.8, 4.2], [33, -17, 4.2, 1.8], [-34, 17, 1.8, 4.2], [-6, 20, 4.2, 1.8], [16, 21, 4.2, 1.8], [34, 20, 1.8, 4.2]]) {
+  for (const [x, z, w, d] of [[-8, -21, 4.2, 1.8], [14, -19, 1.8, 4.2], [33, -17, 4.2, 1.8], [-34, 17, 1.8, 4.2], [-6, 20, 4.2, 1.8], [16, 21, 4.2, 1.8], [34, 20, 1.8, 4.2]]) {
     b.solid('car', x, z, w + 0.1, d + 0.1, 1.5, { color: 0x4a4038, tint: 0x6a5e52, rough: 0.95, rot: d > w ? 1 : 0 });
   }
   for (const [x, z] of [[-24, -16], [26, 14], [0, 16], [-2, -16], [-36, 4]]) b.solid('barrel', x, z, 0.8, 0.8, 1.0, { color: 0x6a3a2a, tint: 0x9a4a32, rough: 0.85 });
 
+  const up = zmUpper(b, { bx0: -36, bx1: -26, bz0: -26, bz1: -17, zc: -21.5 });
   const zm = {
+    nz: 3, upper: up.upper,
     windows,
     doors: [{ id: 0, x: -10, z: 0, w: 0.5, d: 3, h: H, cost: 750, opens: 1 }, { id: 1, x: 10, z: 0, w: 0.5, d: 3, h: H, cost: 1250, opens: 2 }],
     // face = direction (radians, 0 = +z/south, PI/2 = +x/east ...) the panel looks into the room
     buys: [
-      { id: 0, gun: 'vmp', cost: 1000, x: -29.7, z: 0, face: Math.PI / 2 },
-      { id: 1, gun: 'm680', cost: 1000, x: -25, z: -9.7, face: 0 },
-      { id: 2, gun: 'g18', cost: 600, x: -25, z: 9.7, face: Math.PI },
-      { id: 3, gun: 'm4a1', cost: 1500, x: -5, z: -9.7, face: 0 },
-      { id: 4, gun: 'magnum', cost: 800, x: -5, z: 9.7, face: Math.PI },
-      { id: 5, gun: 'ak47', cost: 1800, x: 14, z: -9.7, face: 0 },
-      { id: 6, gun: 'kar98k', cost: 1200, x: 14, z: 9.7, face: Math.PI },
+      { id: 0, gun: 'm680', cost: 1000, x: -25, z: -9.7, face: 0 },
+      { id: 1, gun: 'g18', cost: 600, x: -25, z: 9.7, face: Math.PI },
+      { id: 2, gun: 'm4a1', cost: 1500, x: -5, z: -9.7, face: 0 },
+      { id: 3, gun: 'magnum', cost: 800, x: -5, z: 9.7, face: Math.PI },
+      { id: 4, gun: 'ak47', cost: 1800, x: 14, z: -9.7, face: 0 },
+      { id: 5, gun: 'kar98k', cost: 1200, x: 14, z: 9.7, face: Math.PI },
+      { id: 6, ...up.vmp },                                   // the VMP lives in the raised room (north-west yard)
+      { id: 7, gun: 'lmg', cost: 2200, x: 28, z: -9.7, face: 0 },
     ],
     perks: [
       { id: 'qr', x: -14, z: -9.1, face: 0, w: 1.7, d: 0.9 },
@@ -396,17 +462,124 @@ function outpost() {
     pap: { x: 29.1, z: 0, face: -Math.PI / 2, w: 0.9, d: 1.8 },
   };
   // solid machines / box (players cannot walk through them)
-  for (const m of [...zm.perks, zm.box, zm.pap]) b.boxes.push({ x0: m.x - m.w / 2, x1: m.x + m.w / 2, y0: 0, y1: 2.2, z0: m.z - m.d / 2, z1: m.z + m.d / 2 });
+  zmMachines(b, zm);
   const sp = { 0: { x0: -28, x1: -12, z0: -8, z1: 8 }, 1: { x0: -28, x1: -12, z0: -8, z1: 8 } };
   const r = { ...finish(b, {
     id: 'outpost', night: true,
     sky: [0x05080f, 0x141c2a], fog: [0x0a0e15, 8, 58],
     hemi: [0x6a7a96, 0x15161c, 0.55], sun: null,
-    lights: [[-20, 2.7, 0], [0, 2.7, 0], [20, 2.7, 0], [-34, 4.5, -19], [4, 4.5, -21], [34, 4.5, 18]],
+    lights: [[-20, 2.7, 0], [0, 2.7, 0], [20, 2.7, 0], up.light, [4, 4.5, -21], [34, 4.5, 18]],
     ground: { tex: 'concrete', color: 0x2b2e33, tile: 6 },
     impact: 0x9a948a,
   }), zm };
   r.spawns = sp;
+  return r;
+}
+
+// ------------------------------------------------------------------------------------------
+// 6. BUNKER - zombies map. Four rooms in a row underground (military bunker): barracks, armoury, generator hall, vault.
+// ------------------------------------------------------------------------------------------
+function bunker() {
+  const b = new Builder();
+  b.outerWalls(6, { tex: 'concrete', color: 0x2c3036, tile: 3 });
+  const H = 3.6, wallO = { tex: 'concrete', color: 0x666b72, tile: 3 };
+  const ch = zmChain(b, { H, T: 0.5, wallO, roofO: { tex: 'concrete', color: 0x2a2d32 }, xs: [-34, -17, 0, 17, 34], z0: -12, z1: 12, doorCost: [750, 1250, 1750],
+    wins: [{ r: 0, side: 'n', at: -25.5 }, { r: 0, side: 's', at: -25.5 }, { r: 0, side: 'w', at: 0 }, { r: 1, side: 'n', at: -8.5 }, { r: 1, side: 's', at: -8.5 },
+      { r: 2, side: 'n', at: 8.5 }, { r: 2, side: 's', at: 8.5 }, { r: 3, side: 'n', at: 25.5 }, { r: 3, side: 's', at: 25.5 }, { r: 3, side: 'e', at: 0 }] });
+  const up = zmUpper(b, { bx0: -14, bx1: -4, bz0: 16, bz1: 25, zc: 20.5, color: 0x5d6a62, baseColor: 0x3f4a44 });
+  // room dressing: pillars, cover crates, racks, barrels
+  for (const [x, z] of [[-25.5, 5.5], [-25.5, -5.5], [-8.5, 5.5], [-8.5, -5.5], [8.5, 5.5], [8.5, -5.5], [25.5, 5.5], [25.5, -5.5]]) b.box(x, z, 0.9, 0.9, H, { tex: 'concrete', color: 0x7b8087 });
+  b.solid('crate', -9, 0, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x6f6a45, rot: 1 }); b.solid('crate', -7.4, 0.5, 1.2, 1.2, 1.0, { tex: 'crate', color: 0x6f6a45 });
+  b.solid('crate', 9.5, 0, 1.6, 1.6, 1.6, { tex: 'crate', color: 0x6f6a45 });
+  b.solid('crate', 28, -1.5, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x6f6a45 }); b.solid('crate', 28, 0.2, 1.4, 1.4, 1.0, { tex: 'crate', color: 0x6f6a45, rot: 1 });
+  for (const [x, z] of [[-20, 9], [-20, -9], [4, 9], [14, 9]]) b.solid('barrel', x, z, 0.7, 0.7, 0.95, { tint: 0x6f8f5a, rough: 0.85 });
+  b.solid('racking', 13, 7, 4.2, 2.2, 4, { rot: 0 }); b.solid('racking', -4, -8, 4.2, 2.2, 4, { rot: 0 });
+  // yard: containers and wrecks to shamble around
+  b.solid('container', 8, -21, 6, 2.4, 2.6, { color: 0x5c7a8a, tint: 0x8aa6b4, metal: 0.1 });
+  b.solid('container', -24, -21, 2.4, 6, 2.6, { color: 0x8a5a4a, tint: 0xc58a76, rot: 1 });
+  b.solid('car', 22, 20, 4.3, 1.9, 1.5, { tint: 0x7a8a6a, rough: 0.95 }); b.solid('car', 26, -17, 1.9, 4.3, 1.5, { tint: 0x8a7a6a, rough: 0.95, rot: 1 });
+  for (const [x, z] of [[-30, 19], [0, 17], [14, -17], [-8, -17]]) b.solid('barrel', x, z, 0.7, 0.7, 0.95, { tint: 0xa05a3a, rough: 0.85 });
+  // glowing hazard strips (visual) and ceiling pipes
+  for (const x of [-25.5, -8.5, 8.5, 25.5]) { b.deco(x, 0, 0.4, 20, 0.12, { y0: H - 0.25, tex: 'plain', color: 0x39d98a, emissive: 0x39d98a, cast: false }); b.deco(x - 3, 0, 0.5, 22, 0.35, { y0: H - 0.6, tex: 'metal', color: 0x4a5057, cast: false }); }
+  const zm = {
+    nz: ch.nz, upper: up.upper, windows: ch.windows, doors: ch.doors,
+    buys: [
+      { id: 0, gun: 'm680', cost: 1000, x: -30, z: -11.7, face: 0 }, { id: 1, gun: 'g18', cost: 600, x: -30, z: 11.7, face: Math.PI },
+      { id: 2, gun: 'm4a1', cost: 1500, x: -13, z: -11.7, face: 0 }, { id: 3, gun: 'magnum', cost: 800, x: -4, z: 11.7, face: Math.PI },
+      { id: 4, gun: 'ak47', cost: 1800, x: 13, z: -11.7, face: 0 }, { id: 5, gun: 'kar98k', cost: 1200, x: 3.5, z: 11.7, face: Math.PI },
+      { id: 6, ...up.vmp }, { id: 7, gun: 'lmg', cost: 2200, x: 29, z: 11.7, face: Math.PI },
+    ],
+    perks: [
+      { id: 'qr', x: -21, z: -11.2, face: 0, w: 1.7, d: 0.9 }, { id: 'jug', x: -12.5, z: 11.2, face: Math.PI, w: 1.7, d: 0.9 },
+      { id: 'sc', x: -4, z: -11.2, face: 0, w: 1.7, d: 0.9 }, { id: 'dt', x: 12, z: 11.2, face: Math.PI, w: 1.7, d: 0.9 },
+      { id: 'st', x: 21, z: -11.2, face: 0, w: 1.7, d: 0.9 },
+    ],
+    box: { x: 5, z: -11.2, face: 0, w: 2.0, d: 0.9 },
+    pap: { x: 33.2, z: -6.5, face: -Math.PI / 2, w: 0.9, d: 1.8 },
+  };
+  zmMachines(b, zm);
+  const r = { ...finish(b, {
+    id: 'bunker', night: true,
+    sky: [0x04070a, 0x10161c], fog: [0x080b0e, 8, 56],
+    hemi: [0x6f8a7e, 0x14181a, 0.5], sun: null,
+    lights: [[-25.5, 2.9, 0, 0xffe6c0], [-8.5, 2.9, 0, 0x9affb0], [8.5, 2.9, 0, 0xffe6c0], [25.5, 2.9, 0, 0xff7a68], up.light, [0, 4.5, -20, 0xffd9a0]],
+    ground: { tex: 'concrete', color: 0x24282c, tile: 6 },
+    impact: 0x8a8e8a,
+  }), zm };
+  r.spawns = { 0: { x0: -32, x1: -19, z0: -9, z1: 9 }, 1: { x0: -32, x1: -19, z0: -9, z1: 9 } };
+  return r;
+}
+
+// ------------------------------------------------------------------------------------------
+// 7. FARMSTEAD - zombies map. Farmhouse, barn and granary on a foggy night; hay bales and a tractor in the yard; hayloft up the stairs.
+// ------------------------------------------------------------------------------------------
+function farm() {
+  const b = new Builder();
+  b.outerWalls(5, { tex: 'wood', color: 0x4a3a28, tile: 3 });
+  const H = 3.2, wallO = { tex: 'wood', color: 0x80603c, tile: 2 };
+  const ch = zmChain(b, { H, T: 0.5, wallO, roofO: { tex: 'wood', color: 0x3a2c20 }, xs: [-34, -12, 10, 30], z0: -10, z1: 10, doorCost: [750, 1250],
+    wins: [{ r: 0, side: 'n', at: -26 }, { r: 0, side: 's', at: -26 }, { r: 0, side: 'w', at: -5 }, { r: 0, side: 'w', at: 5 },
+      { r: 1, side: 'n', at: -4 }, { r: 1, side: 's', at: -4 }, { r: 1, side: 's', at: 4 }, { r: 2, side: 'n', at: 20 }, { r: 2, side: 's', at: 20 }, { r: 2, side: 'e', at: 0 }] });
+  const up = zmUpper(b, { bx0: 16, bx1: 26, bz0: -26, bz1: -17, zc: -21.5, tex: 'wood', color: 0x7a5a38, baseColor: 0x5a4430, roofColor: 0x3a2c20 });
+  const hay = 0xe0c060;
+  // inside: tables, hay, crates
+  b.solid('crate', 0, 0, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 });
+  for (const [x, z] of [[-6, 6], [6, -6], [3, 6.5]]) b.solid('crate', x, z, 1.5, 1.5, 1.5, { tex: 'crate', color: 0xc9a84a, tint: hay, rot: ((x + z) | 0) & 3 });
+  b.solid('crate', 22, 4, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 }); b.solid('crate', 18, -4, 1.6, 1.6, 1.0, { tex: 'crate', color: 0x8a6a45 });
+  for (const [x, z] of [[-14, 7.5], [-30, 5], [27, -7.5]]) b.solid('barrel', x, z, 0.7, 0.7, 0.95, { tint: 0x9a6a3a, rough: 0.9 });
+  // yard: tractor, hay bales, fuel barrels, silos
+  b.solid('car', -6, -19, 4.3, 1.9, 1.5, { tint: 0x4a8a3a, rough: 0.9 }); b.solid('car', 30, 19, 1.9, 4.3, 1.5, { tint: 0x9a3a2a, rough: 0.9, rot: 1 });
+  for (const [x, z, s] of [[-26, -18, 1.6], [-24, -16.6, 1.6], [4, 20, 1.6], [6, 21.6, 1.6], [36, -4, 1.6], [-37, 14, 1.6], [14, -15, 1.6], [-14, 17, 1.6]]) b.solid('crate', x, z, s, s, s, { tex: 'crate', color: 0xc9a84a, tint: hay, rot: ((x * 3 + z) | 0) & 3 });
+  for (const [x, z] of [[-20, 20], [20, 17], [-2, -17], [34, 8]]) b.solid('barrel', x, z, 0.8, 0.8, 1.0, { tint: 0xb04a2a, rough: 0.9 });
+  b.solid('container', -22, -22, 6, 2.4, 2.6, { color: 0x6a4a3a, tint: 0xa87a62, metal: 0.1 });
+  b.cyl(-36, -22, 2.2, 9, { tex: 'metal', color: 0x8a8f94 }); b.cyl(36, 21, 2.2, 9, { tex: 'metal', color: 0x8a8f94 });
+  b.cone(-36, -22, 2.6, 2.2, { color: 0x6a3a2a }); b.cone(36, 21, 2.6, 2.2, { color: 0x6a3a2a });
+  const zm = {
+    nz: ch.nz, upper: up.upper, windows: ch.windows, doors: ch.doors,
+    buys: [
+      { id: 0, gun: 'm680', cost: 1000, x: -30, z: -9.7, face: 0 }, { id: 1, gun: 'g18', cost: 600, x: -30, z: 9.7, face: Math.PI },
+      { id: 2, gun: 'm4a1', cost: 1500, x: 4, z: -9.7, face: 0 }, { id: 3, gun: 'magnum', cost: 800, x: -8, z: 9.7, face: Math.PI },
+      { id: 4, gun: 'ak47', cost: 1800, x: 25, z: -9.7, face: 0 }, { id: 5, gun: 'kar98k', cost: 1200, x: 25, z: 9.7, face: Math.PI },
+      { id: 6, ...up.vmp }, { id: 7, gun: 'lmg', cost: 2200, x: 29.7, z: 5, face: -Math.PI / 2 },
+    ],
+    perks: [
+      { id: 'qr', x: -22, z: -9.1, face: 0, w: 1.7, d: 0.9 }, { id: 'jug', x: 0, z: 9.1, face: Math.PI, w: 1.7, d: 0.9 },
+      { id: 'sc', x: -17, z: 9.1, face: Math.PI, w: 1.7, d: 0.9 }, { id: 'dt', x: 15.5, z: -9.1, face: 0, w: 1.7, d: 0.9 },
+      { id: 'st', x: 15.5, z: 9.1, face: Math.PI, w: 1.7, d: 0.9 },
+    ],
+    box: { x: -8.5, z: -9.1, face: 0, w: 2.0, d: 0.9 },
+    pap: { x: 29.1, z: -5, face: -Math.PI / 2, w: 0.9, d: 1.8 },
+  };
+  zmMachines(b, zm);
+  const r = { ...finish(b, {
+    id: 'farm', night: true,
+    sky: [0x0a0f1c, 0x2c3a46], fog: [0x1a2430, 8, 62],
+    hemi: [0x7a8aa8, 0x1c1812, 0.62], sun: { color: 0x9db4d8, intensity: 0.7, pos: [-30, 40, 20] },
+    lights: [[-23, 2.6, 0, 0xffc98a], [0, 2.6, 0, 0xffc98a], [20, 2.6, 0, 0xffc98a], up.light, [-6, 4.5, -19, 0xffe6c0], [30, 4.5, 19, 0xffe6c0]],
+    ground: { tex: 'sand', color: 0x4a5a38, tile: 7 },
+    impact: 0x7a7a5a,
+  }), zm };
+  r.spawns = { 0: { x0: -31, x1: -15, z0: -6, z1: 6 }, 1: { x0: -31, x1: -15, z0: -6, z1: 6 } };
   return r;
 }
 
@@ -419,10 +592,12 @@ export const MAP_INFO = {
   dust: { name: 'Dust', desc: 'Desert village. Buildings, windows and a busy central plaza.', thumb: 'linear-gradient(135deg,#f1d9a8,#c49a66 55%,#5f9fd6)' },
   skyline: { name: 'Skyline', desc: 'Rooftop at dusk. HVAC cover, stair huts, open sightlines.', thumb: 'linear-gradient(135deg,#2b2f5a,#d8725a 60%,#f0956a)' },
   outpost: { name: 'Outpost', desc: 'Zombies map: three rooms, ten windows, doors, perks and the Mystery Box. (Also playable as a night arena.)', thumb: 'linear-gradient(135deg,#05080f,#2c4a2a 55%,#8a1c14)' },
+  bunker: { name: 'Bunker', desc: 'Zombies: four rooms deep underground, ten windows, three doors, a raised armoury up the stairs.', thumb: 'linear-gradient(135deg,#06090c,#39d98a 60%,#ff7a68)' },
+  farm: { name: 'Farmstead', desc: 'Zombies: foggy farm night. Farmhouse, barn and granary, a hayloft up the stairs.', thumb: 'linear-gradient(135deg,#0a0f1c,#4a5a38 60%,#e0c060)' },
   frostbite: { name: 'Frostbite', desc: 'Snow compound with watchtowers for long-range duels.', thumb: 'linear-gradient(135deg,#4f6f93,#dfe9f2 60%,#8a6a45)' },
 };
 
-export const MAP_BUILDERS = { warehouse, dust, skyline, frostbite, outpost };
-export const ZM_MAPS = ['outpost'];                                    // zombies-only maps (not offered in the normal map list)
+export const MAP_BUILDERS = { warehouse, dust, skyline, frostbite, outpost, bunker, farm };
+export const ZM_MAPS = ['outpost', 'bunker', 'farm'];                                    // zombies-only maps (not offered in the normal map list)
 export const MAP_IDS = Object.keys(MAP_BUILDERS).filter((id) => !ZM_MAPS.includes(id));
 export function buildMap(id) { return MAP_BUILDERS[id](); }

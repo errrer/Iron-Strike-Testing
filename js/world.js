@@ -98,7 +98,7 @@ export function buildWorld(map) {
     sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04;
     scene.add(sun);
   }
-  if (map.lights) for (const p of map.lights) { const l = new THREE.PointLight(0xfff0d8, 300, 45, 2); l.position.set(...p); scene.add(l); }
+  if (map.lights) for (const p of map.lights) { const l = new THREE.PointLight(p[3] ?? 0xfff0d8, 300, 45, 2); l.position.set(p[0], p[1], p[2]); scene.add(l); }
 
   // ground
   const gt = map.ground.tex.startsWith('img:') ? imgTex(map.ground.tex.slice(4), true) : makeTex(map.ground.tex).clone(); gt.needsUpdate = true; const GS = map.ground.size || [300, 300]; gt.repeat.set(GS[0] / map.ground.tile, GS[1] / map.ground.tile);

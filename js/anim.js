@@ -135,7 +135,7 @@ export function animateZombie(g, a, m, dt) {
     hip.rotation.order = 'YXZ'; hip.rotation.set(th, (lg ? 0.14 : 0) + (i ? -0.04 : 0.04), 0);
     if (kn) { kn.rotation.set(-kf, 0, 0); if (ft) ft.rotation.set(lg ? 0.7 : clamp(-(th - kf) * 0.4, -0.4, 0.4), 0, 0); }
   }
-  const lunge = 0.1 + 0.2 * run + 0.15 * swipe;
+  const lunge = a.crawl ? 0.55 + 0.1 * swipe : 0.1 + 0.2 * run + 0.15 * swipe;
   an.lean = damp(an.lean, lunge, 7, dt);
   const sway = Math.sin(an.ph) * 0.07 * clamp(an.k / 1, 0, 1);
   m.body.position.set(0, -0.03 * run * Math.abs(Math.sin(an.ph)) - 0.02 * swipe - (limp ? 0.03 : 0), 0);

@@ -6,7 +6,7 @@ import { Sound } from './audio.js';
 import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js';
 import { loadModels } from './gunmodels.js';
 import { loadProps } from './props.js';
-import { MAP_IDS, MAP_INFO } from './maps.js';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js';
 import { rankName, UNLOCK } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
@@ -217,7 +217,8 @@ function zmDeploy() {
   resetMpUi(); sound.init();
   if (sound.master) sound.master.gain.value = cfg.vol;
   for (const id of ['landing', 'menu', 'zmenu', 'endscreen', 'pause']) $(id).classList.add('hidden');
-  game.start({ mode: 'zm', map: 'outpost', mapName: MAP_INFO.outpost.name, primary: 'm1911', secondary: 'm1911', attP: 0, attS: 0, difficulty: cfg.difficulty, name: cfg.name });
+  const zmap = $('zmMap').value || 'outpost';
+  game.start({ mode: 'zm', map: zmap, mapName: MAP_INFO[zmap].name, primary: 'm1911', secondary: 'm1911', attP: 0, attS: 0, difficulty: cfg.difficulty, name: cfg.name });
 }
 
 // ---------------- flow ----------------
@@ -257,7 +258,9 @@ function fillSelect(id, items) { const el = $(id); for (const [v, label] of item
 fillSelect('mpMode', Object.values(MODES).filter((m) => !m.solo).map((m) => [m.id, m.name]));
 for (const o of $('mpMode').options) if (o.value === 'zm') o.hidden = true;     // zombies rooms are made from the Zombies screen
 fillSelect('mpMap', MAP_IDS.map((id) => [id, MAP_INFO[id].name]));
-for (const o of $('mpMap').options) if (o.value === 'outpost') o.hidden = true;
+fillSelect('zmMap', ZM_MAPS.map((id) => [id, MAP_INFO[id].name]));
+const zmMapDesc = () => { $('zmMapDesc').textContent = (MAP_INFO[$('zmMap').value] || {}).desc || ''; };
+$('zmMap').addEventListener('change', zmMapDesc); zmMapDesc();
 fillSelect('sbPrim', PRIMARIES.map((id) => [id, WEAPONS[id].name]));
 fillSelect('sbSec', SECONDARIES.map((id) => [id, WEAPONS[id].name]));
 fillSelect('mpPrim', PRIMARIES.map((id) => [id, WEAPONS[id].name]));
@@ -355,7 +358,7 @@ $('zmCode').addEventListener('keydown', (e) => { if (e.code === 'Enter') $('zmJo
 $('zmHost').addEventListener('click', async () => {
   zmBusy(true); zmStatus('Creating room...'); cfg.name = cleanName($('zmName').value); $('mpName').value = cfg.name; save();
   net = new Net(game, mpUi);
-  try { await net.host(cfg.name, zmLoadout(), 'zm', 'outpost'); $('mp').classList.remove('hidden'); mpShow('lobby'); renderLobby(net.lobby); zmStatus(''); }
+  try { await net.host(cfg.name, zmLoadout(), 'zm', $('zmMap').value || 'outpost'); $('mp').classList.remove('hidden'); mpShow('lobby'); renderLobby(net.lobby); zmStatus(''); }
   catch (e) { try { net.leave(); } catch (x) { /* ignore */ } net = null; zmStatus((e && e.message) || 'Could not create a room.', true); }
   zmBusy(false);
 });

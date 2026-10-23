@@ -243,3 +243,13 @@ Not in yet: dog rounds, box moving, multiple box spots, melee.
 
 ## V0.7.2
 Removed the imported map-prop models. Containers (corrugated, locking bars, corner castings), wooden crates, steel drums, pallet racking, roller shutters and industrial doors are now procedural low-poly models in the game's blocky style. Imported VMP gun and Richtofen model unchanged.
+
+## V0.8 - Zombies update
+- **Two new zombies maps** (pick the map on the Zombies screen, solo or online): **Bunker** (four rooms deep underground, three doors) and **Farmstead** (farmhouse, barn and granary on a foggy night). Outpost stays. Every map has 10 windows, doors, 5 perks, the Mystery Box and Pack-a-Punch.
+- **The VMP is in a raised room on every zombies map**, 3 m up a stair in the yard (the wall-buy is up there). Zombies path up the stairs after you (`map.zm.upper` describes the stair foot and top); the room has shooting slits.
+- New wall guns: LMG on every map.
+- **Crawler Rush**: every fourth round from round 5 is a rush of fast, low, weaker crawlers; the last one drops Max Ammo.
+- Zombies stagger briefly when shot (so you can back-pedal), crawlers hit for less.
+- Fixed a navigation bug (distance field used 32-bit floats, which left holes in the field, so zombies could freeze in some spots).
+- Skyline floor z-fighting fixed. Lights can have colours (`lights: [x, y, z, colour]`).
+- Tests: tests/zm-maps-test.py (every zombies map: stairs, VMP buy, zombies climbing up, crawler rush); nav-test.mjs now checks the zombies maps too.

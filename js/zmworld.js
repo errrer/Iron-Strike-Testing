@@ -64,7 +64,7 @@ export function buildDoor(d) {
 
 // ---- wall-buy: chalk-style gun on a panel ----
 export function buildBuy(b) {
-  const g = new THREE.Group(); g.position.set(b.x, 1.65, b.z); g.rotation.y = b.face;
+  const g = new THREE.Group(); g.position.set(b.x, (b.y || 0) + 1.65, b.z); g.rotation.y = b.face;
   const w = WEAPONS[b.gun];
   bxm(1.5, 0.75, 0.05, stdMat(0x23282c, { rough: 0.9 }), 0, 0, 0.03, g);
   bxm(1.56, 0.04, 0.07, stdMat(0xb89a4a, { metal: 0.6, rough: 0.4 }), 0, 0.39, 0.03, g); bxm(1.56, 0.04, 0.07, stdMat(0xb89a4a, { metal: 0.6, rough: 0.4 }), 0, -0.39, 0.03, g);
