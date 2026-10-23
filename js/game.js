@@ -1201,7 +1201,7 @@ export class Game {
     const big = Math.random() < 0.12 ? 1.5 : 1;
     const kick = w.recoil * (0.5 + Math.random() * 1.0) * big * (1 - p.ads * 0.3) * (1 - p.tac * 0.1);
     p.recoilBias = clamp(p.recoilBias + (Math.random() - 0.5) * 1.1, -1.3, 1.3);
-    const yawKick = ((Math.random() - 0.5) * 2 + p.recoilBias * 0.55) * w.recoilYaw * big * (1 - p.ads * 0.3);
+    const yawKick = ((Math.random() - 0.5) * 1.2 + p.recoilBias * 0.3) * w.recoilYaw * 0.45 * (1 - p.ads * 0.5);   // horizontal kick kept small: it moves the real aim
     p.pitch = clamp(p.pitch + kick, -1.5, 1.5); p.recoilDebt += kick * 0.85;
     p.yaw += yawKick;
     const S = this.vmS; S.slide = 1; S.cycle = 1; S.rand = (Math.random() - 0.5) * 2 + p.recoilBias * 0.4;
