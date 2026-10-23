@@ -10,12 +10,13 @@ import * as THREE from 'three';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
+const MODEL_VER = '0.8.5';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
   for (const w of Object.values(weapons)) {
     if (!w.asset || MODEL_DATA[w.asset.id]) continue;
-    jobs.push(fetch(`assets/models/${w.asset.id}.json`).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.parts) MODEL_DATA[w.asset.id] = j; }).catch(() => {}));
+    jobs.push(fetch(`assets/models/${w.asset.id}.json?v=${MODEL_VER}`).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.parts) MODEL_DATA[w.asset.id] = j; }).catch(() => {}));
   }
   await Promise.all(jobs);
   return Object.keys(MODEL_DATA);
