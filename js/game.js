@@ -47,7 +47,7 @@ const CALLSIGNS = ['Ghost', 'Viper', 'Razor', 'Havoc', 'Nova', 'Falcon', 'Rook',
 const DUMMY_COLOR = 0x8a8f94;
 const FFA_COLORS = [0xc0392b, 0xd68910, 0x1e8449, 0x7d3c98, 0x148f77, 0xb7950b, 0xa04000, 0x2e86c1];
 const TEAM_COLORS = [0x2e6fbd, 0xc0392b];
-const BOT_PRIMARY_POOL = ['vmp', 'vmp', 'mp5', 'p90', 'm4a1', 'm4a1', 'm4a1', 'ak47', 'ak47', 'scar', 'lmg', 'm680', 'aa12', 'dmr', 'kar98k'];
+const BOT_PRIMARY_POOL = ['vmp', 'super46', 'vmp', 'mp5', 'p90', 'm4a1', 'm4a1', 'm4a1', 'ak47', 'ak47', 'scar', 'lmg', 'm680', 'aa12', 'dmr', 'kar98k'];
 
 export class Game {
   constructor(canvas, hud, sound, settings) {

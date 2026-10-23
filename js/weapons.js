@@ -10,6 +10,14 @@ export const WEAPONS = {
     builder: 'smg', attach: ['dot', 'grip', 'laser'],
     asset: { id: 'vmp', grip: 'handle', fore: 'grip', foreOffset: [0, -0.02, 0], gripOffset: [0, 0.0, 0], mount: [0, 0.066, -0.04], under: [0, -0.053, -0.1], side: [0.022, -0.02, -0.2] },
   },
+  super46: {
+    id: 'super46', name: 'Super 46', slot: 'primary', cls: 'smg', desc: 'Kriss-style SMG with a ferocious rate of fire and low recoil. Drains a magazine in two seconds.',
+    dmg: 20, hs: 1.5, rpm: 1100, auto: true, mag: 33, reserve: 198, reload: 1.9,
+    spread: 0.030, adsSpread: 0.005, recoil: 0.0036, recoilYaw: 0.0024, range: [9, 28], minMul: 0.5, pellets: 1,
+    zoom: 1.3, scope: false, moveMul: 1.06, snd: { f: 3500, len: 0.08, thump: 0.45 },
+    builder: 'smg', attach: ['dot', 'grip', 'laser'],
+    asset: { id: 'super46', grip: 'handle', fore: 'grip', foreOffset: [0, 0, 0], gripOffset: [0, 0, 0], mount: [0, 0.03, -0.03], under: [0, -0.035, -0.12], side: [0.016, -0.005, -0.15] },
+  },
   m4a1: {
     id: 'm4a1', name: 'M4A1', slot: 'primary', cls: 'ar', desc: 'Balanced assault rifle. Accurate and easy to control.',
     dmg: 26, hs: 1.4, rpm: 660, auto: true, mag: 30, reserve: 180, reload: 2.2,
@@ -106,7 +114,7 @@ export const WEAPONS = {
 // not a real weapon: what zombies "hold" (kill feed name / damage source in Zombies mode)
 WEAPONS.zclaw = { id: 'zclaw', name: 'Zombie', slot: 'none', cls: 'melee', desc: '', dmg: 50, hs: 1, rpm: 60, auto: false, mag: 1, reserve: 0, reload: 1, spread: 0, adsSpread: 0, recoil: 0, recoilYaw: 0, range: [1, 2], minMul: 1, pellets: 1, zoom: 1, scope: false, moveMul: 1, snd: { f: 1000, len: 0.05, thump: 0.2 }, builder: 'm1911', attach: [] };
 
-export const PRIMARIES = ['vmp', 'mp5', 'p90', 'm4a1', 'ak47', 'scar', 'lmg', 'dmr', 'kar98k', 'm680', 'aa12'];
+export const PRIMARIES = ['vmp', 'super46', 'mp5', 'p90', 'm4a1', 'ak47', 'scar', 'lmg', 'dmr', 'kar98k', 'm680', 'aa12'];
 export const SECONDARIES = ['g18', 'm1911', 'skorp', 'magnum', 'deagle'];
 
 // Stats used by the loadout screen bars (0..1)

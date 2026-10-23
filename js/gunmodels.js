@@ -461,18 +461,19 @@ function buildFromAsset(w, data) {
     geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(part.normals), 3));
     geo.setIndex(part.indices);
     const color = parseInt(part.color.slice(1), 16);
-    const me = new THREE.Mesh(geo, mat(color, 0.35, 0.55));
+    const me = new THREE.Mesh(geo, mat(color, 0.2, 0.55));
     if (/^mag$/i.test(part.name || '')) me.userData.mag = true;
+    if (part.name === 'iron') me.userData.iron = true;            // the model's own iron sights (hidden when a red dot is fitted)
     g.add(me);
   }
   const anc = data.anchors || {};
   const p = (name, off = [0, 0, 0]) => { const c = anc[name] || [0, -0.05, 0]; return V(c[0] + off[0], c[1] + off[1], c[2] + off[2]); };
   g.userData = {
-    muzzle: V(...data.muzzle), sightY: 0.092,
+    muzzle: V(...data.muzzle), sightY: data.sights ? data.sightY : 0.092,
     grip: p(a.grip, a.gripOffset), fore: p(a.fore, a.foreOffset), pistol: false,
     mount: V(...(a.mount || [0, data.sightY - 0.008, 0])), under: V(...(a.under || [0, -0.05, -0.1])), side: V(...(a.side || [0.025, -0.02, -0.2])),
   };
-  { const bb = new B(); bb.g = g; ironSights(bb, { y: 0.092, zr: 0.11, zf: -0.2, br: 0.073, bf: 0.073 }); }   // the baked model has no sights of its own
+  if (!data.sights) { const bb = new B(); bb.g = g; ironSights(bb, { y: 0.092, zr: 0.11, zf: -0.2, br: 0.073, bf: 0.073 }); }   // the VMP model has no sights of its own; the Super 46 brings its own
   return g;
 }
 
