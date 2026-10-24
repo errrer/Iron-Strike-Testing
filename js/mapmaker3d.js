@@ -40,10 +40,16 @@ export function createEditor(root, onExit, opts = {}) {
   const FILE = MODEL ? 'my-iron-strike-model' : 'my-iron-strike-map';
   root.innerHTML = '';
   // ---------- layout ----------
-  const top = el('div', 'mmtop'), left = el('div', 'mmside'), view = el('div', 'mmview'), right = el('div', 'mmside r'), foot = el('div', 'mmfoot', NOTE + '  |  Orbit: left drag - Pan: right drag - Zoom: wheel - Click to select - G / R / S = move / rotate / scale - Del = delete - Ctrl+D = duplicate - Ctrl+Z / Ctrl+Y = undo / redo');
+  const top = el('div', 'mmtop'), left = el('div', 'mmside'), view = el('div', 'mmview'), right = el('div', 'mmside r'), foot = el('div', 'mmfoot', NOTE + '  |  Orbit: left drag - Pan: right drag - Zoom: wheel - Click to select - Shift+click = multi-select. Every button shows its shortcut. Shift+1-7 add shapes.');
   root.append(top, left, view, right, foot);
   const canvas = el('canvas'); view.appendChild(canvas);
-  const btn = (parent, text, fn, cls = '') => { const b = el('button', 'btn ' + cls, text); b.type = 'button'; b.addEventListener('click', fn); parent.appendChild(b); return b; };
+  const keymap = {};
+  const pretty = (sp) => sp.split('+').map((p) => ({ ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', escape: 'Esc', delete: 'Del' }[p] || (/^digit/.test(p) ? p.slice(5) : p.toUpperCase()))).join('+');
+  const btn = (parent, text, fn, cls = '', spec = '') => {
+    const b = el('button', 'btn ' + cls, text); b.type = 'button'; b.addEventListener('click', fn);
+    if (spec) { keymap[spec] = fn; const k = el('span', 'kbd', pretty(spec)); b.appendChild(k); }
+    parent.appendChild(b); return b;
+  };
 
   // ---------- scene ----------
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -61,11 +67,11 @@ export function createEditor(root, onExit, opts = {}) {
   tc.addEventListener('dragging-changed', (e) => { orbit.enabled = !e.value; });
 
   // ---------- state ----------
-  let hist = ['[]'], hpos = 0, restoring = false, pieces = [], models = {}, current = null, counter = 0, running = false, raf = 0, saveT = 0;
-  const st = { snap: true, mode: 'translate' };
+  let multi = [], msel = [], hist = ['[]'], hpos = 0, restoring = false, pieces = [], models = {}, current = null, counter = 0, running = false, raf = 0, saveT = 0;
+  const st = { snap: true, mode: 'translate', wire: false };
   const listBox = el('div', 'list'), props = el('div');
 
-  function material(color, vc) { return new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05, vertexColors: !!vc, side: THREE.DoubleSide }); }
+  function material(color, vc, rough = 0.75, metal = 0.05) { const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, vertexColors: !!vc, side: THREE.DoubleSide }); m.wireframe = st.wire; return m; }
   function register(obj, meta) {
     obj.userData.pid = ++counter; obj.userData.meta = meta; world.add(obj); pieces.push(obj); changed(); return obj;
   }
@@ -73,10 +79,10 @@ export function createEditor(root, onExit, opts = {}) {
   function spawnPoint() { const t = orbit.target; return MODEL ? [0, 0, 0] : [Math.round(t.x), 0, Math.round(t.z)]; }
   function addPrim(kind, saved) {
     const mk = MARKS[kind], col = saved?.color || mk?.color || '#8a96a3';
-    const m = new THREE.Mesh(primGeo(kind), material(col));
+    const m = new THREE.Mesh(primGeo(kind), material(col, false, saved?.rough ?? 0.75, saved?.metal ?? 0.05));
     if (mk) { m.material.transparent = true; m.material.opacity = 0.7; }
     if (saved) apply(m, saved); else { if (mk) m.scale.set(...mk.size); else { const u = MODEL ? 0.15 : 2; m.scale.set(kind === 'plane' ? u * 3 : u, kind === 'plane' ? 1 : u, kind === 'plane' ? u * 3 : u); } const p = spawnPoint(); m.position.set(p[0], 0, p[2]); groundY(m); }
-    return register(m, { kind, name: saved?.name || mk?.name || PRIMS[kind], color: col, val: saved?.val || '' });
+    return register(m, { kind, name: saved?.name || mk?.name || PRIMS[kind], color: col, val: saved?.val || '', rough: saved?.rough ?? 0.75, metal: saved?.metal ?? 0.05 });
   }
   async function addProp(name, saved) {
     await loadProps().catch(() => {});
@@ -114,21 +120,104 @@ export function createEditor(root, onExit, opts = {}) {
     return register(g, { kind: 'model', model: id, name: saved?.name || name.replace(/\.[^.]+$/, '') });
   }
   function select(o) {
-    current = o || null;
+    current = o || null; multi = [];
     if (current) { tc.attach(current); sel.setFromObject(current); sel.visible = true; } else { tc.detach(); sel.visible = false; }
     renderProps(); renderList();
   }
-  function remove(o) { if (!o) return; if (current === o) select(null); world.remove(o); pieces = pieces.filter((p) => p !== o); o.traverse((c) => { if (c.isMesh && c.userData.pid) { c.material?.dispose?.(); } }); changed(); }
+  // ----- baked meshes (results of Join / Boolean): geometry is stored in the map file as plain arrays -----
+  const rd = (a, n = 4) => Array.from(a, (x) => +x.toFixed(n));
+  function meshGeo(md) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(md.pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(md.nor, 3));
+    if (md.idx) g.setIndex(md.idx);
+    for (const [a, b, c] of md.groups) g.addGroup(a, b, c);
+    return g;
+  }
+  function addMeshPiece(s) {
+    const md = s.mesh, mats = md.mats.map((q) => { const m = material(q.color, false, q.rough, q.metal); m.userData.mat = q; return m; });
+    const o = new THREE.Mesh(meshGeo(md), mats);
+    if (s.pos) apply(o, s);
+    return register(o, { kind: 'mesh', name: s.name || 'Mesh', mesh: md, color: md.mats[0]?.color });
+  }
+  const matData = (m) => ({ color: m.color || '#8a96a3', rough: m.rough ?? 0.75, metal: m.metal ?? 0.05 });
+  // world-space copy of an object's geometry (position + normal only) with its material list
+  function bakeWorld(o) {
+    o.updateMatrixWorld(true);
+    let g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld);
+    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+    const m = o.userData.meta, mats = m.kind === 'mesh' ? m.mesh.mats.map((q) => ({ ...q })) : [matData(m)];
+    if (m.kind !== 'mesh') g.clearGroups();                                    // box / cylinder come with one group per face: use a single material
+    if (!g.groups.length) g.addGroup(0, g.index ? g.index.count : g.attributes.position.count, 0);
+    return { g, mats };
+  }
+  function toMeshData(g, mats) {
+    const pos = g.attributes.position, nor = g.attributes.normal;
+    return { pos: rd(pos.array), nor: rd(nor.array), idx: g.index ? Array.from(g.index.array) : null, groups: g.groups.map((q) => [q.start, q.count, q.materialIndex]), mats };
+  }
+  const meshable = (o) => o && ['mesh', 'box', 'cylinder', 'sphere', 'plane', 'ramp', 'cone', 'torus'].includes(o.userData.meta.kind);
+  const targets = () => (current ? [current, ...multi] : []);
+  async function batch(fn) { const was = restoring; restoring = true; try { return await fn(); } finally { restoring = was; changed(); } }
+  async function build(s) {
+    let o = null;
+    if (s.kind === 'prop') o = await addProp(s.prop, s);
+    else if (s.kind === 'model') { const md = models[s.model]; if (md) o = await addModel(md.data, md.ext, md.name, s, s.model); }
+    else if (s.kind === 'mesh') o = addMeshPiece(s);
+    else if (PRIMS[s.kind] || MARKS[s.kind]) o = addPrim(s.kind, s);
+    if (o && s.hidden) { o.userData.meta.hidden = true; o.visible = false; }
+    return o;
+  }
+  function join() {
+    const t = targets().filter(meshable); if (t.length < 2) { alert('Join: shift-click two or more shapes first (blocks, cylinders, joined meshes).'); return; }
+    const pos = [], nor = [], groups = [], mats = [];
+    for (const o of t) {
+      const { g, mats: mm } = bakeWorld(o), base = mats.length, ng = g.index ? g.toNonIndexed() : g;
+      const off = pos.length / 3; pos.push(...ng.attributes.position.array); nor.push(...ng.attributes.normal.array);
+      const gs = ng.groups.length && !g.index ? ng.groups : [{ start: 0, count: ng.attributes.position.count, materialIndex: 0 }];
+      if (g.index) { /* toNonIndexed drops groups: rebuild them from the indexed ones */ let cur = 0; for (const q of g.groups) { groups.push([off + q.start, q.count, base + q.materialIndex]); cur += q.count; } }
+      else for (const q of gs) groups.push([off + q.start, q.count, base + q.materialIndex]);
+      mats.push(...mm);
+    }
+    const md = { pos: rd(pos), nor: rd(nor), idx: null, groups, mats };
+    batch(() => { for (const o of t) remove(o); const n = addMeshPiece({ mesh: md, name: 'Joined' }); select(n); });
+  }
+  async function boolean(op) {
+    const a = current, b = multi[multi.length - 1];
+    if (!meshable(a) || !meshable(b)) { alert('Boolean: select the first shape, then shift-click the shape to cut with it. The first shape is kept; the shift-clicked one is the tool.'); return; }
+    let csg; try { csg = await import('three-bvh-csg'); } catch (e) { alert('Boolean tools could not load (they need an internet connection): ' + (e.message || e)); return; }
+    try {
+      const A = bakeWorld(a), B = bakeWorld(b), ev = new csg.Evaluator(); ev.attributes = ['position', 'normal']; ev.useGroups = true;
+      const mk = (x) => { const arr = x.mats.map((q) => { const m = material(q.color, false, q.rough, q.metal); m.userData.mat = q; return m; }); return new csg.Brush(x.g, arr); };
+      const ba = mk(A), bb = mk(B); ba.updateMatrixWorld(true); bb.updateMatrixWorld(true);
+      const res = ev.evaluate(ba, bb, op === 'sub' ? csg.SUBTRACTION : op === 'int' ? csg.INTERSECTION : csg.ADDITION);
+      const rm = Array.isArray(res.material) ? res.material : [res.material];
+      if (!res.geometry.attributes.position.count) { alert('The boolean left nothing (the shapes may not overlap).'); return; }
+      const md = toMeshData(res.geometry, rm.map((m) => m.userData.mat || matData({ color: '#' + m.color.getHexString() })));
+      const name = a.userData.meta.name;
+      batch(() => { remove(a); remove(b); const n = addMeshPiece({ mesh: md, name: name + (op === 'sub' ? ' cut' : op === 'int' ? ' intersect' : ' union') }); select(n); });
+    } catch (e) { alert('Boolean failed: ' + (e.message || e)); console.error(e); }
+  }
+  async function mirror(axis) {
+    const o = current; if (!o) return; const R = new THREE.Matrix4().makeScale(axis === 0 ? -1 : 1, axis === 1 ? -1 : 1, axis === 2 ? -1 : 1);
+    const s = describe(o), m = new THREE.Matrix4().makeRotationFromEuler(o.rotation); m.premultiply(R).multiply(R);
+    const e = new THREE.Euler().setFromRotationMatrix(m, 'XYZ'); s.rot = [e.x, e.y, e.z].map((x) => +((x * 180) / Math.PI).toFixed(3));
+    s.pos[axis] = -s.pos[axis]; s.scl[axis] = -s.scl[axis]; s.name = s.name + ' mirror'; delete s.id;
+    const n = await build(s); if (n) select(n);
+  }
+  async function array() {
+    const o = current; if (!o) return; const v = (prompt('Array: count, offset X, Y, Z (metres). Example: 5, 2, 0, 0', '4, 1, 0, 0') || '').split(',').map((x) => parseFloat(x));
+    if (!(v[0] >= 2)) return; const n = Math.min(Math.round(v[0]), 60);
+    await batch(async () => { for (let i = 1; i < n; i++) { const s = describe(o); delete s.id; for (let k = 0; k < 3; k++) s.pos[k] += (v[k + 1] || 0) * i; s.name = s.name + ' ' + i; await build(s); } });
+  }
+  function toggleHide(o) { o.userData.meta.hidden = !o.userData.meta.hidden; o.visible = !o.userData.meta.hidden; if (o === current && !o.visible) select(null); changed(); }
+  function setWire(v) { st.wire = v; world.traverse((c) => { if (c.isMesh) for (const m of [].concat(c.material)) m.wireframe = v; }); }
+  function remove(o) { if (!o) return; multi = multi.filter((x) => x !== o); if (current === o) select(null); world.remove(o); pieces = pieces.filter((p) => p !== o); o.traverse((c) => { if (c.isMesh && c.userData.pid) { c.material?.dispose?.(); } }); changed(); }
   async function duplicate(o) {
-    if (!o) return; const m = o.userData.meta, s = describe(o); s.pos[0] += 1; s.pos[2] += 1; s.name = m.name + ' copy'; let n;
-    if (m.kind === 'prop') n = await addProp(m.prop, s);
-    else if (m.kind === 'model') { const md = models[m.model]; n = await addModel(md.data, md.ext, md.name, s, m.model); }
-    else n = addPrim(m.kind, s);
-    if (n) select(n);
+    if (!o) return; const s = describe(o); delete s.id; s.name = o.userData.meta.name + ' copy';
+    const n = await build(s); if (n) select(n);
   }
   function describe(o) {
     const m = o.userData.meta, r = (x) => +x.toFixed(3);
-    return { id: o.userData.pid, kind: m.kind, name: m.name, prop: m.prop, model: m.model, color: m.color, val: m.val || undefined,
+    return { id: o.userData.pid, kind: m.kind, name: m.name, prop: m.prop, model: m.model, color: m.color, val: m.val || undefined, hidden: m.hidden || undefined, rough: m.rough, metal: m.metal, mesh: m.kind === 'mesh' ? m.mesh : undefined,
       pos: o.position.toArray().map(r), rot: [o.rotation.x, o.rotation.y, o.rotation.z].map((x) => r((x * 180) / Math.PI)), scl: o.scale.toArray().map(r) };
   }
   function exportData(withModels = true) {
@@ -139,13 +228,8 @@ export function createEditor(root, onExit, opts = {}) {
   async function loadData(d) {
     restoring = true;
     for (const p of [...pieces]) { world.remove(p); } pieces = []; models = {}; select(null);
-    for (const s of d.pieces || []) {
-      try {
-        if (s.kind === 'prop') await addProp(s.prop, s);
-        else if (s.kind === 'model') { const md = d.models?.[s.model]; if (md) await addModel(unb64(md.data), md.ext, md.name, s, s.model); }
-        else if (PRIMS[s.kind] || MARKS[s.kind]) addPrim(s.kind, s);
-      } catch (e) { console.warn('skipped piece', s.name, e); }
-    }
+    for (const [id, md] of Object.entries(d.models || {})) models[id] = { name: md.name, ext: md.ext, data: unb64(md.data) };
+    for (const s of d.pieces || []) { try { await build(s); } catch (e) { console.warn('skipped piece', s.name, e); } }
     restoring = false; changed();
   }
   function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
@@ -154,13 +238,7 @@ export function createEditor(root, onExit, opts = {}) {
     if (i < 0 || i >= hist.length) return; hpos = i; restoring = true; const list = JSON.parse(hist[i]);
     try {
       for (const p of [...pieces]) world.remove(p); pieces = []; select(null);
-      for (const s of list) {
-        try {
-          if (s.kind === 'prop') await addProp(s.prop, s);
-          else if (s.kind === 'model' && models[s.model]) { const md = models[s.model]; await addModel(md.data, md.ext, md.name, s, s.model); }
-          else if (PRIMS[s.kind] || MARKS[s.kind]) addPrim(s.kind, s);
-        } catch (e) { console.warn('undo: skipped', s.name, e); }
-      }
+      for (const s of list) { try { await build(s); } catch (e) { console.warn('undo: skipped', s.name, e); } }
     } finally { restoring = false; }
     changed();
   }
@@ -172,29 +250,39 @@ export function createEditor(root, onExit, opts = {}) {
 
   // ---------- UI ----------
   const modeBtns = {};
-  for (const [m, t] of [['translate', 'Move (G)'], ['rotate', 'Rotate (R)'], ['scale', 'Scale (S)']]) modeBtns[m] = btn(top, t, () => setMode(m), m === st.mode ? 'sel' : '');
+  for (const [m, t] of [['translate', 'Move (G)'], ['rotate', 'Rotate (R)'], ['scale', 'Scale (S)']]) modeBtns[m] = btn(top, t.replace(/ \(.\)/, ''), () => setMode(m), m === st.mode ? 'sel' : '', t.match(/\((.)\)/)[1].toLowerCase());
   function setMode(m) { st.mode = m; tc.setMode(m); for (const k in modeBtns) modeBtns[k].classList.toggle('sel', k === m); }
   const snapL = el('label'); snapL.style.cssText = 'display:flex;gap:4px;align-items:center'; const snapC = el('input'); snapC.type = 'checkbox'; snapC.checked = true; snapL.append(snapC, 'Snap');
   const applySnap = () => { tc.setTranslationSnap(snapC.checked ? (MODEL ? 0.01 : 0.5) : null); tc.setRotationSnap(snapC.checked ? Math.PI / 12 : null); tc.setScaleSnap(snapC.checked ? (MODEL ? 0.01 : 0.1) : null); };
-  snapC.addEventListener('change', applySnap); applySnap(); top.appendChild(snapL);
-  btn(top, 'Undo', undo); btn(top, 'Redo', redo); btn(top, 'Duplicate', () => duplicate(current)); btn(top, 'Delete', () => remove(current));
-  if (MODEL) btn(top, 'Mirror X', async () => {
-    const o = current; if (!o) return; const m = o.userData.meta; if (m.kind === 'prop' || m.kind === 'model') return;
-    const s = describe(o); s.pos[0] = -s.pos[0]; s.rot[1] = -s.rot[1]; s.rot[2] = -s.rot[2]; s.name = m.name + ' mirror'; select(addPrim(m.kind, s));
-  });
-  btn(top, 'Focus (F)', () => focus());
+  snapC.addEventListener('change', applySnap); applySnap(); keymap.n = () => { snapC.checked = !snapC.checked; applySnap(); }; snapL.append(el('span', 'kbd', 'N')); top.appendChild(snapL);
+  btn(top, 'Undo', undo, '', 'ctrl+z'); keymap['ctrl+shift+z'] = redo; btn(top, 'Redo', redo, '', 'ctrl+y');
+  btn(top, 'Duplicate', () => duplicate(current), '', 'shift+d'); keymap['ctrl+d'] = () => duplicate(current);
+  btn(top, 'Delete', () => { for (const o of targets()) remove(o); }, '', 'x'); keymap.delete = keymap.x; keymap.backspace = keymap.x;
+  const spaceB = btn(top, 'Global', () => { const l = tc.space === 'world'; tc.setSpace(l ? 'local' : 'world'); spaceB.firstChild.textContent = l ? 'Local' : 'Global'; }, '', 'l');
+  const wireB = btn(top, 'Wireframe', () => { setWire(!st.wire); wireB.classList.toggle('sel', st.wire); }, '', 'z');
+  btn(top, 'Focus', () => focus(), '', 'f');
   const mapIn = el('input'); mapIn.type = 'file'; mapIn.accept = '.json'; mapIn.style.display = 'none';
   mapIn.addEventListener('change', async () => { const f = mapIn.files[0]; mapIn.value = ''; if (!f) return; try { await loadData(JSON.parse(await f.text())); } catch (e) { alert('Could not load that file.'); } });
-  btn(top, MODEL ? 'Load model' : 'Load map', () => mapIn.click());
-  btn(top, MODEL ? 'Save model file' : 'Save map file', () => download(FILE + '.json', new Blob([JSON.stringify(exportData(true))], { type: 'application/json' })), 'alt');
+  btn(top, MODEL ? 'Load model' : 'Load map', () => mapIn.click(), '', 'ctrl+o');
+  btn(top, MODEL ? 'Save model file' : 'Save map file', () => download(FILE + '.json', new Blob([JSON.stringify(exportData(true))], { type: 'application/json' })), 'alt', 'ctrl+s');
   btn(top, 'Export .glb', async () => {
     try { const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js'); new GLTFExporter().parse(world, (r) => download(FILE + '.glb', new Blob([r], { type: 'model/gltf-binary' })), (e) => alert('Export failed'), { binary: true }); } catch (e) { alert('Export failed: ' + e.message); }
-  });
+  }, '', 'ctrl+e');
   btn(top, 'Clear', () => { if (pieces.length && !confirm('Remove everything from the map?')) return; for (const p of [...pieces]) world.remove(p); pieces = []; models = {}; select(null); changed(); });
   btn(top, 'Exit', () => { hide(); onExit(); });
 
+  left.appendChild(el('h4', '', 'Object tools'));
+  btn(left, 'Join', join, '', 'ctrl+j');
+  btn(left, 'Boolean: cut (A - B)', () => boolean('sub'), '', 'c'); btn(left, 'Boolean: union (A + B)', () => boolean('add'), '', 'u'); btn(left, 'Boolean: intersect', () => boolean('int'), '', 'i');
+  left.appendChild(el('p', 'hint', 'Boolean: click A, then shift-click B. B is the tool.'));
+  btn(left, 'Mirror X', () => mirror(0), '', 'alt+x'); btn(left, 'Mirror Y', () => mirror(1), '', 'alt+y'); btn(left, 'Mirror Z', () => mirror(2), '', 'alt+z');
+  btn(left, 'Array...', array, '', 'a'); btn(left, 'Drop to ground', () => { if (current) { groundY(current); sel.setFromObject(current); renderProps(); changed(); } }, '', 'd');
+  btn(left, 'Hide / show', () => { if (current) toggleHide(current); }, '', 'h');
+  left.appendChild(el('h4', '', 'View'));
+  const setView = (dir) => { const d = Math.max(cam.position.distanceTo(orbit.target), 1); cam.position.copy(orbit.target).add(new THREE.Vector3(...dir).normalize().multiplyScalar(d)); };
+  btn(left, 'Front', () => setView([0, 0.0001, 1]), '', '1'); btn(left, 'Right', () => setView([1, 0.0001, 0]), '', '3'); btn(left, 'Top', () => setView([0.0001, 1, 0.0001]), '', '7'); btn(left, 'Perspective', () => setView([0.7, 0.55, 0.8]), '', '5');
   left.appendChild(el('h4', '', 'Shapes'));
-  for (const k in PRIMS) btn(left, '+ ' + PRIMS[k], () => { const o = addPrim(k); select(o); });
+  Object.keys(PRIMS).forEach((k, i) => btn(left, '+ ' + PRIMS[k], () => { const o = addPrim(k); select(o); }, '', 'shift+digit' + (i + 1)));
   if (!MODEL) {
     left.appendChild(el('h4', '', 'Gameplay markers'));
     for (const k in MARKS) btn(left, '+ ' + MARKS[k].name, () => { const o = addPrim(k); select(o); });
@@ -210,7 +298,7 @@ export function createEditor(root, onExit, opts = {}) {
       try { const o = await addModel(await f.arrayBuffer(), ext, f.name); select(o); } catch (e) { alert('Could not import ' + f.name + ': ' + (e.message || e)); }
     }
   });
-  btn(left, 'Import model...', () => fileIn.click(), 'alt');
+  btn(left, 'Import model...', () => fileIn.click(), 'alt', 'ctrl+i');
   left.appendChild(el('p', 'hint', '.glb, .gltf (single file), .obj or .fbx. Export from Blender with File > Export > glTF 2.0 (.glb).'));
   left.appendChild(fileIn);
 
@@ -229,12 +317,28 @@ export function createEditor(root, onExit, opts = {}) {
     numRow('Rot', 0, () => d().rot, (n) => o.rotation.set(...n.map((x) => (x * Math.PI) / 180)));
     numRow('Size', 0, () => d().scl, (n) => o.scale.fromArray(n.map((x) => x || 0.01)));
     if (MARKS[m.kind]?.val) { const r = el('div', 'row'); r.appendChild(el('label', '', MARKS[m.kind].val)); const v = el('input'); v.type = 'text'; v.value = m.val || ''; v.addEventListener('change', () => { m.val = v.value; changed(); }); r.appendChild(v); props.appendChild(r); }
-    if (!['prop', 'model'].includes(m.kind)) { const r = el('div', 'row'); r.appendChild(el('label', '', 'Colour')); const c = el('input'); c.type = 'color'; c.value = m.color || '#8a96a3'; c.addEventListener('input', () => { m.color = c.value; o.material.color.set(c.value); changed(); }); r.appendChild(c); props.appendChild(r); }
+    const numField = (label, get, set) => { const r = el('div', 'row'); r.appendChild(el('label', '', label)); const v = el('input'); v.type = 'number'; v.min = 0; v.max = 1; v.step = 0.05; v.value = get(); v.addEventListener('change', () => { set(Math.max(0, Math.min(1, parseFloat(v.value) || 0))); changed(); }); r.appendChild(v); props.appendChild(r); };
+    const colField = (label, get, set) => { const r = el('div', 'row'); r.appendChild(el('label', '', label)); const c = el('input'); c.type = 'color'; c.value = get(); c.addEventListener('input', () => set(c.value)); c.addEventListener('change', () => changed()); r.appendChild(c); props.appendChild(r); };
+    if (m.kind === 'mesh') {
+      m.mesh.mats.forEach((q, i) => { colField('Mat ' + (i + 1), () => q.color, (v) => { q.color = v; o.material[i].color.set(v); }); });
+      numField('Rough', () => m.mesh.mats[0].rough, (v) => m.mesh.mats.forEach((q, i) => { q.rough = v; o.material[i].roughness = v; }));
+      numField('Metal', () => m.mesh.mats[0].metal, (v) => m.mesh.mats.forEach((q, i) => { q.metal = v; o.material[i].metalness = v; }));
+    } else if (!['prop', 'model'].includes(m.kind)) {
+      colField('Colour', () => m.color || '#8a96a3', (v) => { m.color = v; o.material.color.set(v); });
+      numField('Rough', () => m.rough ?? 0.75, (v) => { m.rough = v; o.material.roughness = v; });
+      numField('Metal', () => m.metal ?? 0.05, (v) => { m.metal = v; o.material.metalness = v; });
+    }
+    if (multi.length) props.appendChild(el('p', 'hint', multi.length + ' more selected (shift-click).'));
   }
   function renderList() {
     listBox.innerHTML = '';
-    for (const p of pieces) { const b = el('button', 'btn' + (p === current ? ' sel' : ''), p.userData.meta.name); b.type = 'button'; b.addEventListener('click', () => select(p)); listBox.appendChild(b); }
+    for (const p of pieces) {
+      const row = el('div', 'row'), b = el('button', 'btn' + (p === current || multi.includes(p) ? ' sel' : ''), (p.userData.meta.hidden ? '(hidden) ' : '') + p.userData.meta.name); b.type = 'button';
+      b.addEventListener('click', (e) => { if (e.shiftKey && current && p !== current) pick(p, true); else select(p); });
+      row.appendChild(b); listBox.appendChild(row);
+    }
   }
+  function pick(o, add) { if (!add || !current || o === current) { select(o); return; } multi = multi.includes(o) ? multi.filter((x) => x !== o) : [...multi, o]; renderList(); renderProps(); }
   tc.addEventListener('objectChange', () => { if (current) { sel.setFromObject(current); renderProps(); } });
   tc.addEventListener('mouseUp', () => changed());
 
@@ -245,29 +349,33 @@ export function createEditor(root, onExit, opts = {}) {
     if (!down || down[2] || tc.dragging || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4 || e.button !== 0) return;
     const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, cam);
     const hit = ray.intersectObjects(world.children, true)[0]; let o = hit?.object; while (o && o.parent !== world) o = o.parent;
-    select(o && pieces.includes(o) ? o : null);
+    const pk = o && pieces.includes(o) ? o : null; if (e.shiftKey && pk) pick(pk, true); else select(pk);
   });
   function focus() {
     const b = new THREE.Box3(); if (current) b.setFromObject(current); else if (pieces.length) b.setFromObject(world); else { orbit.target.set(0, 0, 0); return; }
     const c = b.getCenter(new THREE.Vector3()), s = Math.max(b.getSize(new THREE.Vector3()).length(), 2); orbit.target.copy(c);
     cam.position.copy(c).add(new THREE.Vector3(0.7, 0.55, 0.8).normalize().multiplyScalar(s * 1.5 + 3));
   }
+  keymap.escape = () => select(null);
   window.addEventListener('keydown', (e) => {
     if (!running || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
-    const k = e.key.toLowerCase();
-    if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
-    if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
-    if (k === 'g') setMode('translate'); else if (k === 'r') setMode('rotate'); else if (k === 's' && !e.ctrlKey) setMode('scale');
-    else if (k === 'f') focus(); else if (k === 'delete' || k === 'backspace') remove(current);
-    else if (k === 'd' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); duplicate(current); } else if (k === 'escape') select(null);
+    let k = /^Digit\d$/.test(e.code) ? e.code.toLowerCase() : e.key.toLowerCase();
+    if (k === 'control' || k === 'shift' || k === 'alt' || k === 'meta') return;
+    if (/^digit/.test(k) && !e.shiftKey) k = k.slice(5);
+    const spec = [(e.ctrlKey || e.metaKey) ? 'ctrl' : '', e.altKey ? 'alt' : '', e.shiftKey ? 'shift' : '', k].filter(Boolean).join('+');
+    const fn = keymap[spec]; if (!fn) return;
+    e.preventDefault(); fn();
   });
   let lw = 0, lh = 0;
   function resize() { const w = view.clientWidth || 1, h = view.clientHeight || 1; if (w === lw && h === lh) return; lw = w; lh = h; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
   window.addEventListener('resize', resize);
-  function loop() { if (!running) return; raf = requestAnimationFrame(loop); resize(); orbit.update(); if (current) sel.setFromObject(current); renderer.render(scene, cam); }
+  function loop() { if (!running) return; raf = requestAnimationFrame(loop); resize(); orbit.update(); if (current) sel.setFromObject(current);
+    while (msel.length < multi.length) { const h = new THREE.BoxHelper(new THREE.Object3D(), 0x55ccff); scene.add(h); msel.push(h); }
+    msel.forEach((h, i) => { h.visible = i < multi.length; if (h.visible) h.setFromObject(multi[i]); });
+    renderer.render(scene, cam); }
   async function restore() { try { const j = localStorage.getItem(KEY); if (j && !pieces.length) await loadData(JSON.parse(j)); } catch { /* ignore broken saves */ } }
   function show() { running = true; resize(); cancelAnimationFrame(raf); loop(); renderProps(); renderList(); restore(); }
   function hide() { running = false; cancelAnimationFrame(raf); }
   renderProps();
-  return { show, hide, count: () => pieces.length, exportData, addPrim: (k) => select(addPrim(k)), addProp: async (n) => { const o = await addProp(n); if (o) select(o); return !!o; }, addModel: async (buf, ext, name) => select(await addModel(buf, ext, name)), loadData, selected: () => current && describe(current) };
+  return { show, hide, count: () => pieces.length, exportData, addPrim: (k) => select(addPrim(k)), join, mirror, array, select: (i) => select(pieces[i]), pieces: () => pieces.map((p) => p.userData.meta.kind), build, addProp: async (n) => { const o = await addProp(n); if (o) select(o); return !!o; }, addModel: async (buf, ext, name) => select(await addModel(buf, ext, name)), loadData, selected: () => current && describe(current) };
 }
