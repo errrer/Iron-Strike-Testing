@@ -704,7 +704,16 @@ export class Game {
     });
     // where the support hand goes to reload: the magazine, or the receiver for shotguns / bolt guns / revolvers
     let tgt = new V3(0, -0.04, 0.0);
-    if (mags.length && w.cls !== 'shotgun' && w.cls !== 'sniper') { tgt = new V3(); for (const e of mags) tgt.add(e.p); tgt.multiplyScalar(1 / mags.length); }
+    if (mags.length && w.cls !== 'shotgun' && w.cls !== 'sniper') {
+      // baked models keep every vertex in gun space (the mesh itself sits at the origin), so use the middle of the mag's bounding box, not its position
+      tgt = new V3();
+      for (const e of mags) {
+        const g = e.m.geometry; if (g && !g.boundingBox && typeof g.computeBoundingBox === 'function') g.computeBoundingBox();
+        const bb = g && g.boundingBox;
+        tgt.x += e.p.x + (bb ? (bb.min.x + bb.max.x) / 2 : 0); tgt.y += e.p.y + (bb ? (bb.min.y + bb.max.y) / 2 : 0); tgt.z += e.p.z + (bb ? (bb.min.z + bb.max.z) / 2 : 0);
+      }
+      tgt.multiplyScalar(1 / mags.length);
+    }
     const reach = new V3(tgt.x - F.x, tgt.y - F.y + (u.pistol ? 0.04 : 0.05), tgt.z - F.z);
     return { root, gun, flash, sightY: u.sightY, lh, mags, slides, bolts, pumps, reach, cls: w.cls, id: w.id, pistol: u.pistol };
   }
