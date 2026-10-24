@@ -21,5 +21,7 @@ with sync_playwright() as p:
     n = 0   # the 3D editor needs real Three.js + addons from the CDN; with the stub it must fail gracefully (message, no crash)
     ok &= pg.is_visible('#mmEditor') and pg.is_hidden('#mmWarn')
     pg.reload(); pg.wait_for_timeout(800); pg.click('#lMM'); pg.click('#mmBack'); ok &= pg.is_visible('#landing')
+    pg.click('#lMD'); w = pg.inner_text('#mdWarn').lower(); ok &= 'not usable' in w and pg.is_hidden('#mdEditor')
+    pg.click('#mdOk'); pg.wait_for_timeout(800); ok &= pg.is_visible('#mdEditor'); pg.reload(); pg.wait_for_timeout(600); pg.click('#lMD'); pg.click('#mdBack'); ok &= pg.is_visible('#landing')
     b.close()
 print('ERRS', errs); print('PASS' if ok and not errs else 'FAIL', n)

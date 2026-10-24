@@ -111,7 +111,7 @@
         <span class="go">SURVIVE &rsaquo;</span>
       </button>
     </div>
-    <button id="lMM" class="btn alt" type="button" style="margin-top:14px">Map Maker</button>
+    <div style="margin-top:14px"><button id="lMM" class="btn alt" type="button">Map Maker</button> <button id="lMD" class="btn alt" type="button">Model Maker</button></div>
     <div id="landRank" class="rankbox"><b id="landRankName"></b><div class="xpbar"><i id="landRankFill"></i></div><span id="landRankTxt"></span></div>
     <footer>Fan-made, non-commercial project. Not affiliated with or endorsed by any game publisher.</footer>
   </div>
@@ -128,7 +128,21 @@
     <button id="mmOk" class="btn primary" type="button">I understand</button>
     <button id="mmBack" class="btn" type="button">Back</button>
   </div>
-  <div id="mmEditor" class="hidden"></div>
+  <div id="mmEditor" class="hidden mmeditor"></div>
+</div>
+
+<!-- ============ MODEL MAKER ============ -->
+<div id="mdmaker" class="overlay hidden">
+  <div id="mdWarn" class="panel mmpanel">
+    <h2>MODEL MAKER</h2>
+    <div class="mmwarn">
+      <b>Heads up</b>
+      <p>Models made here are <u>not usable in the game</u> unless the developer adds them. You can build a 3D model, import parts and export it as a .glb, but it will not appear in the game on its own.</p>
+    </div>
+    <button id="mdOk" class="btn primary" type="button">I understand</button>
+    <button id="mdBack" class="btn" type="button">Back</button>
+  </div>
+  <div id="mdEditor" class="hidden mmeditor"></div>
 </div>
 
 <!-- ============ ZOMBIES MENU ============ -->

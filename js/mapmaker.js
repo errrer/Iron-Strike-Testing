@@ -1,14 +1,18 @@
-// Map Maker launcher: shows the "not playable in game" warning, then lazily loads the 3D editor (js/mapmaker3d.js).
+// Map Maker / Model Maker launchers: show the "not playable / not usable in game" warning, then lazily load the 3D editor (js/mapmaker3d.js).
 export function initMapMaker($, showScreen) {
-  let ed = null;
-  $('lMM').addEventListener('click', () => { $('mmWarn').classList.remove('hidden'); $('mmEditor').classList.add('hidden'); showScreen('mmaker'); });
-  $('mmBack').addEventListener('click', () => showScreen('landing'));
-  $('mmOk').addEventListener('click', async () => {
-    $('mmWarn').classList.add('hidden'); $('mmEditor').classList.remove('hidden');
-    try {
-      const m = await import('./mapmaker3d.js');
-      ed = ed || m.createEditor($('mmEditor'), () => showScreen('landing'));
-      ed.show();
-    } catch (e) { $('mmEditor').innerHTML = '<p style="padding:20px">Could not load the 3D editor (' + String(e.message || e) + '). Check your connection and try again.</p>'; console.error(e); }
-  });
+  const wire = (open, screen, p, opts) => {
+    let ed = null;
+    $(open).addEventListener('click', () => { $(p + 'Warn').classList.remove('hidden'); $(p + 'Editor').classList.add('hidden'); showScreen(screen); });
+    $(p + 'Back').addEventListener('click', () => showScreen('landing'));
+    $(p + 'Ok').addEventListener('click', async () => {
+      $(p + 'Warn').classList.add('hidden'); $(p + 'Editor').classList.remove('hidden');
+      try {
+        const m = await import('./mapmaker3d.js');
+        ed = ed || m.createEditor($(p + 'Editor'), () => showScreen('landing'), opts);
+        ed.show();
+      } catch (e) { $(p + 'Editor').innerHTML = '<p style="padding:20px">Could not load the 3D editor (' + String(e.message || e) + '). Check your connection and try again.</p>'; console.error(e); }
+    });
+  };
+  wire('lMM', 'mmaker', 'mm', { kind: 'map' });
+  wire('lMD', 'mdmaker', 'md', { kind: 'model' });
 }

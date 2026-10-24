@@ -201,7 +201,7 @@ Promise.all([loadModels(WEAPONS), loadProps().catch(() => [])]).then(([ids]) => 
   .catch(() => {}).finally(() => { startBtn.disabled = false; startBtn.textContent = 'DEPLOY'; });
 
 // ---------------- start screen: Multiplayer / Zombies ----------------
-const screens = ['landing', 'menu', 'zmenu', 'mmaker'];
+const screens = ['landing', 'menu', 'zmenu', 'mmaker', 'mdmaker'];
 function showScreen(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
 initMapMaker($, showScreen);
 $('lMP').addEventListener('click', () => showScreen('menu'));

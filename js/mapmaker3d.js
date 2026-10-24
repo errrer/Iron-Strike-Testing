@@ -5,9 +5,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { PROPS, PROP_NAMES, loadProps } from './props.js';
 
-const KEY = 'ironstrike.mm3d';
-const NOTE = 'Not playable in game unless the developer adds it.';
-const PRIMS = { box: 'Box', cylinder: 'Cylinder', sphere: 'Sphere', plane: 'Floor plane', ramp: 'Ramp' };
+
+const PRIMS = { box: 'Box', cylinder: 'Cylinder', sphere: 'Sphere', plane: 'Floor plane', ramp: 'Ramp', cone: 'Cone', torus: 'Ring (torus)' };
 // Gameplay markers: invisible in a real map, they tell the dev where things go. `val` = optional cost / note shown in the properties panel.
 const MARKS = {
   spawnA: { name: 'Team A spawn', color: '#4cc2ff', size: [1, 0.2, 1] }, spawnB: { name: 'Team B spawn', color: '#ff5a4c', size: [1, 0.2, 1] },
@@ -23,6 +22,8 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 function primGeo(kind) {
   if (MARKS[kind]) return new THREE.BoxGeometry(1, 1, 1);
   if (kind === 'cylinder') return new THREE.CylinderGeometry(0.5, 0.5, 1, 24);
+  if (kind === 'cone') return new THREE.ConeGeometry(0.5, 1, 24);
+  if (kind === 'torus') return new THREE.TorusGeometry(0.4, 0.1, 12, 32);
   if (kind === 'sphere') return new THREE.SphereGeometry(0.5, 24, 16);
   if (kind === 'plane') { const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2); return g; }
   if (kind === 'ramp') {
@@ -32,7 +33,11 @@ function primGeo(kind) {
   return new THREE.BoxGeometry(1, 1, 1);
 }
 
-export function createEditor(root, onExit) {
+export function createEditor(root, onExit, opts = {}) {
+  const MODEL = opts.kind === 'model';
+  const KEY = MODEL ? 'ironstrike.model3d' : 'ironstrike.mm3d';
+  const NOTE = MODEL ? 'Not usable in game unless the developer adds it.' : 'Not playable in game unless the developer adds it.';
+  const FILE = MODEL ? 'my-iron-strike-model' : 'my-iron-strike-map';
   root.innerHTML = '';
   // ---------- layout ----------
   const top = el('div', 'mmtop'), left = el('div', 'mmside'), view = el('div', 'mmview'), right = el('div', 'mmside r'), foot = el('div', 'mmfoot', NOTE + '  |  Orbit: left drag - Pan: right drag - Zoom: wheel - Click to select - G / R / S = move / rotate / scale - Del = delete - Ctrl+D = duplicate - Ctrl+Z / Ctrl+Y = undo / redo');
@@ -44,13 +49,13 @@ export function createEditor(root, onExit) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a2230);
-  const cam = new THREE.PerspectiveCamera(55, 1, 0.1, 1000); cam.position.set(14, 12, 16);
+  const cam = new THREE.PerspectiveCamera(55, 1, 0.1, 1000); if (MODEL) cam.position.set(1.8, 1.4, 2.2); else cam.position.set(14, 12, 16);
   scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x36322c, 1.1));
   const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(12, 24, 8); scene.add(sun);
-  const grid = new THREE.GridHelper(80, 80, 0x4a5a70, 0x2a3646); scene.add(grid);
+  const grid = MODEL ? new THREE.GridHelper(4, 40, 0x4a5a70, 0x2a3646) : new THREE.GridHelper(80, 80, 0x4a5a70, 0x2a3646); scene.add(grid);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ visible: false })); scene.add(ground);
   const world = new THREE.Group(); scene.add(world);
-  const orbit = new OrbitControls(cam, canvas); orbit.target.set(0, 0, 0); orbit.enableDamping = false; orbit.maxPolarAngle = Math.PI * 0.499;
+  const orbit = new OrbitControls(cam, canvas); orbit.target.set(0, 0, 0); orbit.enableDamping = false; if (MODEL) { orbit.minDistance = 0.1; } orbit.maxPolarAngle = Math.PI * 0.499;
   const tc = new TransformControls(cam, canvas); scene.add(tc);
   const sel = new THREE.BoxHelper(new THREE.Object3D(), 0xffaa33); sel.visible = false; scene.add(sel);
   tc.addEventListener('dragging-changed', (e) => { orbit.enabled = !e.value; });
@@ -65,12 +70,12 @@ export function createEditor(root, onExit) {
     obj.userData.pid = ++counter; obj.userData.meta = meta; world.add(obj); pieces.push(obj); changed(); return obj;
   }
   function groundY(obj) { obj.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(obj); obj.position.y += -b.min.y; }
-  function spawnPoint() { const t = orbit.target; return [Math.round(t.x), 0, Math.round(t.z)]; }
+  function spawnPoint() { const t = orbit.target; return MODEL ? [0, 0, 0] : [Math.round(t.x), 0, Math.round(t.z)]; }
   function addPrim(kind, saved) {
     const mk = MARKS[kind], col = saved?.color || mk?.color || '#8a96a3';
     const m = new THREE.Mesh(primGeo(kind), material(col));
     if (mk) { m.material.transparent = true; m.material.opacity = 0.7; }
-    if (saved) apply(m, saved); else { if (mk) m.scale.set(...mk.size); else m.scale.set(kind === 'plane' ? 6 : 2, kind === 'plane' ? 1 : 2, kind === 'plane' ? 6 : 2); const p = spawnPoint(); m.position.set(p[0], 0, p[2]); groundY(m); }
+    if (saved) apply(m, saved); else { if (mk) m.scale.set(...mk.size); else { const u = MODEL ? 0.15 : 2; m.scale.set(kind === 'plane' ? u * 3 : u, kind === 'plane' ? 1 : u, kind === 'plane' ? u * 3 : u); } const p = spawnPoint(); m.position.set(p[0], 0, p[2]); groundY(m); }
     return register(m, { kind, name: saved?.name || mk?.name || PRIMS[kind], color: col, val: saved?.val || '' });
   }
   async function addProp(name, saved) {
@@ -103,7 +108,7 @@ export function createEditor(root, onExit) {
     if (saved) apply(g, saved);
     else {
       const b = new THREE.Box3().setFromObject(g), sz = b.getSize(new THREE.Vector3()), mx = Math.max(sz.x, sz.y, sz.z) || 1;
-      if (mx > 30 || mx < 0.2) g.scale.setScalar(2 / mx);
+      if (MODEL ? (mx > 5 || mx < 0.02) : (mx > 30 || mx < 0.2)) g.scale.setScalar((MODEL ? 0.4 : 2) / mx);
       const p = spawnPoint(); g.position.set(p[0], 0, p[2]); groundY(g);
     }
     return register(g, { kind: 'model', model: id, name: saved?.name || name.replace(/\.[^.]+$/, '') });
@@ -129,7 +134,7 @@ export function createEditor(root, onExit) {
   function exportData(withModels = true) {
     const used = new Set(pieces.filter((p) => p.userData.meta.kind === 'model').map((p) => p.userData.meta.model)), mo = {};
     if (withModels) for (const id of used) mo[id] = { name: models[id].name, ext: models[id].ext, data: b64(models[id].data) };
-    return { format: 'iron-strike-map', version: 2, note: NOTE, units: 'metres', pieces: pieces.map(describe), models: mo };
+    return { format: MODEL ? 'iron-strike-model' : 'iron-strike-map', version: 2, note: NOTE, units: 'metres', pieces: pieces.map(describe), models: mo };
   }
   async function loadData(d) {
     restoring = true;
@@ -170,27 +175,33 @@ export function createEditor(root, onExit) {
   for (const [m, t] of [['translate', 'Move (G)'], ['rotate', 'Rotate (R)'], ['scale', 'Scale (S)']]) modeBtns[m] = btn(top, t, () => setMode(m), m === st.mode ? 'sel' : '');
   function setMode(m) { st.mode = m; tc.setMode(m); for (const k in modeBtns) modeBtns[k].classList.toggle('sel', k === m); }
   const snapL = el('label'); snapL.style.cssText = 'display:flex;gap:4px;align-items:center'; const snapC = el('input'); snapC.type = 'checkbox'; snapC.checked = true; snapL.append(snapC, 'Snap');
-  const applySnap = () => { tc.setTranslationSnap(snapC.checked ? 0.5 : null); tc.setRotationSnap(snapC.checked ? Math.PI / 12 : null); tc.setScaleSnap(snapC.checked ? 0.1 : null); };
+  const applySnap = () => { tc.setTranslationSnap(snapC.checked ? (MODEL ? 0.01 : 0.5) : null); tc.setRotationSnap(snapC.checked ? Math.PI / 12 : null); tc.setScaleSnap(snapC.checked ? (MODEL ? 0.01 : 0.1) : null); };
   snapC.addEventListener('change', applySnap); applySnap(); top.appendChild(snapL);
   btn(top, 'Undo', undo); btn(top, 'Redo', redo); btn(top, 'Duplicate', () => duplicate(current)); btn(top, 'Delete', () => remove(current));
+  if (MODEL) btn(top, 'Mirror X', async () => {
+    const o = current; if (!o) return; const m = o.userData.meta; if (m.kind === 'prop' || m.kind === 'model') return;
+    const s = describe(o); s.pos[0] = -s.pos[0]; s.rot[1] = -s.rot[1]; s.rot[2] = -s.rot[2]; s.name = m.name + ' mirror'; select(addPrim(m.kind, s));
+  });
   btn(top, 'Focus (F)', () => focus());
   const mapIn = el('input'); mapIn.type = 'file'; mapIn.accept = '.json'; mapIn.style.display = 'none';
-  mapIn.addEventListener('change', async () => { const f = mapIn.files[0]; mapIn.value = ''; if (!f) return; try { await loadData(JSON.parse(await f.text())); } catch (e) { alert('Could not load that map file.'); } });
-  btn(top, 'Load map', () => mapIn.click());
-  btn(top, 'Save map file', () => download('my-iron-strike-map.json', new Blob([JSON.stringify(exportData(true))], { type: 'application/json' })), 'alt');
+  mapIn.addEventListener('change', async () => { const f = mapIn.files[0]; mapIn.value = ''; if (!f) return; try { await loadData(JSON.parse(await f.text())); } catch (e) { alert('Could not load that file.'); } });
+  btn(top, MODEL ? 'Load model' : 'Load map', () => mapIn.click());
+  btn(top, MODEL ? 'Save model file' : 'Save map file', () => download(FILE + '.json', new Blob([JSON.stringify(exportData(true))], { type: 'application/json' })), 'alt');
   btn(top, 'Export .glb', async () => {
-    try { const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js'); new GLTFExporter().parse(world, (r) => download('my-iron-strike-map.glb', new Blob([r], { type: 'model/gltf-binary' })), (e) => alert('Export failed'), { binary: true }); } catch (e) { alert('Export failed: ' + e.message); }
+    try { const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js'); new GLTFExporter().parse(world, (r) => download(FILE + '.glb', new Blob([r], { type: 'model/gltf-binary' })), (e) => alert('Export failed'), { binary: true }); } catch (e) { alert('Export failed: ' + e.message); }
   });
   btn(top, 'Clear', () => { if (pieces.length && !confirm('Remove everything from the map?')) return; for (const p of [...pieces]) world.remove(p); pieces = []; models = {}; select(null); changed(); });
   btn(top, 'Exit', () => { hide(); onExit(); });
 
   left.appendChild(el('h4', '', 'Shapes'));
   for (const k in PRIMS) btn(left, '+ ' + PRIMS[k], () => { const o = addPrim(k); select(o); });
-  left.appendChild(el('h4', '', 'Gameplay markers'));
-  for (const k in MARKS) btn(left, '+ ' + MARKS[k].name, () => { const o = addPrim(k); select(o); });
-  left.appendChild(el('h4', '', 'Game props'));
-  for (const n of PROP_NAMES) btn(left, '+ ' + n, async () => { const o = await addProp(n); if (o) select(o); });
-  left.appendChild(el('h4', '', 'Your models'));
+  if (!MODEL) {
+    left.appendChild(el('h4', '', 'Gameplay markers'));
+    for (const k in MARKS) btn(left, '+ ' + MARKS[k].name, () => { const o = addPrim(k); select(o); });
+    left.appendChild(el('h4', '', 'Game props'));
+    for (const n of PROP_NAMES) btn(left, '+ ' + n, async () => { const o = await addProp(n); if (o) select(o); });
+  }
+  left.appendChild(el('h4', '', MODEL ? 'Import parts' : 'Your models'));
   const fileIn = el('input'); fileIn.type = 'file'; fileIn.accept = '.glb,.gltf,.obj,.fbx'; fileIn.multiple = true; fileIn.style.display = 'none';
   fileIn.addEventListener('change', async () => {
     const fs = [...fileIn.files]; fileIn.value = '';
@@ -207,7 +218,7 @@ export function createEditor(root, onExit) {
   function numRow(label, arr, get, set) {
     const r = el('div', 'row'); r.appendChild(el('label', '', label));
     const v = get();
-    for (let i = 0; i < 3; i++) { const inp = el('input'); inp.type = 'number'; inp.step = '0.1'; inp.value = v[i]; inp.addEventListener('change', () => { const n = get(); n[i] = parseFloat(inp.value) || 0; set(n); sel.setFromObject(current); changed(); }); r.appendChild(inp); }
+    for (let i = 0; i < 3; i++) { const inp = el('input'); inp.type = 'number'; inp.step = MODEL ? '0.01' : '0.1'; inp.value = v[i]; inp.addEventListener('change', () => { const n = get(); n[i] = parseFloat(inp.value) || 0; set(n); sel.setFromObject(current); changed(); }); r.appendChild(inp); }
     props.appendChild(r);
   }
   function renderProps() {
