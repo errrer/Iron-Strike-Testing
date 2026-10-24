@@ -298,11 +298,25 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 #zmhud.hidden { display: none; }
 
 /* map maker */
-.mmpanel { width: min(720px, 96vw); max-height: 94vh; overflow-y: auto; }
+.mmpanel { width: min(560px, 96vw); }
 .mmwarn { border: 1px solid var(--accent2); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; background: rgba(255, 138, 31, 0.08); }
 .mmwarn b { color: var(--accent2); letter-spacing: 3px; text-transform: uppercase; }
-.mmtools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
-.mmtools .btn { margin: 0; min-width: 0; padding: 7px 12px; font-size: 11px; }
-.mmtools .btn.sel { background: var(--accent); border-color: var(--accent); color: #1a0e00; }
-#mmCanvas { width: min(640px, 88vw); height: min(640px, 88vw); background: #10151b; border: 1px solid var(--line); border-radius: 6px; cursor: crosshair; touch-action: none; }
-.mmrow { display: flex; flex-wrap: wrap; justify-content: center; }
+#mmaker { background: #0b0f14; backdrop-filter: none; align-items: stretch; justify-content: stretch; }
+#mmEditor { position: absolute; inset: 0; display: grid; grid-template-columns: 190px 1fr 230px; grid-template-rows: 40px 1fr 26px; font-size: 12px; color: var(--text); }
+#mmEditor .mmtop { grid-column: 1 / 4; display: flex; gap: 6px; align-items: center; padding: 0 8px; background: #151b23; border-bottom: 1px solid var(--line); overflow-x: auto; white-space: nowrap; }
+#mmEditor .mmside { background: #121820; padding: 8px; overflow-y: auto; border-right: 1px solid var(--line); }
+#mmEditor .mmside.r { border-right: 0; border-left: 1px solid var(--line); }
+#mmEditor .mmside h4 { margin: 10px 0 6px; font-size: 11px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
+#mmEditor .btn { padding: 5px 9px; font-size: 11px; letter-spacing: 1px; margin: 0; min-width: 0; }
+#mmEditor .mmside .btn { display: block; width: 100%; margin: 0 0 5px; text-align: left; }
+#mmEditor .btn.sel { background: var(--accent); border-color: var(--accent); color: #1a0e00; }
+#mmEditor .mmview { position: relative; min-width: 0; min-height: 0; }
+#mmEditor canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#mmEditor .mmfoot { grid-column: 1 / 4; display: flex; align-items: center; padding: 0 10px; background: #151b23; border-top: 1px solid var(--line); color: var(--accent2); }
+#mmEditor .row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+#mmEditor .row label { width: 38px; color: var(--dim); }
+#mmEditor input[type=number], #mmEditor input[type=text] { width: 100%; min-width: 0; background: #0b0f14; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 4px; font: inherit; }
+#mmEditor input[type=color] { width: 100%; height: 24px; border: 1px solid var(--line); background: none; padding: 0; }
+#mmEditor .list { max-height: 28vh; overflow-y: auto; }
+#mmEditor .list .btn { font-size: 11px; padding: 3px 7px; }
+@media (max-width: 760px) { #mmEditor { grid-template-columns: 120px 1fr 150px; } }

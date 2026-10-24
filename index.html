@@ -7,7 +7,7 @@
 <meta name="description" content="A free browser-based 3D first-person shooter with 4 maps, Team Deathmatch, 1v1 and Free-For-All, and 8 weapons. Built with Three.js.">
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
 </script>
 </head>
 <body>
@@ -119,26 +119,16 @@
 
 <!-- ============ MAP MAKER ============ -->
 <div id="mmaker" class="overlay hidden">
-  <div class="panel mmpanel">
+  <div id="mmWarn" class="panel mmpanel">
     <h2>MAP MAKER</h2>
-    <div id="mmWarn" class="mmwarn">
+    <div class="mmwarn">
       <b>Heads up</b>
-      <p>Maps made here are <u>not playable in the game</u> unless the developer adds them. You can design and export a map file, but it will not show up in any mode on its own.</p>
-      <button id="mmOk" class="btn primary" type="button">I understand</button>
+      <p>Maps made here are <u>not playable in the game</u> unless the developer adds them. You can build a 3D map, import your own models and export it, but it will not show up in any mode on its own.</p>
     </div>
-    <div id="mmEditor" class="hidden">
-      <div class="mmtools" id="mmTools"></div>
-      <canvas id="mmCanvas" width="640" height="640"></canvas>
-      <p class="hint">Drag on the grid to place a piece (1 square = 2 m). Right-click or use Erase to remove. Maps are saved in this browser only.</p>
-      <div class="mmrow">
-        <button id="mmExport" class="btn" type="button">Download map file</button>
-        <button id="mmCopy" class="btn" type="button">Copy JSON</button>
-        <button id="mmClear" class="btn" type="button">Clear</button>
-      </div>
-      <p id="mmNote" class="hint">Not playable in game unless the dev adds it.</p>
-    </div>
+    <button id="mmOk" class="btn primary" type="button">I understand</button>
     <button id="mmBack" class="btn" type="button">Back</button>
   </div>
+  <div id="mmEditor" class="hidden"></div>
 </div>
 
 <!-- ============ ZOMBIES MENU ============ -->
