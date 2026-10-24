@@ -375,3 +375,5 @@ body.touch #objhud { top: 38px; transform: translateX(-50%) scale(.8); }
   .cards { gap: 8px; }
   .btn.big { padding: 12px 30px; font-size: 16px; }
 }
+
+.touchonly { display: none !important; } body.touch .touchonly { display: flex !important; }

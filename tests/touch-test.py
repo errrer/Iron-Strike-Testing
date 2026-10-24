@@ -52,6 +52,21 @@ with sync_playwright() as p:
     x, y = c('#tPause'); pg.mouse.click(x, y); pg.wait_for_timeout(100); check('pause', pg.evaluate("window.__game.state") == 'paused')
     if shots: pg.screenshot(path=shots + '/m_pause.png')
     pg.click('#btnResume'); pg.wait_for_timeout(100); check('resume without pointer lock', pg.evaluate("window.__game.state") == 'playing')
+    # aim assist / auto shoot
+    r = pg.evaluate("""() => { const g = window.__game, p = g.player, out = {};
+      for (const a of g.actors) if (a !== p) { a.alive = false; }
+      const e = g.actors.find(a => a !== p && a.team !== p.team); e.alive = true; e.down = false;
+      p.pos.set(0, 0, 0); p.vel.set(0,0,0); p.yaw = 0; p.pitch = 0; p.eye = 1.65; p.switchT = 0; p.protT = 99;
+      g.world && 0; e.pos.set(0.9, 0, -10);                       // slightly right of the crosshair
+      g.settings.aimAssist = true; g.settings.autoFire = false; g.fireHeld = true;
+      // clear line of sight for the test
+      g.los = () => true;
+      const y0 = p.yaw; g.assist(p, 0.1, false, false, false); out.pulled = y0 - p.yaw; out.slow = g.assistSlow; out.auto0 = g.autoFire;
+      g.fireHeld = false; g.settings.autoFire = true; p.yaw = Math.atan2(-0.9, 10) * 1; p.pitch = Math.atan2(e.h * 0.72 - 1.65, 10.04);
+      g.assist(p, 0.016, false, false, false); out.auto1 = g.autoFire;
+      p.yaw = 0.5; g.assist(p, 0.016, false, false, false); out.auto2 = g.autoFire;
+      return out; }""")
+    check('aim assist pulls toward target', r['pulled'] < 0 or r['pulled'] > 0, r); check('auto shoot on target', r['auto1'] and not r['auto2'] and not r['auto0'], r)
     # portrait notice
     pg.set_viewport_size({'width': 390, 'height': 844}); pg.wait_for_timeout(300); check('rotate notice', pg.evaluate("getComputedStyle(document.getElementById('tRotate')).display") == 'flex')
     b.close()
