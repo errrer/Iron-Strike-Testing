@@ -319,5 +319,7 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 .mmeditor .list { max-height: 28vh; overflow-y: auto; }
 .mmeditor .list .btn { font-size: 11px; padding: 3px 7px; }
 @media (max-width: 760px) { .mmeditor { grid-template-columns: 120px 1fr 150px; } }
-.mmeditor .kbd { float: right; margin-left: 8px; padding: 0 5px; border: 1px solid var(--line); border-radius: 3px; font-size: 10px; color: var(--dim); background: #0b0f14; letter-spacing: 0; }
+.mmeditor .kbd { float: right; margin-left: 16px; min-width: 14px; text-align: center; padding: 0 5px; border: 1px solid var(--line); border-radius: 3px; font-size: 10px; color: var(--dim); background: #0b0f14; letter-spacing: 0; }
 .mmeditor .btn.sel .kbd { color: #1a0e00; border-color: rgba(0,0,0,.4); }
+.mmeditor .mmtop .kbd { float: none; margin-left: 10px; }
+.mmeditor .mmside .btn { overflow: hidden; }
