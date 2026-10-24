@@ -296,3 +296,13 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 #zmPrompt { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); padding: 8px 18px; background: rgba(8, 10, 14, .72); border: 1px solid rgba(255, 255, 255, .18); border-radius: 6px; font-size: 16px; letter-spacing: 1px; color: #fff; opacity: 0; transition: opacity .12s; white-space: nowrap; }
 #zmPrompt.show { opacity: 1; }
 #zmhud.hidden { display: none; }
+
+/* map maker */
+.mmpanel { width: min(720px, 96vw); max-height: 94vh; overflow-y: auto; }
+.mmwarn { border: 1px solid var(--accent2); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; background: rgba(255, 138, 31, 0.08); }
+.mmwarn b { color: var(--accent2); letter-spacing: 3px; text-transform: uppercase; }
+.mmtools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
+.mmtools .btn { margin: 0; min-width: 0; padding: 7px 12px; font-size: 11px; }
+.mmtools .btn.sel { background: var(--accent); border-color: var(--accent); color: #1a0e00; }
+#mmCanvas { width: min(640px, 88vw); height: min(640px, 88vw); background: #10151b; border: 1px solid var(--line); border-radius: 6px; cursor: crosshair; touch-action: none; }
+.mmrow { display: flex; flex-wrap: wrap; justify-content: center; }

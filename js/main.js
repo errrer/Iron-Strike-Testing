@@ -8,6 +8,7 @@ import { loadModels } from './gunmodels.js';
 import { loadProps } from './props.js';
 import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js';
 import { rankName, UNLOCK } from './progress.js';
+import { initMapMaker } from './mapmaker.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -200,8 +201,9 @@ Promise.all([loadModels(WEAPONS), loadProps().catch(() => [])]).then(([ids]) => 
   .catch(() => {}).finally(() => { startBtn.disabled = false; startBtn.textContent = 'DEPLOY'; });
 
 // ---------------- start screen: Multiplayer / Zombies ----------------
-const screens = ['landing', 'menu', 'zmenu'];
+const screens = ['landing', 'menu', 'zmenu', 'mmaker'];
 function showScreen(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
+initMapMaker($, showScreen);
 $('lMP').addEventListener('click', () => showScreen('menu'));
 $('lZM').addEventListener('click', () => { $('zmName').value = cfg.name; zmStatus(''); showScreen('zmenu'); });
 $('btnLandBack').addEventListener('click', () => showScreen('landing'));

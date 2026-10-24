@@ -266,3 +266,4 @@ Removed the imported map-prop models. Containers (corrugated, locking bars, corn
 
 ## V0.8.7-V0.8.9 / V0.9.0
 - The imported Blender Super 46 was dropped (messy mesh); the Super 46 is now a hand-built procedural model (`buildSuper46` in `js/gunmodels.js`): slab receiver, vented shroud, top rail with teeth, angled mag, folding triangle stock, iron sights. Same stats and attachments as before. `assets/models/super46.json` removed.
+- **Map Maker** (V0.9.2): button on the start screen. A top-down 40x40 editor (walls, crates, barrels, containers, spawns A/B); exports a JSON file. A warning shows every time it opens: maps made here are not playable in the game unless the dev adds them. Test: `tests/mapmaker-test.py`.

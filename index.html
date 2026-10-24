@@ -111,8 +111,33 @@
         <span class="go">SURVIVE &rsaquo;</span>
       </button>
     </div>
+    <button id="lMM" class="btn alt" type="button" style="margin-top:14px">Map Maker</button>
     <div id="landRank" class="rankbox"><b id="landRankName"></b><div class="xpbar"><i id="landRankFill"></i></div><span id="landRankTxt"></span></div>
     <footer>Fan-made, non-commercial project. Not affiliated with or endorsed by any game publisher.</footer>
+  </div>
+</div>
+
+<!-- ============ MAP MAKER ============ -->
+<div id="mmaker" class="overlay hidden">
+  <div class="panel mmpanel">
+    <h2>MAP MAKER</h2>
+    <div id="mmWarn" class="mmwarn">
+      <b>Heads up</b>
+      <p>Maps made here are <u>not playable in the game</u> unless the developer adds them. You can design and export a map file, but it will not show up in any mode on its own.</p>
+      <button id="mmOk" class="btn primary" type="button">I understand</button>
+    </div>
+    <div id="mmEditor" class="hidden">
+      <div class="mmtools" id="mmTools"></div>
+      <canvas id="mmCanvas" width="640" height="640"></canvas>
+      <p class="hint">Drag on the grid to place a piece (1 square = 2 m). Right-click or use Erase to remove. Maps are saved in this browser only.</p>
+      <div class="mmrow">
+        <button id="mmExport" class="btn" type="button">Download map file</button>
+        <button id="mmCopy" class="btn" type="button">Copy JSON</button>
+        <button id="mmClear" class="btn" type="button">Clear</button>
+      </div>
+      <p id="mmNote" class="hint">Not playable in game unless the dev adds it.</p>
+    </div>
+    <button id="mmBack" class="btn" type="button">Back</button>
   </div>
 </div>
 
