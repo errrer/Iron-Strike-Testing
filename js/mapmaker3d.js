@@ -54,10 +54,15 @@ export function createEditor(root, onExit, opts = {}) {
   // ---------- scene ----------
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a2230);
   const cam = new THREE.PerspectiveCamera(55, 1, 0.1, 1000); if (MODEL) cam.position.set(1.8, 1.4, 2.2); else cam.position.set(14, 12, 16);
-  scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x36322c, 1.1));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(12, 24, 8); scene.add(sun);
+  scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x36322c, 0.55));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(12, 24, 8); scene.add(sun);
+  // soft studio reflections so metal is not black and nothing blows out to white (loaded lazily; the plain lights above still work without it)
+  import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => {
+    const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.7; pm.dispose();
+  }).catch(() => {});
   const grid = MODEL ? new THREE.GridHelper(4, 40, 0x4a5a70, 0x2a3646) : new THREE.GridHelper(80, 80, 0x4a5a70, 0x2a3646); scene.add(grid);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ visible: false })); scene.add(ground);
   const world = new THREE.Group(); scene.add(world);
@@ -106,6 +111,11 @@ export function createEditor(root, onExit, opts = {}) {
       const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js');
       obj = new FBXLoader().parse(buf, '');
     } else throw new Error('Unsupported file type .' + ext + ' (use .glb, .gltf, .obj or .fbx)');
+    obj.traverse((c) => {                                  // imported meshes often have flipped normals or missing ones: light both sides, fix the shading
+      if (!c.isMesh) return;
+      if (c.geometry && !c.geometry.attributes.normal) c.geometry.computeVertexNormals();
+      for (const m of [].concat(c.material)) { if (!m) continue; m.side = THREE.DoubleSide; if (m.roughness !== undefined) m.roughness = Math.max(m.roughness, 0.35); if (m.metalness !== undefined) m.metalness = Math.min(m.metalness, 0.85); m.wireframe = st.wire; if (m.emissiveIntensity > 1) m.emissiveIntensity = 1; }
+    });
     const g = new THREE.Group(); g.add(obj); return g;
   }
   async function addModel(buf, ext, name, saved, mid) {
