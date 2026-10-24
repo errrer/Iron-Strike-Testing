@@ -10,7 +10,7 @@ import * as THREE from 'three';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.8.9';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.9.11';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
