@@ -554,9 +554,27 @@ function addAttachments(g, w) {
   }
 }
 
+// Muzzle devices and the extended magazine
+function addMuzzleAttachments(g, w) {
+  const u = g.userData, mask = w.attMask || 0, b = new B(); b.g = g;
+  if (!u.muzzle) return;
+  const mz = u.muzzle.clone();
+  const tube = (r, len, m) => { b.tube(r, len, mz.x, mz.y, mz.z - len / 2 + 0.004, m); mz.z -= len - 0.004; };
+  if (mask & 64) tube(0.0085, 0.1, M.steel());                                       // long barrel extension
+  if (mask & 32) { tube(0.0135, 0.035, M.blued()); for (const s of [-1, 1]) b.box(0.003, 0.018, 0.02, s * 0.0135, mz.y, mz.z + 0.014, M.black()); }   // compensator with side ports
+  if (mask & 8) { tube(0.0165, 0.15, M.black()); b.tube(0.018, 0.012, mz.x, mz.y, mz.z + 0.075, M.steel()); }   // suppressor body + end cap
+  u.muzzle = mz;
+  if (mask & 16) g.traverse((o) => {
+    if (!o.userData || !o.userData.mag || !o.isMesh) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    const h = (o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y) * o.scale.y;
+    o.scale.y *= 1.4; o.position.y -= h * 0.2;
+  });
+}
+
 export function buildGun(w) {
   const data = w.asset && MODEL_DATA[w.asset.id];
   const g = data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || buildSmg)();
-  if (w.attMask) addAttachments(g, w);
+  if (w.attMask) { addAttachments(g, w); addMuzzleAttachments(g, w); }
   return g;
 }

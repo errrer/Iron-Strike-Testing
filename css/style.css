@@ -207,7 +207,6 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 .xhbox input[type=color] { width: 30px; height: 24px; padding: 0; border: 1px solid var(--line); background: none; border-radius: 4px; cursor: pointer; }
 .xhbox .chk { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; cursor: pointer; }
 @media (max-width: 700px) { .xhbox { grid-template-columns: 1fr; } }
-#stance { position: absolute; right: 26px; bottom: 120px; padding: 3px 10px; border: 1px solid var(--accent); border-radius: 4px; color: var(--accent2); letter-spacing: 3px; font-size: 11px; font-weight: 800; background: rgba(8, 12, 16, 0.6); }
 
 .settings .xhbox { grid-template-columns: 1fr; }
 .settings .xhbox .xhprev { height: 90px; }

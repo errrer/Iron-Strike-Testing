@@ -22,7 +22,7 @@ export class HUD {
   constructor() {
     this.el = {};
     for (const id of ['hud', 'sbL', 'sbR', 'timer', 'radar', 'killfeed', 'crosshair', 'hitmarker', 'dmgind', 'vignette', 'hpfill', 'hptxt',
-      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'stance', 'sbhint', 'sbPanel', 'xppop', 'objhud', 'streakbar', 'zmhud', 'zmRound', 'zmPts', 'zmPerks', 'zmPU', 'zmPrompt']) this.el[id] = $(id);
+      'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'sbhint', 'sbPanel', 'xppop', 'objhud', 'streakbar', 'zmhud', 'zmRound', 'zmPts', 'zmPerks', 'zmPU', 'zmPrompt']) this.el[id] = $(id);
     this.rctx = this.el.radar.getContext('2d');
     this.cache = {};
     this.msgT = 0; this.sbT = 0;
@@ -193,7 +193,6 @@ export class HUD {
     e.scoreboard.classList.toggle('hidden', !game.showScore);
     if (game.showScore && this.sbT <= 0) { this.sbT = 0.25; this.buildTable(game, e.scoreboard.querySelector('table')); }
     if (game.net) this.set('netinfo', game.net.role === 'host' ? `HOST - ${game.actors.length} players` : `PING ${Math.round(game.net.ping)} ms - ${game.actors.length} players`);
-    this.el.stance.classList.toggle('hidden', !(p.tacOn && p.alive));
     if (game.streaks && !game.net) this.set('streakbar', game.streaks.html, true); else this.set('streakbar', '', true);
     const oh = game.obj ? game.obj.hudHtml : ''; e.objhud.classList.toggle('hidden', !oh); this.set('objhud', oh, true);
     this.drawRadar(game);

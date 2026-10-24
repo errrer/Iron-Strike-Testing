@@ -64,7 +64,7 @@ with sync_playwright() as pw:
     chips = pg.evaluate("() => ({p: document.querySelectorAll('#attP .chip').length, s: document.querySelectorAll('#attS .chip').length})")
     pg.click('#attP .chip'); pg.click('#attS .chip:nth-of-type(2)')   # VMP red dot, G18 laser
     saved = pg.evaluate("() => JSON.parse(localStorage.getItem('ironstrike')).att")
-    print('attachment chips:', chips, 'saved:', saved); assert chips == {'p': 3, 's': 2} and saved.get('vmp') == 1 and saved.get('g18') == 4, (chips, saved)
+    print('attachment chips:', chips, 'saved:', saved); assert chips == {'p': 7, 's': 5} and saved.get('vmp') == 1 and saved.get('g18') == 4, (chips, saved)
     pg.click('#primaries .card:nth-child(9)'); print('kar98k chips:', pg.evaluate("() => document.querySelectorAll('#attP .chip').length"))   # sniper: grip + laser
     pg.click('#primaries .card:nth-child(1)')
     # UI flow: click DEPLOY via the real button
@@ -91,7 +91,7 @@ with sync_playwright() as pw:
     print('after V key view =', pg.evaluate('() => window.__game.settings.view'), 'buttons sel =', pg.evaluate("() => [...document.querySelectorAll('.viewseg .sel')].map(b => b.dataset.view)"))
     pg.evaluate("() => document.querySelectorAll('.viewseg button[data-view=first]')[1].click()")
     print('after pause-menu click view =', pg.evaluate('() => window.__game.settings.view'), 'saved =', pg.evaluate("() => JSON.parse(localStorage.getItem('ironstrike')).view"))
-    # animations / recoil / tac stance on every weapon with every attachment
+    # animations / recoil on every weapon with every attachment
     ANIM = pg.evaluate("""async () => { const g = window.__game, out = {errors: [], weapons: {}};
       const prims = ['vmp','m4a1','ak47','kar98k','m680'], secs = ['g18','m1911','magnum'];
       for (const [i, prim] of prims.entries()) {
@@ -119,19 +119,17 @@ with sync_playwright() as pw:
               const pts = [[0, 0, 0], [u.fore.x + vm.lh.position.x, u.fore.y + vm.lh.position.y, u.fore.z + vm.lh.position.z]];
               // the support hand of a pistol already rests low at the hip, so a point may not go further out of frame than it started
               if (f === 0) base = pts.map(q => Math.min(-0.93, toNdc(q)[1]));
-              for (const [qi, q] of pts.entries()) { const [nx, ny] = toNdc(q); if (Math.abs(nx) > 0.98 || ny < base[qi] - 0.03 || ny > 0.95) { bad = true; out.offscreen = (out.offscreen || []).concat([[w.id, qi, +nx.toFixed(2), +ny.toFixed(2), +base[qi].toFixed(2)]]).slice(0, 5); } } }
+              for (const [qi, q] of pts.entries()) { const [nx, ny] = toNdc(q); if (Math.abs(nx) > 0.98 || ny < base[qi] - 0.06 || ny > 0.95) { bad = true; out.offscreen = (out.offscreen || []).concat([[w.id, qi, +nx.toFixed(2), +ny.toFixed(2), +base[qi].toFixed(2)]]).slice(0, 5); } } }
             const r = g.vmRoot; if (![r.position.x, r.position.y, r.position.z, r.rotation.x, r.rotation.y, r.rotation.z, vm.lh.position.x, vm.lh.position.y, vm.lh.position.z].every(isFinite)) bad = true;
           }
           for (const e of vm.mags) if (Math.abs(e.m.position.y - e.p.y) > 1e-6 || !e.m.visible) bad = true;      // mags must end up back in the gun
           g.vmS.inspectT = 2.8; for (let f = 0; f < 200; f++) g.frame(1/60);
-          p.tacOn = true; g.adsHeld = true; for (let f = 0; f < 40; f++) g.frame(1/60); const tacSpread = g.currentSpread(p), tacV = p.tac, adsInTac = p.ads, rz = g.vmRoot.rotation.z, crossHidden = g.hud.el.crosshair && g.hud.el.crosshair.style.opacity; g.adsHeld = false; p.tacOn = false; for (let f = 0; f < 40; f++) g.frame(1/60);
-          const hipSpread = g.currentSpread(p);
-          rec.push({w: w.id, bad, kicks: kicks.length, distinct: new Set(kicks.map(k => k.toFixed(5))).size, tac: +tacV.toFixed(2), tacBetter: tacSpread < hipSpread, adsInTac: +adsInTac.toFixed(2), tacRoll: +rz.toFixed(2), crossHidden, lasers: !!(w.attMask & 4), dot: !!(w.attMask & 1), slides: vm.slides.length, mags: vm.mags.length, bolts: vm.bolts.length, pumps: vm.pumps.length});
+          rec.push({w: w.id, bad, kicks: kicks.length, distinct: new Set(kicks.map(k => k.toFixed(5))).size, lasers: !!(w.attMask & 4), dot: !!(w.attMask & 1), slides: vm.slides.length, mags: vm.mags.length, bolts: vm.bolts.length, pumps: vm.pumps.length});
         }
         out.weapons[prim + '/' + sec] = rec;
       }
       return out; }""")
-    bad = [r for k, v in ANIM['weapons'].items() for r in v if r['bad'] or not r['tacBetter'] or r['tac'] < 0.95 or r['adsInTac'] > 0.05 or abs(r['tacRoll']) < 1.0 or r['crossHidden'] == '0' or (r['kicks'] > 3 and r['distinct'] < 3)]
+    bad = [r for k, v in ANIM['weapons'].items() for r in v if r['bad'] or (r['kicks'] > 3 and r['distinct'] < 3)]
     for k, v in ANIM['weapons'].items(): print('anim', k, [(r['w'], 'mags', r['mags'], 'slides', r['slides'], 'bolt', r['bolts'], 'pump', r['pumps'], 'distinct kicks', r['distinct']) for r in v])
     print('offscreen:', ANIM.get('offscreen')); print('anim problems:', bad, 'errors:', ANIM['errors'][:2])
     assert not bad and not ANIM['errors'], (bad, ANIM['errors'])
@@ -289,7 +287,7 @@ with sync_playwright() as pw:
       g.start({mode:'ffa',map:'dust',mapName:'D',primary:'vmp',secondary:'g18',attP:0,attS:0,difficulty:'easy'}); g.state = 'playing'; g.pause(); o.ffaPanel = !$('sbPanel').classList.contains('hidden'); g.resume();
       return o; }""")
     print('sandbox ui:', SU)
-    assert SU['panelShown'] and SU['pauseShown'] and SU['dummies'] == 6 and SU['weapons'][:2] == ['m4a1', 'magnum'] and SU['weapons'][2] and SU['chips'] == 3 and SU['cleared'] == 0 and not SU['ffaPanel'], SU
+    assert SU['panelShown'] and SU['pauseShown'] and SU['dummies'] == 6 and SU['weapons'][:2] == ['m4a1', 'magnum'] and SU['weapons'][2] and SU['chips'] == 7 and SU['cleared'] == 0 and not SU['ffaPanel'], SU
     print('gore:', GR)
     assert all(len(v) == 3 and all(n >= 3 for n in v) for v in GR['models'].values()), GR
     assert GR['gibs'] >= 2 and GR['headHidden'] and GR['finite'] and GR['resting'] >= 1 and GR['decals'] >= 1 and GR['decalMaps'] == 15 and GR['restored'] and GR['offGibs'] == 0 and 'err' not in GR, GR

@@ -101,7 +101,6 @@ export class Game {
       if (e.code === 'KeyQ') this.adsKey = true;
       if (this.streaks && !this.net) { const s = STREAKS.find((x) => x.code === e.code); if (s) this.streaks.use(s.id); }
       if (e.code === 'KeyV') this.toggleView();
-      if (e.code === 'KeyZ' && p.alive) { p.tacOn = !p.tacOn; this.hud.center(p.tacOn ? 'TAC STANCE ON' : 'TAC STANCE OFF', 0.7); }
       if (e.code === 'KeyB' && this.mode.sandbox) this.sandboxSpawn(e.shiftKey ? 5 : 1);
       if (e.code === 'KeyN' && this.mode.sandbox) this.sandboxClear();
       if (e.code === 'KeyF' && this.zm) this.zm.localUse(true);
@@ -254,7 +253,7 @@ export class Game {
       hp: 100, alive: true, kills: 0, deaths: 0, streak: 0, weapons, weapon: weapons[0], cur: 0,
       ammo: weapons.map((w) => ({ mag: w.mag, res: w.reserve })), fireCd: 0, reloading: false, reloadT: 0, switchT: 0,
       lastShot: -99, lastHurt: -99, respawnT: 0, protT: 0, deathT: 0, stepT: 0, heat: 0, recoilDebt: 0, walkPhase: 0, crouch: false,
-      ads: 0, mesh: null, brain: null, recoilKick: 0, tac: 0, tacOn: false, recoilBias: 0, slideT: 0, slideCd: 0, slideSp: 0, slideDx: 0, slideDz: 0, mantle: null, mantleCd: 0,
+      ads: 0, mesh: null, brain: null, recoilKick: 0, recoilBias: 0, slideT: 0, slideCd: 0, slideSp: 0, slideDx: 0, slideDz: 0, mantle: null, mantleCd: 0,
     };
   }
 
@@ -288,7 +287,7 @@ export class Game {
     a.yaw = yaw; a.pitch = 0; a.ibuf = [];
     a.hp = 100; a.alive = true; a.reloading = false; a.reloadT = 0; a.switchT = 0.4; a.fireCd = 0.3; a.cur = 0; a.weapon = a.weapons[0];
     a.ammo = a.weapons.map((w) => ({ mag: w.mag, res: w.reserve })); a.crouch = false; a.slideT = 0; a.mantle = null; a.h = 1.8; a.eye = 1.65; a.heat = 0; a.recoilDebt = 0; a.ads = 0;
-    a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99; a.tac = 0; a.tacOn = false; a.recoilBias = 0;
+    a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99; a.recoilBias = 0;
     if (a.brain) a.brain.reset();
     if (a.mesh) { if (a.rag) { a.rag = null; Ragdoll.reset(a.mesh); } a.flinch = null; a.mesh.root.visible = !a.isPlayer; a.mesh.body.rotation.set(0, 0, 0); this.setActorGun(a); }
     if (a.isPlayer) { this.setPlayerVm(); this.hud.onRespawn(); if (!first) this.sound.spawn(); }
@@ -1118,7 +1117,7 @@ export class Game {
     const down = !!p.down;
     const ads = (this.adsHeld || this.adsKey) && !frozen && p.switchT <= 0 && !p.reloading && !down;
     const sprint = !!k.ShiftLeft && fwd > 0 && !ads && !wantCrouch && !this.fireHeld && !down;
-    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? (p.tacOn ? 0.86 : 0.62) : 1) * ((p.perks & 16) ? 1.12 : 1);
+    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? 0.62 : 1) * ((p.perks & 16) ? 1.12 : 1);
     if (down) speed = 1.5;
     const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
     let wx = fx * fwd + rx * str, wz = fz * fwd + rz * str;
@@ -1151,9 +1150,7 @@ export class Game {
     }
     p.eye += ((down ? 0.6 : p.slideT > 0 ? 0.9 : p.crouch ? 1.12 : 1.65) - p.eye) * Math.min(1, dt * 12);
     { const S = this.vmS; S.slk += ((p.slideT > 0 ? 1 : 0) - S.slk) * Math.min(1, dt * 10); S.mvk += ((p.mantle ? Math.sin(Math.PI * Math.min(1, p.mantle.t / p.mantle.dur)) : 0) - S.mvk) * Math.min(1, dt * 16); }
-    // with tac stance on, the aim button turns the gun on its side (p.tac) instead of looking down the sights (p.ads)
-    p.ads += ((ads && !p.tacOn ? 1 : 0) - p.ads) * Math.min(1, dt * 11);
-    p.tac += ((ads && p.tacOn ? 1 : 0) - p.tac) * Math.min(1, dt * 10);
+    p.ads += ((ads ? 1 : 0) - p.ads) * Math.min(1, dt * 11);
     p.sprint = sprint;
     p.speed2 = Math.hypot(p.vel.x, p.vel.z);
 
@@ -1174,13 +1171,11 @@ export class Game {
     this.fireEdge = false;
   }
 
-  // current bullet spread (radians): hip -> tac stance -> ADS blend, then movement / heat / air penalties
+  // current bullet spread (radians): hip -> ADS blend, then movement / heat / air penalties
   currentSpread(p) {
     const w = p.weapon, moveF = clamp((p.speed2 || 0) / 6, 0, 1);
-    const laser = (w.attMask & ATT_LASER) ? 1 : 0;           // tac stance is aimed with the laser: much tighter with one fitted
-    const tacS = lerp(w.spread, Math.min(w.adsSpread, w.spread * 0.9), laser ? 0.85 : 0.5);
-    let spread = lerp(lerp(w.spread, tacS, p.tac), w.adsSpread, p.ads);
-    spread *= 1 + moveF * 0.9 * (1 - p.ads * 0.5) * (1 - p.tac * 0.5) + (p.onGround ? 0 : 2) + p.heat * 0.7;
+    let spread = lerp(w.spread, w.adsSpread, p.ads);
+    spread *= 1 + moveF * 0.9 * (1 - p.ads * 0.5) + (p.onGround ? 0 : 2) + p.heat * 0.7;
     if (p.crouch) spread *= 0.75;
     return spread;
   }
@@ -1199,7 +1194,7 @@ export class Game {
     p.heat = Math.min(1, p.heat + 0.12);
     // every shot rolls its own recoil: random climb (sometimes a big jolt), and a horizontal drift that random-walks through a burst
     const big = Math.random() < 0.12 ? 1.5 : 1;
-    const kick = w.recoil * (0.5 + Math.random() * 1.0) * big * (1 - p.ads * 0.3) * (1 - p.tac * 0.1);
+    const kick = w.recoil * (0.5 + Math.random() * 1.0) * big * (1 - p.ads * 0.3);
     p.recoilBias = clamp(p.recoilBias + (Math.random() - 0.5) * 1.1, -1.3, 1.3);
     const yawKick = ((Math.random() - 0.5) * 1.2 + p.recoilBias * 0.3) * w.recoilYaw * 0.45 * (1 - p.ads * 0.5);   // horizontal kick kept small: it moves the real aim
     p.pitch = clamp(p.pitch + kick, -1.5, 1.5); p.recoilDebt += kick * 0.85;
@@ -1271,7 +1266,7 @@ export class Game {
     this.updateAimSway(p, dt);
     cam.rotation.set(p.pitch + this.swY - S.mvk * 0.12 + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + this.swX + (Math.random() - 0.5) * 0.004 * S.shake, roll + S.slk * 0.045 + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
     if (p.mesh) p.mesh.root.visible = this.tp && p.mesh.root.visible;
-    const zoom = lerp(lerp(1, 1.12, p.tac), this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
+    const zoom = lerp(1, this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
     const fov = this.settings.fov / zoom;
     if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
     this.world.update(dt, cam.position);
@@ -1323,7 +1318,7 @@ export class Game {
     this.vmRoot.visible = p.alive && !scoped && !this.tp;
     this.hud.setScope(scoped);
     const clampf = clamp, sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
-    const a = p.ads, tac = p.tac, t = this.time, sp = p.speed2 || 0;
+    const a = p.ads, t = this.time, sp = p.speed2 || 0;
     const am = p.ammo[p.cur];
     // --- smoothed inputs --------------------------------------------------------------------------
     this.vmKick = Math.max(0, (this.vmKick || 0) - dt * 9);
@@ -1340,15 +1335,15 @@ export class Game {
     if (S.inspectT > 0) S.inspectT = Math.max(0, S.inspectT - dt);
     if (p.switchT > 0 || !p.alive) S.inspectT = 0;
 
-    // --- base pose: hip -> tac stance -> ADS ------------------------------------------------------
-    const hip = [0.17, -0.19, -0.45], tacP = [0.045, -0.15, -0.4], adsP = [0, -vm.sightY, -0.38 + (w.cls === 'pistol' ? 0.06 : 0)];
-    let x = lerp(lerp(hip[0], tacP[0], tac), adsP[0], a), y = lerp(lerp(hip[1], tacP[1], tac), adsP[1], a), z = lerp(lerp(hip[2], tacP[2], tac), adsP[2], a);
-    let rx = 0.05 * tac, ry = 0.08 * tac, rz = -1.2 * tac;               // tac stance: gun rolled onto its side, laser does the aiming
-    const free = 1 - a * 0.85 - tac * 0.5;                                   // motion is damped while aiming
+    // --- base pose: hip -> ADS ------------------------------------------------------
+    const hip = [0.17, -0.19, -0.45], adsP = [0, -vm.sightY, -0.38 + (w.cls === 'pistol' ? 0.06 : 0)];
+    let x = lerp(hip[0], adsP[0], a), y = lerp(hip[1], adsP[1], a), z = lerp(hip[2], adsP[2], a);
+    let rx = 0, ry = 0, rz = 0;
+    const free = 1 - a * 0.85;                                   // motion is damped while aiming
 
     // --- walk / idle -----------------------------------------------------------------------------
     if (p.onGround && sp > 0.5 && !p.sprint) {
-      const f = Math.min(1, sp / 5) * free * (1 - tac * 0.4), ph = t * 8;
+      const f = Math.min(1, sp / 5) * free , ph = t * 8;
       x += Math.sin(ph) * 0.007 * f; y += Math.abs(Math.cos(ph)) * 0.009 * f - 0.002 * f; rz += Math.sin(ph) * 0.012 * f; ry += Math.sin(ph * 0.5) * 0.01 * f;
     } else { y += Math.sin(t * 1.6) * 0.0015; x += Math.sin(t * 0.9) * 0.0008; }
     if (!p.onGround) { y += clamp(p.vel.y * 0.004, -0.03, 0.03) * free; rx += clamp(-p.vel.y * 0.006, -0.06, 0.06) * free; }

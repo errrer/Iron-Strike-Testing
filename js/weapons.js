@@ -133,8 +133,16 @@ export const ATT = {
   dot: { bit: 1, name: 'Red Dot Sight', desc: 'Clear sight picture, aim down the dot. Tighter aimed fire.', stats: 'ADS accuracy +20%' },
   grip: { bit: 2, name: 'Vertical Grip', desc: 'Steadies the weapon. Less recoil and tighter hip fire.', stats: 'Recoil -20%, hip spread -10%' },
   laser: { bit: 4, name: 'Laser Sight', desc: 'Projects a red dot where you point. Much tighter hip fire.', stats: 'Hip spread -30%, ADS +5%' },
+  supp: { bit: 8, name: 'Suppressor', desc: 'Muffles the shot and calms the muzzle climb, but robs a little punch and range.', stats: 'Quiet, recoil -10%, damage -6%, range -8%' },
+  xmag: { bit: 16, name: 'Extended Mag', desc: 'A longer magazine. More shots before you reload, a slower reload.', stats: 'Mag +50%, reload +15%' },
+  comp: { bit: 32, name: 'Compensator', desc: 'Vents the gas up and out to keep the muzzle down.', stats: 'Recoil -15%, sideways kick -25%' },
+  lbar: { bit: 64, name: 'Long Barrel', desc: 'Longer barrel for more range and a tighter aimed shot. Heavier to swing.', stats: 'Range +20%, ADS spread -10%, speed -3%' },
 };
-export const ATT_DOT = 1, ATT_GRIP = 2, ATT_LASER = 4;
+export const ATT_DOT = 1, ATT_GRIP = 2, ATT_LASER = 4, ATT_SUPP = 8, ATT_XMAG = 16, ATT_COMP = 32, ATT_LBAR = 64;
+
+// every gun gets the muzzle / magazine attachments that suit its class
+const EXTRA = { pistol: ['supp', 'xmag', 'comp'], smg: ['supp', 'xmag', 'comp', 'lbar'], ar: ['supp', 'xmag', 'comp', 'lbar'], shotgun: ['comp', 'lbar'], sniper: ['supp', 'comp', 'lbar'] };
+for (const w of Object.values(WEAPONS)) if (w.attach && w.cls !== 'melee') w.attach = [...w.attach, ...(EXTRA[w.cls] || []).filter((k) => !w.attach.includes(k))];
 export const allowedMask = (w) => (w.attach || []).reduce((m, k) => m | ATT[k].bit, 0);
 export const cleanMask = (w, mask) => (mask | 0) & allowedMask(w);
 
@@ -146,5 +154,9 @@ export function withAtt(w, mask) {
   if (mask & ATT_DOT) o.adsSpread *= 0.8;
   if (mask & ATT_GRIP) { o.recoil *= 0.8; o.recoilYaw *= 0.8; o.spread *= 0.9; }
   if (mask & ATT_LASER) { o.spread *= 0.7; o.adsSpread *= 0.95; }
+  if (mask & ATT_SUPP) { o.recoil *= 0.9; o.dmg = Math.round(o.dmg * 0.94); o.range = [o.range[0] * 0.92, o.range[1] * 0.92]; }
+  if (mask & ATT_XMAG) { o.mag = Math.round(o.mag * 1.5); o.reload *= 1.15; }
+  if (mask & ATT_COMP) { o.recoil *= 0.85; o.recoilYaw *= 0.75; }
+  if (mask & ATT_LBAR) { o.range = [o.range[0] * 1.2, o.range[1] * 1.2]; o.adsSpread *= 0.9; o.moveMul *= 0.97; }
   return o;
 }
