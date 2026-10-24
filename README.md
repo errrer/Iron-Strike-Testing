@@ -262,3 +262,7 @@ Removed the imported map-prop models. Containers (corrugated, locking bars, corn
 ## V0.8.2 - Super 46
 - New SMG **Super 46** (unlocks at level 4, in the zombies Mystery Box, bots use it): built from your Blender model. The `.blend` (Blender 5.2, zstd compressed) was read directly, boxes/cylinders triangulated with flat shading, materials -> colours (tan receiver, black polymer, grey rails), merged by colour into a 14-part `assets/models/super46.json` (~150 KB). Its own iron sights are tagged so a red dot hides them; the magazine is a separate part for the reload animation.
 - Stats: 20 dmg, 1100 rpm, 33-round mag, low recoil, short range (9-28 m).
+
+
+## V0.8.7-V0.8.9 / V0.9.0
+- The imported Blender Super 46 was dropped (messy mesh); the Super 46 is now a hand-built procedural model (`buildSuper46` in `js/gunmodels.js`): slab receiver, vented shroud, top rail with teeth, angled mag, folding triangle stock, iron sights. Same stats and attachments as before. `assets/models/super46.json` removed.
