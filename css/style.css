@@ -323,3 +323,55 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 .mmeditor .btn.sel .kbd { color: #1a0e00; border-color: rgba(0,0,0,.4); }
 .mmeditor .mmtop .kbd { float: none; margin-left: 10px; }
 .mmeditor .mmside .btn { overflow: hidden; }
+
+/* ================= touch / mobile ================= */
+html, body { overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+#touch { position: fixed; inset: 0; z-index: 9; pointer-events: none; display: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+#touch.on { display: block; }
+#touch > * { pointer-events: auto; touch-action: none; }
+#tLook { position: absolute; top: 0; bottom: 0; right: 0; width: 62%; }
+#tStickZone { position: absolute; left: 0; bottom: 0; width: 42%; height: 72%; }
+#tStick { position: absolute; left: calc(28px + env(safe-area-inset-left)); bottom: 36px; width: 116px; height: 116px; margin: 0; border-radius: 50%; border: 2px solid rgba(255,255,255,.28); background: rgba(255,255,255,.06); pointer-events: none; transform: translate(0, 0); }
+#tStick.live { bottom: auto; transform: translate(-50%, -50%); border-color: rgba(255,255,255,.5); }
+#tKnob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255,255,255,.32); border: 2px solid rgba(255,255,255,.55); }
+.tb { position: absolute; width: 64px; height: 64px; padding: 0; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: rgba(12,16,22,.45); color: #fff; font: 800 10px/1 'Bahnschrift','Segoe UI',Arial,sans-serif; letter-spacing: 1px; display: grid; place-items: center; -webkit-appearance: none; appearance: none; }
+.tb::before { content: attr(data-l); }
+.tb.down { background: rgba(255,255,255,.35); transform: scale(.94); }
+.tb.active { background: rgba(255,138,31,.55); border-color: #ffb066; }
+.tb.small { width: 40px; height: 40px; font-size: 9px; }
+#tFire { right: calc(26px + env(safe-area-inset-right)); bottom: 30px; width: 96px; height: 96px; border-color: #ff7a4a; background: rgba(255,90,40,.28); font-size: 13px; }
+#tAds { right: 140px; bottom: 112px; }
+#tJump { right: calc(34px + env(safe-area-inset-right)); bottom: 144px; }
+#tCrouch { right: 138px; bottom: 30px; width: 58px; height: 58px; }
+#tReload { right: 214px; bottom: 54px; width: 56px; height: 56px; }
+#tSwap { right: 206px; bottom: 126px; width: 52px; height: 52px; }
+#tUse { right: 214px; bottom: 196px; border-color: #7dffa0; }
+#tStreaks { position: absolute; right: 112px; top: 56px; display: flex; gap: 6px; pointer-events: none; }
+#tStreaks .tb { position: static; pointer-events: auto; opacity: .45; }
+#tStreaks .tb.ready { opacity: 1; border-color: #ffd45e; }
+#tScore { top: 8px; left: 172px; } #tPause { top: 8px; left: 220px; }
+#tRotate { position: fixed; inset: 0; z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: rgba(6,9,13,.96); color: #fff; font-size: 22px; letter-spacing: 3px; text-transform: uppercase; }
+#tRotate span { font-size: 12px; color: var(--dim); letter-spacing: 2px; }
+#tRotate.on { display: flex; }
+/* HUD rearranged around the thumbs */
+body.touch #radar { width: 100px; height: 100px; top: 8px; left: 8px; }
+body.touch #health { left: 12px; bottom: auto; top: 114px; transform: scale(.8); transform-origin: left top; }
+body.touch #ammo { right: auto; left: 50%; bottom: 6px; transform: translateX(-50%) scale(.85); transform-origin: bottom center; }
+body.touch #streakbar { left: 12px; bottom: auto; top: 160px; font-size: 11px; }
+body.touch #scorebar span { padding: 4px 10px; font-size: 13px; min-width: 70px; }
+body.touch #modeTag, body.touch #netinfo, body.touch #sbhint { display: none; }
+body.touch #killfeed { top: 8px; right: 10px; font-size: 12px; }
+body.touch #msg { font-size: 28px; letter-spacing: 4px; }
+body.touch #objhud { top: 38px; transform: translateX(-50%) scale(.8); }
+/* menus on small screens */
+@media (max-width: 900px), (max-height: 520px) {
+  .overlay { align-items: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .panel { margin: 8px auto; padding: 16px 14px; max-height: none; }
+  .landing-inner { padding: 12px; transform: none; }
+  .logo.huge { font-size: 42px; } .tag { margin-bottom: 8px; }
+  .lcards { gap: 10px; }
+  .lcard { padding: 14px; }
+  .lcard p { font-size: 12px; }
+  .cards { gap: 8px; }
+  .btn.big { padding: 12px 30px; font-size: 16px; }
+}

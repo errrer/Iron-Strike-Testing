@@ -73,6 +73,7 @@ export class Game {
 
     this.state = 'menu';
     this.keys = {}; this.fireHeld = false; this.fireEdge = false; this.adsHeld = false; this.showScore = false;
+    this.joy = { x: 0, y: 0 }; this.touchMode = false;          // touch controls (js/touch.js) drive these
     this.mouseDX = 0; this.swayX = 0; this.swayY = 0;
     this.time = 0; this.matchT = 0;
     this.actors = []; this.player = null; this.world = null; this.scene = null;
@@ -143,7 +144,15 @@ export class Game {
     this.vmCam.aspect = w / h; this.vmCam.updateProjectionMatrix();
   }
 
-  lock() { try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
+  // turn the view by a pointer / finger movement (px); used by the mouse and by the touch look pad
+  look(dx, dy, k) {
+    const p = this.player; if (!p || !p.alive || this.state !== 'playing') return;
+    const s = k * this.settings.sens * (this.camera.fov / this.settings.fov);
+    p.yaw -= dx * s; p.pitch = clamp(p.pitch - dy * s, -1.5, 1.5);
+    this.mouseDX += dx; this.mouseDY = (this.mouseDY || 0) + dy;
+  }
+
+  lock() { if (this.touchMode) return; try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
 
   pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; this.hud.showPause(true); if (this.onPause) this.onPause(); }
   resume() { if (this.state !== 'paused') return; this.state = 'playing'; this.hud.showPause(false); this.lock(); }
@@ -1120,13 +1129,15 @@ export class Game {
     }
     p.protT = Math.max(0, p.protT - dt);
     const frozen = this.matchT < 0;
-    const fwd = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), str = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
+    const jm = Math.hypot(this.joy.x, this.joy.y), jOn = jm > 0.12;                                // analog stick (touch)
+    const fwd = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0) + (jOn ? -this.joy.y : 0), str = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0) + (jOn ? this.joy.x : 0);
     const w = p.weapon;
     const wantCrouch = !!(k.KeyC || k.ControlLeft);
     const down = !!p.down;
     const ads = (this.adsHeld || this.adsKey) && !frozen && p.switchT <= 0 && !p.reloading && !down;
     const sprint = !!k.ShiftLeft && fwd > 0 && !ads && !wantCrouch && !this.fireHeld && !down;
     let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? 0.62 : 1) * ((p.perks & 16) ? 1.12 : 1);
+    if (jOn && !sprint) speed *= Math.max(0.5, Math.min(1, jm * 1.15));      // a light push walks, a full push runs
     if (down) speed = 1.5;
     const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
     let wx = fx * fwd + rx * str, wz = fz * fwd + rz * str;

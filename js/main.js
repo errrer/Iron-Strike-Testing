@@ -9,6 +9,7 @@ import { loadProps } from './props.js';
 import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js';
 import { rankName, UNLOCK } from './progress.js';
 import { initMapMaker } from './mapmaker.js';
+import { initTouch } from './touch.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -204,6 +205,7 @@ Promise.all([loadModels(WEAPONS), loadProps().catch(() => [])]).then(([ids]) => 
 const screens = ['landing', 'menu', 'zmenu', 'mmaker', 'mdmaker'];
 function showScreen(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
 initMapMaker($, showScreen);
+initTouch(game, $);
 $('lMP').addEventListener('click', () => showScreen('menu'));
 $('lZM').addEventListener('click', () => { $('zmName').value = cfg.name; zmStatus(''); showScreen('zmenu'); });
 $('btnLandBack').addEventListener('click', () => showScreen('landing'));
