@@ -1407,12 +1407,12 @@ export class Game {
         const pouch = Math.sin(Math.PI * clamp((ph - 0.3) / 0.2, 0, 1));            // hand goes down to fetch a fresh mag
         handDy = (vm.pistol ? -0.012 : -0.02) * pouch; handDz = 0.02 * pouch;
         if (vm.mags.length) {
-          const drop = clamp((ph - 0.16) / 0.18, 0, 1), rise = clamp((ph - 0.46) / 0.2, 0, 1);
+          const drop = clamp((ph - 0.16) / 0.14, 0, 1), rise = clamp((ph - 0.46) / 0.16, 0, 1);
           for (const e of vm.mags) {
             if (ph < 0.16) continue;
-            if (ph < 0.34) { e.m.position.y = e.p.y - drop * drop * 0.12; e.m.position.z = e.p.z + drop * 0.02; }
+            if (ph < 0.3) { e.m.position.y = e.p.y - drop * drop * 0.34; e.m.position.z = e.p.z + drop * 0.03; }   // the old mag drops clean out of the well
             else if (ph < 0.46) e.m.visible = false;
-            else { const k = 1 - (1 - rise) * (1 - rise); e.m.position.y = e.p.y - (1 - k) * 0.08; }
+            else { const k = 1 - (1 - rise) * (1 - rise); e.m.position.y = e.p.y - (1 - k) * 0.2; e.m.position.z = e.p.z + (1 - k) * 0.03; }   // the fresh one is pushed up into it
           }
         }
         if (ph > 0.64 && ph < 0.72) rk = Math.sin(Math.PI * (ph - 0.64) / 0.08) * 0.035;         // mag slap
