@@ -73,6 +73,7 @@ export function createEditor(root, onExit, opts = {}) {
 
   function material(color, vc, rough = 0.75, metal = 0.05) { const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, vertexColors: !!vc, side: THREE.DoubleSide }); m.wireframe = st.wire; return m; }
   function register(obj, meta) {
+    if (obj.rotation.order !== 'YXZ') obj.rotation.reorder('YXZ');     // yaw first: turning an object around Y no longer shows up as 180 / 180 on X and Z
     obj.userData.pid = ++counter; obj.userData.meta = meta; world.add(obj); pieces.push(obj); changed(); return obj;
   }
   function groundY(obj) { obj.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(obj); obj.position.y += -b.min.y; }
@@ -91,7 +92,7 @@ export function createEditor(root, onExit, opts = {}) {
     if (saved) apply(m, saved); else { const q = spawnPoint(); m.position.set(q[0], 0, q[2]); groundY(m); }
     return register(m, { kind: 'prop', prop: name, name: saved?.name || name });
   }
-  function apply(o, s) { o.position.fromArray(s.pos); o.rotation.set(...s.rot.map((d) => (d * Math.PI) / 180)); o.scale.fromArray(s.scl); }
+  function apply(o, s) { o.position.fromArray(s.pos); o.rotation.set(...s.rot.map((d) => (d * Math.PI) / 180), s.rotOrder || 'XYZ'); o.scale.fromArray(s.scl); }
   async function parseModel(buf, ext, name) {
     let obj;
     if (ext === 'glb' || ext === 'gltf') {
@@ -199,7 +200,7 @@ export function createEditor(root, onExit, opts = {}) {
   async function mirror(axis) {
     const o = current; if (!o) return; const R = new THREE.Matrix4().makeScale(axis === 0 ? -1 : 1, axis === 1 ? -1 : 1, axis === 2 ? -1 : 1);
     const s = describe(o), m = new THREE.Matrix4().makeRotationFromEuler(o.rotation); m.premultiply(R).multiply(R);
-    const e = new THREE.Euler().setFromRotationMatrix(m, 'XYZ'); s.rot = [e.x, e.y, e.z].map((x) => +((x * 180) / Math.PI).toFixed(3));
+    const e = new THREE.Euler().setFromRotationMatrix(m, 'YXZ'); s.rotOrder = 'YXZ'; s.rot = [e.x, e.y, e.z].map((x) => +((x * 180) / Math.PI).toFixed(3));
     s.pos[axis] = -s.pos[axis]; s.scl[axis] = -s.scl[axis]; s.name = s.name + ' mirror'; delete s.id;
     const n = await build(s); if (n) select(n);
   }
@@ -218,7 +219,7 @@ export function createEditor(root, onExit, opts = {}) {
   function describe(o) {
     const m = o.userData.meta, r = (x) => +x.toFixed(3);
     return { id: o.userData.pid, kind: m.kind, name: m.name, prop: m.prop, model: m.model, color: m.color, val: m.val || undefined, hidden: m.hidden || undefined, rough: m.rough, metal: m.metal, mesh: m.kind === 'mesh' ? m.mesh : undefined,
-      pos: o.position.toArray().map(r), rot: [o.rotation.x, o.rotation.y, o.rotation.z].map((x) => r((x * 180) / Math.PI)), scl: o.scale.toArray().map(r) };
+      rotOrder: o.rotation.order, pos: o.position.toArray().map(r), rot: [o.rotation.x, o.rotation.y, o.rotation.z].map((x) => r((x * 180) / Math.PI)), scl: o.scale.toArray().map(r) };
   }
   function exportData(withModels = true) {
     const used = new Set(pieces.filter((p) => p.userData.meta.kind === 'model').map((p) => p.userData.meta.model)), mo = {};
