@@ -8,11 +8,20 @@ import { PROPS, PROP_NAMES, loadProps } from './props.js';
 const KEY = 'ironstrike.mm3d';
 const NOTE = 'Not playable in game unless the developer adds it.';
 const PRIMS = { box: 'Box', cylinder: 'Cylinder', sphere: 'Sphere', plane: 'Floor plane', ramp: 'Ramp' };
+// Gameplay markers: invisible in a real map, they tell the dev where things go. `val` = optional cost / note shown in the properties panel.
+const MARKS = {
+  spawnA: { name: 'Team A spawn', color: '#4cc2ff', size: [1, 0.2, 1] }, spawnB: { name: 'Team B spawn', color: '#ff5a4c', size: [1, 0.2, 1] },
+  pstart: { name: 'Player start (zombies)', color: '#7dff7d', size: [1, 0.2, 1] }, zspawn: { name: 'Zombie spawn', color: '#b02020', size: [1, 0.2, 1] },
+  zwindow: { name: 'Barricade window', color: '#ff9a2e', size: [2.4, 1.6, 0.25] }, zbuy: { name: 'Wall buy', color: '#38c172', size: [1.4, 1, 0.2], val: 'Cost' },
+  zdoor: { name: 'Buyable door', color: '#c9a227', size: [2.4, 2.6, 0.3], val: 'Cost' }, zbox: { name: 'Mystery box', color: '#6a5acd', size: [1.4, 0.8, 0.7] },
+  zperk: { name: 'Perk machine', color: '#ec4899', size: [1, 2, 0.8], val: 'Perk' },
+};
 const b64 = (buf) => { let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
 const unb64 = (s) => { const t = atob(s), u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i); return u.buffer; };
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
 function primGeo(kind) {
+  if (MARKS[kind]) return new THREE.BoxGeometry(1, 1, 1);
   if (kind === 'cylinder') return new THREE.CylinderGeometry(0.5, 0.5, 1, 24);
   if (kind === 'sphere') return new THREE.SphereGeometry(0.5, 24, 16);
   if (kind === 'plane') { const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2); return g; }
@@ -26,7 +35,7 @@ function primGeo(kind) {
 export function createEditor(root, onExit) {
   root.innerHTML = '';
   // ---------- layout ----------
-  const top = el('div', 'mmtop'), left = el('div', 'mmside'), view = el('div', 'mmview'), right = el('div', 'mmside r'), foot = el('div', 'mmfoot', NOTE + '  |  Orbit: left drag - Pan: right drag - Zoom: wheel - Click to select - G / R / S = move / rotate / scale - Del = delete - Ctrl+D = duplicate');
+  const top = el('div', 'mmtop'), left = el('div', 'mmside'), view = el('div', 'mmview'), right = el('div', 'mmside r'), foot = el('div', 'mmfoot', NOTE + '  |  Orbit: left drag - Pan: right drag - Zoom: wheel - Click to select - G / R / S = move / rotate / scale - Del = delete - Ctrl+D = duplicate - Ctrl+Z / Ctrl+Y = undo / redo');
   root.append(top, left, view, right, foot);
   const canvas = el('canvas'); view.appendChild(canvas);
   const btn = (parent, text, fn, cls = '') => { const b = el('button', 'btn ' + cls, text); b.type = 'button'; b.addEventListener('click', fn); parent.appendChild(b); return b; };
@@ -47,7 +56,7 @@ export function createEditor(root, onExit) {
   tc.addEventListener('dragging-changed', (e) => { orbit.enabled = !e.value; });
 
   // ---------- state ----------
-  let pieces = [], models = {}, current = null, counter = 0, running = false, raf = 0, saveT = 0;
+  let hist = ['[]'], hpos = 0, restoring = false, pieces = [], models = {}, current = null, counter = 0, running = false, raf = 0, saveT = 0;
   const st = { snap: true, mode: 'translate' };
   const listBox = el('div', 'list'), props = el('div');
 
@@ -58,9 +67,11 @@ export function createEditor(root, onExit) {
   function groundY(obj) { obj.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(obj); obj.position.y += -b.min.y; }
   function spawnPoint() { const t = orbit.target; return [Math.round(t.x), 0, Math.round(t.z)]; }
   function addPrim(kind, saved) {
-    const m = new THREE.Mesh(primGeo(kind), material(saved?.color || '#8a96a3'));
-    if (saved) apply(m, saved); else { m.scale.set(kind === 'plane' ? 6 : 2, kind === 'plane' ? 1 : 2, kind === 'plane' ? 6 : 2); const p = spawnPoint(); m.position.set(p[0], 0, p[2]); groundY(m); }
-    return register(m, { kind, name: saved?.name || PRIMS[kind], color: saved?.color || '#8a96a3' });
+    const mk = MARKS[kind], col = saved?.color || mk?.color || '#8a96a3';
+    const m = new THREE.Mesh(primGeo(kind), material(col));
+    if (mk) { m.material.transparent = true; m.material.opacity = 0.7; }
+    if (saved) apply(m, saved); else { if (mk) m.scale.set(...mk.size); else m.scale.set(kind === 'plane' ? 6 : 2, kind === 'plane' ? 1 : 2, kind === 'plane' ? 6 : 2); const p = spawnPoint(); m.position.set(p[0], 0, p[2]); groundY(m); }
+    return register(m, { kind, name: saved?.name || mk?.name || PRIMS[kind], color: col, val: saved?.val || '' });
   }
   async function addProp(name, saved) {
     await loadProps().catch(() => {});
@@ -112,7 +123,7 @@ export function createEditor(root, onExit) {
   }
   function describe(o) {
     const m = o.userData.meta, r = (x) => +x.toFixed(3);
-    return { id: o.userData.pid, kind: m.kind, name: m.name, prop: m.prop, model: m.model, color: m.color,
+    return { id: o.userData.pid, kind: m.kind, name: m.name, prop: m.prop, model: m.model, color: m.color, val: m.val || undefined,
       pos: o.position.toArray().map(r), rot: [o.rotation.x, o.rotation.y, o.rotation.z].map((x) => r((x * 180) / Math.PI)), scl: o.scale.toArray().map(r) };
   }
   function exportData(withModels = true) {
@@ -121,19 +132,36 @@ export function createEditor(root, onExit) {
     return { format: 'iron-strike-map', version: 2, note: NOTE, units: 'metres', pieces: pieces.map(describe), models: mo };
   }
   async function loadData(d) {
+    restoring = true;
     for (const p of [...pieces]) { world.remove(p); } pieces = []; models = {}; select(null);
     for (const s of d.pieces || []) {
       try {
         if (s.kind === 'prop') await addProp(s.prop, s);
         else if (s.kind === 'model') { const md = d.models?.[s.model]; if (md) await addModel(unb64(md.data), md.ext, md.name, s, s.model); }
-        else if (PRIMS[s.kind]) addPrim(s.kind, s);
+        else if (PRIMS[s.kind] || MARKS[s.kind]) addPrim(s.kind, s);
       } catch (e) { console.warn('skipped piece', s.name, e); }
     }
-    changed();
+    restoring = false; changed();
   }
   function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  function snap() { if (restoring) return; const j = JSON.stringify(pieces.map((p) => { const d = describe(p); delete d.id; return d; })); if (hist[hpos] === j) return; hist = hist.slice(0, hpos + 1); hist.push(j); if (hist.length > 100) hist.shift(); hpos = hist.length - 1; }
+  async function goto(i) {
+    if (i < 0 || i >= hist.length) return; hpos = i; restoring = true; const list = JSON.parse(hist[i]);
+    try {
+      for (const p of [...pieces]) world.remove(p); pieces = []; select(null);
+      for (const s of list) {
+        try {
+          if (s.kind === 'prop') await addProp(s.prop, s);
+          else if (s.kind === 'model' && models[s.model]) { const md = models[s.model]; await addModel(md.data, md.ext, md.name, s, s.model); }
+          else if (PRIMS[s.kind] || MARKS[s.kind]) addPrim(s.kind, s);
+        } catch (e) { console.warn('undo: skipped', s.name, e); }
+      }
+    } finally { restoring = false; }
+    changed();
+  }
+  const undo = () => goto(hpos - 1), redo = () => goto(hpos + 1);
   function changed() {
-    renderList(); if (current) sel.setFromObject(current);
+    snap(); renderList(); if (current) sel.setFromObject(current);
     clearTimeout(saveT); saveT = setTimeout(() => { try { const j = JSON.stringify(exportData(true)); if (j.length < 4e6) localStorage.setItem(KEY, j); } catch { /* storage full or unavailable */ } }, 600);
   }
 
@@ -144,7 +172,7 @@ export function createEditor(root, onExit) {
   const snapL = el('label'); snapL.style.cssText = 'display:flex;gap:4px;align-items:center'; const snapC = el('input'); snapC.type = 'checkbox'; snapC.checked = true; snapL.append(snapC, 'Snap');
   const applySnap = () => { tc.setTranslationSnap(snapC.checked ? 0.5 : null); tc.setRotationSnap(snapC.checked ? Math.PI / 12 : null); tc.setScaleSnap(snapC.checked ? 0.1 : null); };
   snapC.addEventListener('change', applySnap); applySnap(); top.appendChild(snapL);
-  btn(top, 'Duplicate', () => duplicate(current)); btn(top, 'Delete', () => remove(current));
+  btn(top, 'Undo', undo); btn(top, 'Redo', redo); btn(top, 'Duplicate', () => duplicate(current)); btn(top, 'Delete', () => remove(current));
   btn(top, 'Focus (F)', () => focus());
   const mapIn = el('input'); mapIn.type = 'file'; mapIn.accept = '.json'; mapIn.style.display = 'none';
   mapIn.addEventListener('change', async () => { const f = mapIn.files[0]; mapIn.value = ''; if (!f) return; try { await loadData(JSON.parse(await f.text())); } catch (e) { alert('Could not load that map file.'); } });
@@ -158,6 +186,8 @@ export function createEditor(root, onExit) {
 
   left.appendChild(el('h4', '', 'Shapes'));
   for (const k in PRIMS) btn(left, '+ ' + PRIMS[k], () => { const o = addPrim(k); select(o); });
+  left.appendChild(el('h4', '', 'Gameplay markers'));
+  for (const k in MARKS) btn(left, '+ ' + MARKS[k].name, () => { const o = addPrim(k); select(o); });
   left.appendChild(el('h4', '', 'Game props'));
   for (const n of PROP_NAMES) btn(left, '+ ' + n, async () => { const o = await addProp(n); if (o) select(o); });
   left.appendChild(el('h4', '', 'Your models'));
@@ -187,6 +217,7 @@ export function createEditor(root, onExit) {
     numRow('Pos', 0, () => d().pos, (n) => o.position.fromArray(n));
     numRow('Rot', 0, () => d().rot, (n) => o.rotation.set(...n.map((x) => (x * Math.PI) / 180)));
     numRow('Size', 0, () => d().scl, (n) => o.scale.fromArray(n.map((x) => x || 0.01)));
+    if (MARKS[m.kind]?.val) { const r = el('div', 'row'); r.appendChild(el('label', '', MARKS[m.kind].val)); const v = el('input'); v.type = 'text'; v.value = m.val || ''; v.addEventListener('change', () => { m.val = v.value; changed(); }); r.appendChild(v); props.appendChild(r); }
     if (!['prop', 'model'].includes(m.kind)) { const r = el('div', 'row'); r.appendChild(el('label', '', 'Colour')); const c = el('input'); c.type = 'color'; c.value = m.color || '#8a96a3'; c.addEventListener('input', () => { m.color = c.value; o.material.color.set(c.value); changed(); }); r.appendChild(c); props.appendChild(r); }
   }
   function renderList() {
@@ -213,6 +244,8 @@ export function createEditor(root, onExit) {
   window.addEventListener('keydown', (e) => {
     if (!running || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
     const k = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
     if (k === 'g') setMode('translate'); else if (k === 'r') setMode('rotate'); else if (k === 's' && !e.ctrlKey) setMode('scale');
     else if (k === 'f') focus(); else if (k === 'delete' || k === 'backspace') remove(current);
     else if (k === 'd' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); duplicate(current); } else if (k === 'escape') select(null);
