@@ -327,25 +327,25 @@ function buildP90() {                // bullpup PDW with a top-mounted mag
 
 function buildSuper46() {            // chunky Kriss-style SMG: slab receiver, vented shroud, folding triangle stock
   const b = new B();
-  b.box(0.05, 0.07, 0.34, 0, 0.0, 0.0, M.poly());                               // receiver
-  b.box(0.044, 0.04, 0.2, 0, -0.045, 0.06, M.poly());                           // lower receiver
-  b.box(0.054, 0.062, 0.22, 0, -0.002, -0.27, M.blued());                       // shroud
-  for (let i = 0; i < 4; i++) for (const s of [-1, 1]) b.box(0.004, 0.034, 0.012, s * 0.0275, -0.002, -0.2 - i * 0.04, M.black(), 0, 0, 0);   // vents
-  b.box(0.022, 0.008, 0.46, 0, 0.0395, -0.1, M.black()); railTeeth(b, 0.12, -0.32, 0.0435, 0.022);   // top rail
-  b.box(0.03, 0.02, 0.1, 0, -0.04, -0.2, M.poly());                             // under rail block
-  b.tube(0.0085, 0.1, 0, 0.0, -0.44, M.steel());                                // barrel
-  b.tube(0.013, 0.06, 0, 0.0, -0.5, M.blued()); b.tube(0.0145, 0.012, 0, 0.0, -0.53, M.black());   // muzzle brake
-  mark(b.box(0.03, 0.13, 0.04, 0, -0.115, -0.015, M.black(), -0.18), 'mag');    // magazine
-  mark(b.box(0.032, 0.012, 0.044, 0, -0.18, -0.03, M.steel(), -0.18), 'mag');
-  b.box(0.032, 0.1, 0.04, 0, -0.09, 0.1, M.poly(), 0.28);                       // pistol grip
+  b.box(0.036, 0.058, 0.34, 0, 0.0, 0.0, M.poly());                               // receiver
+  b.box(0.032, 0.034, 0.2, 0, -0.045, 0.06, M.poly());                           // lower receiver
+  b.box(0.04, 0.05, 0.22, 0, -0.002, -0.27, M.blued());                       // shroud
+  for (let i = 0; i < 4; i++) for (const s of [-1, 1]) b.box(0.004, 0.028, 0.012, s * 0.0205, -0.002, -0.2 - i * 0.04, M.black(), 0, 0, 0);   // vents
+  b.box(0.018, 0.008, 0.46, 0, 0.0395, -0.1, M.black()); railTeeth(b, 0.12, -0.32, 0.0395, 0.018);   // top rail
+  b.box(0.022, 0.016, 0.1, 0, -0.034, -0.2, M.poly());                             // under rail block
+  b.tube(0.0075, 0.1, 0, 0.0, -0.44, M.steel());                                // barrel
+  b.tube(0.0105, 0.06, 0, 0.0, -0.5, M.blued()); b.tube(0.012, 0.012, 0, 0.0, -0.53, M.black());   // muzzle brake
+  mark(b.box(0.022, 0.13, 0.036, 0, -0.115, -0.015, M.black(), -0.18), 'mag');    // magazine
+  mark(b.box(0.024, 0.012, 0.04, 0, -0.18, -0.03, M.steel(), -0.18), 'mag');
+  b.box(0.026, 0.1, 0.034, 0, -0.09, 0.1, M.poly(), 0.28);                       // pistol grip
   triggerGroup(b, 0, -0.04, 0.03);
-  b.box(0.022, 0.026, 0.24, 0, 0.012, 0.28, M.blued());                         // stock upper arm
-  b.box(0.022, 0.1, 0.02, 0, -0.03, 0.39, M.blued(), -0.5);                     // stock strut
-  b.box(0.022, 0.024, 0.2, 0, -0.07, 0.3, M.blued(), -0.12);                    // stock lower arm
-  b.box(0.034, 0.12, 0.016, 0, -0.025, 0.4, M.rubber());                        // butt pad
-  b.box(0.02, 0.02, 0.05, 0.03, 0.02, 0.02, M.steel());                         // charging handle
-  ironSights(b, { y: 0.07, zr: 0.1, zf: -0.32, br: 0.0435, bf: 0.0435, open: true });
-  return b.done({ muzzle: V(0, 0.0, -0.545), sightY: 0.07, grip: V(0, -0.085, 0.1), fore: V(0, -0.025, -0.2), pistol: false, side: V(0.029, 0.0, -0.25), mount: V(0, 0.0435, -0.02), under: V(0, -0.052, -0.2) });
+  b.box(0.016, 0.022, 0.24, 0, 0.012, 0.28, M.blued());                         // stock upper arm
+  b.box(0.016, 0.1, 0.018, 0, -0.03, 0.39, M.blued(), -0.5);                     // stock strut
+  b.box(0.016, 0.02, 0.2, 0, -0.07, 0.3, M.blued(), -0.12);                    // stock lower arm
+  b.box(0.026, 0.11, 0.016, 0, -0.025, 0.4, M.rubber());                        // butt pad
+  b.box(0.014, 0.016, 0.05, 0.023, 0.014, 0.02, M.steel());                         // charging handle
+  ironSights(b, { y: 0.066, zr: 0.1, zf: -0.32, br: 0.0395, bf: 0.0395, open: true });
+  return b.done({ muzzle: V(0, 0.0, -0.545), sightY: 0.066, grip: V(0, -0.085, 0.1), fore: V(0, -0.025, -0.2), pistol: false, side: V(0.022, 0.0, -0.25), mount: V(0, 0.0395, -0.02), under: V(0, -0.044, -0.2) });
 }
 
 function buildScar() {               // tan battle rifle
