@@ -1163,7 +1163,8 @@ export class Game {
     if (p.mantle) this.stepMantle(p, dt);
     else {
       if (!frozen && !down && fwd > 0 && p.mantleCd <= 0) {
-        if (k.Space) this.tryMantle(p, fx, fz, p.onGround ? 2.5 : Math.max(0.6, 2.55 - Math.max(0, p.pos.y - (p.mantleBase || 0))));                                        // newer-COD reach: climb up to ~2.2 m
+        if (!p.onGround) this.tryMantle(p, fx, fz, 1.7);                                                      // newer-COD air mantle: anywhere in a jump or fall, a ledge within arm's reach is grabbed (no button needed)
+        else if (k.Space) this.tryMantle(p, fx, fz, 2.5);                                                      // from the ground: jump into a ledge up to ~2.2 m
         else if (sprint && p.onGround && p.speed2 > 6) this.tryMantle(p, fx, fz, 1.2, true);                   // sprinting into a waist/chest-high ledge vaults it automatically
       }
       if (!p.mantle) this.moveActor(p, wx, wz, speed, dt, jump, crouchNow);
@@ -1266,6 +1267,14 @@ export class Game {
     let bob = 0, roll = 0, eye = p.eye;
     if (!p.alive) { eye = Math.max(0.35, p.eye - p.deathT * 1.6); roll = Math.min(0.9, p.deathT * 2); }
     else if (p.onGround) { p.bobT = (p.bobT || 0) + (p.speed2 || 0) * dt * 1.5; bob = Math.sin(p.bobT) * 0.018 * Math.min(1, (p.speed2 || 0) / 5) * (1 - p.ads); }
+    // realism (visual only, physics untouched): landing impact dip + side-to-side step sway
+    if (p.alive) {
+      const vy = this.prevVy || 0;
+      if (p.onGround && this.prevGround === false && vy < -3) this.landDip = Math.min(0.2, (-vy - 3) * 0.022);
+      this.prevGround = p.onGround; this.prevVy = p.vel.y;
+      this.landDip = (this.landDip || 0) * Math.max(0, 1 - dt * 7);
+      bob -= this.landDip;
+    }
     const w = p.weapon;
     const scoped = w.scope && p.ads > 0.88 && p.alive;
     this.tp = this.settings.view === 'third' && !scoped;
@@ -1284,11 +1293,12 @@ export class Game {
     }
     const S = this.vmS; S.shake = Math.max(0, S.shake - dt * 5);
     this.updateAimSway(p, dt);
-    cam.rotation.set(p.pitch + this.swY - S.mvk * 0.12 + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + this.swX + (Math.random() - 0.5) * 0.004 * S.shake, roll + S.slk * 0.045 + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
+    cam.rotation.set(p.pitch + (this.landDip || 0) * 0.5 + this.swY - S.mvk * 0.12 + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + this.swX + (Math.random() - 0.5) * 0.004 * S.shake, roll + S.slk * 0.045 + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
     if (p.mesh) p.mesh.root.visible = this.tp && p.mesh.root.visible;
     const zoom = lerp(1, this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
     const fov = this.settings.fov / zoom;
     if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
+    { const av = this._adsVig || (this._adsVig = document.getElementById('adsVig')); if (av) av.style.opacity = String(scoped ? 0 : p.ads * 0.9); }
     this.world.update(dt, cam.position);
     this.updateLaser(p, cam, scoped);
     this.updateViewmodel(dt);
