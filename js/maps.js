@@ -583,6 +583,68 @@ function farm() {
   return r;
 }
 
+// ------------------------------------------------------------------------------------------
+// 8. CONTAINER - open container yard (made with the in-game Map Maker; containers sit at free angles)
+// ------------------------------------------------------------------------------------------
+function container() {
+  const b = new Builder();
+  b.outerWalls(8, { tex: 'concrete', color: 0x6e7379, tile: 4 });
+  // [prop, x, y, z, yaw degrees] - sizes are the props' natural sizes
+  const P = [
+    ['container',-22,0.05,4.5,-45], ['container',-23,0.05,-1.5,-90], ['container',-23,0.05,-7.5,-120], ['container',-16.5,0.05,7.5,165],
+    ['container',-11.5,0.05,11,135], ['container',-6.5,0.05,14.5,165], ['container',-0.5,0.05,14.5,-150], ['container',5.5,0.05,12.5,180],
+    ['container',23.5,0.05,12.5,-150], ['container',11.5,0.05,12.5,-150], ['container',17.5,0.05,12.5,165], ['container',26,0.05,7,-75],
+    ['container',26,0.05,1,-120], ['container',26,0.05,-5,-75], ['container',23.5,0.05,-10.5,-45], ['container',18,0.05,-10.5,15],
+    ['container',11.5,0.05,-10.5,-15], ['container',6,0.05,-13,15], ['container',0,0.05,-13,-30], ['container',-5,0.05,-13,60],
+    ['container',-9.5,0.05,-13,15], ['container',-15.5,0.05,-13,0], ['container',-21.5,0.05,-12.5,30], ['container',-5,0.05,4.5,60],
+    ['container',-7.5,0.05,-5,45], ['container',2.5,0.05,-5,75], ['container',7,0.05,1.5,45], ['container',15,0.05,-2,120],
+    ['container',2,0.05,7,165], ['container',-14,0.05,0,105], ['container',15,0.05,6,-30], ['container',20.5,0.05,-3.5,-90],
+    ['container',-2.5,2.5,-13.5,15], ['container',-8.5,2.5,13,150], ['container',-23,2.5,2.5,-60], ['container',25.5,2.5,3.5,-90],
+    ['container',9,2.5,-12,-45], ['container',9,2.5,12.5,15], ['container',-19.5,2.5,-13,15], ['racking',-17,0,-8,30],
+    ['racking',-3,0,10.5,-45], ['racking',8.5,0,-5.5,105], ['barrel',-1,0,5.5,0], ['barrel',1,0,-6.5,0],
+    ['barrel',14.5,0,-5.5,0], ['barrel',13.5,0,7,0], ['barrel',7,0,10.5,0], ['barrel',25,0,-1.5,0],
+    ['barrel',-9,0,-11,0], ['barrel',6.5,0,-0.5,0], ['barrel',-6.5,0,2.5,0], ['barrel',-19,0,4,0],
+    ['crate',9.5,0,11,-30], ['crate',9,0,2.5,90], ['crate',17.5,0,-2.5,30], ['crate',-7.5,0,5,-30],
+    ['crate',-0.5,0,-4,-75], ['crate',-15.5,0,-3.5,-45],
+  ];
+  const SIZE = { container: [6, 2.6, 2.4], racking: [4.2, 4, 2.2], barrel: [0.6, 0.9, 0.6], crate: [1, 1, 1] };
+  const tints = [0xd9a0a0, 0xa0b8d9, 0xa0d0a8, 0xe0c08a, 0xc0a8d9, 0x9fd0d0];
+  let ci = 0, x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const [m, x, y, z, deg] of P) {
+    const [L, H, W] = SIZE[m], a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    b.visuals.push({ shape: 'prop', model: m, x, z, y0: y, w: L, h: H, d: W, rot: 0, ang: a, tex: m, tint: m === 'container' ? tints[ci++ % tints.length] : m === 'barrel' ? 0x3f7fcc : 0xffffff, rough: m === 'crate' ? 0.9 : 0.75, metal: m === 'container' ? 0.3 : 0.03 });
+    // collision: the rotated footprint is cut into rows of small boxes (the physics only knows axis-aligned boxes)
+    const cell = Math.min(0.6, Math.max(0.3, W / 4)), nx = Math.max(1, Math.round(L / cell)), nz = Math.max(1, Math.round(W / cell)), rows = new Map();
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+      const lx = -L / 2 + (i + 0.5) * L / nx, lz = -W / 2 + (j + 0.5) * W / nz;       // local x runs along the length; three.js yaw maps it to (cos, -sin)
+      const wx = x + lx * c + lz * s, wz = z - lx * s + lz * c, key = Math.round(wz / cell);
+      if (!rows.has(key)) rows.set(key, []);
+      rows.get(key).push(wx);
+    }
+    for (const [key, xs] of rows) {
+      xs.sort((p, q) => p - q);
+      let st = xs[0], pr = xs[0];
+      const push = (u, v) => { b.boxes.push({ x0: u - cell / 2, x1: v + cell / 2, y0: y, y1: y + H, z0: key * cell - cell / 2, z1: key * cell + cell / 2 }); };
+      for (let k = 1; k < xs.length; k++) { if (xs[k] - pr > cell * 1.01) { push(st, pr); st = xs[k]; } pr = xs[k]; }
+      push(st, pr);
+    }
+    const r = Math.hypot(L, W) / 2; x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); z0 = Math.min(z0, z - r); z1 = Math.max(z1, z + r);
+  }
+  // tall perimeter wall hugging the yard (the unused margin of the 80 x 56 arena is solid, so nobody can stand outside it)
+  { const w = { tex: 'metal', color: 0x59616b, tile: 3 }, fx0 = x0 - 0.6, fx1 = x1 + 0.6, fz0 = z0 - 0.6, fz1 = z1 + 0.6, B = BOUNDS;
+    b.box((B.x0 + fx0) / 2, 0, fx0 - B.x0, B.z1 - B.z0, 5, w); b.box((fx1 + B.x1) / 2, 0, B.x1 - fx1, B.z1 - B.z0, 5, w);
+    b.box(0, (B.z0 + fz0) / 2, B.x1 - B.x0, fz0 - B.z0, 5, w); b.box(0, (fz1 + B.z1) / 2, B.x1 - B.x0, B.z1 - fz1, 5, w); }
+  const m = finish(b, {
+    id: 'container', navStep: 1.5,
+    sky: [0x5f9fd6, 0xdfe9f2], fog: [0xcfdbe6, 45, 150],
+    hemi: [0xe8f0ff, 0x4a5a44, 1.0], sun: { color: 0xfff4dc, intensity: 3.0, pos: [-30, 40, 20] },
+    ground: { tex: 'concrete', color: 0x3f7f3a, tile: 6 },
+    impact: 0xb8b8a8,
+  });
+  m.spawns = { 0: { x0: 14, x1: 29, z0: 0, z1: 16 }, 1: { x0: -26, x1: -12, z0: -10, z1: 8 } };       // team A east, team B west (the Map Maker's spawn markers)
+  return m;
+}
+
 function finish(b, theme) {
   return { ...theme, bounds: BOUNDS, boxes: b.boxes, visuals: b.visuals, spawns: SPAWNS };
 }
@@ -594,10 +656,11 @@ export const MAP_INFO = {
   outpost: { name: 'Outpost', desc: 'Zombies map: three rooms, ten windows, doors, perks and the Mystery Box. (Also playable as a night arena.)', thumb: 'linear-gradient(135deg,#05080f,#2c4a2a 55%,#8a1c14)' },
   bunker: { name: 'Bunker', desc: 'Zombies: four rooms deep underground, ten windows, three doors, a raised armoury up the stairs.', thumb: 'linear-gradient(135deg,#06090c,#39d98a 60%,#ff7a68)' },
   farm: { name: 'Farmstead', desc: 'Zombies: foggy farm night. Farmhouse, barn and granary, a hayloft up the stairs.', thumb: 'linear-gradient(135deg,#0a0f1c,#4a5a38 60%,#e0c060)' },
+  container: { name: 'Container', desc: 'Open container yard, built with the Map Maker. Containers at every angle, stacked ones to mantle onto.', thumb: 'linear-gradient(135deg,#5f9fd6,#3f7f3a 60%,#b23a2f)' },
   frostbite: { name: 'Frostbite', desc: 'Snow compound with watchtowers for long-range duels.', thumb: 'linear-gradient(135deg,#4f6f93,#dfe9f2 60%,#8a6a45)' },
 };
 
-export const MAP_BUILDERS = { warehouse, dust, skyline, frostbite, outpost, bunker, farm };
+export const MAP_BUILDERS = { warehouse, dust, skyline, container, frostbite, outpost, bunker, farm };
 export const ZM_MAPS = ['outpost', 'bunker', 'farm'];                                    // zombies-only maps (not offered in the normal map list)
 export const MAP_IDS = Object.keys(MAP_BUILDERS).filter((id) => !ZM_MAPS.includes(id));
 export function buildMap(id) { return MAP_BUILDERS[id](); }

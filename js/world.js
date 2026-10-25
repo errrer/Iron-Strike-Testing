@@ -128,7 +128,7 @@ export function buildWorld(map) {
       // fit the model into w x h x d (w along world x, d along world z) after rotating it by rot*90deg about Y
       if (rot % 2) mesh.scale.set(v.d / P.size[0], v.h / P.size[1], v.w / P.size[2]);
       else mesh.scale.set(v.w / P.size[0], v.h / P.size[1], v.d / P.size[2]);
-      mesh.rotation.y = rot * Math.PI / 2;
+      mesh.rotation.y = rot * Math.PI / 2 + (v.ang || 0);
       mesh.position.set(v.x, v.y0, v.z);
       mesh.castShadow = true; mesh.receiveShadow = true;
       scene.add(mesh);

@@ -222,7 +222,7 @@ export class Game {
   }
 
   // zombies mode needs a fine navigation grid (windows are 2 m gaps); everything else uses the coarse one
-  makeNav() { return this.mode.zm ? new NavGraph(this.col, this.map.bounds, 1, { margin: 0.55, seg: 0.3 }) : new NavGraph(this.col, this.map.bounds, 3); }
+  makeNav() { return this.mode.zm ? new NavGraph(this.col, this.map.bounds, 1, { margin: 0.55, seg: 0.3 }) : new NavGraph(this.col, this.map.bounds, this.map.navStep || 3, this.map.navStep ? { margin: 0.6 } : {}); }
   get noRespawn() { return !!(this.mode.oneLife || this.mode.zm); }
 
   // a stand-in killer for deaths that no living actor caused (bleeding out in Zombies)
