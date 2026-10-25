@@ -1,18 +1,18 @@
-import { Game, MODES, mpMode } from './game.js?v=0.13.2';
-import { Net, cleanCode, cleanName } from './net.js?v=0.13.2';
-import { watchForEgg } from './easter.js?v=0.13.2';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.13.2';
-import { Sound } from './audio.js?v=0.13.2';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js?v=0.13.2';
-import { loadModels } from './gunmodels.js?v=0.13.2';
-import { loadProps } from './props.js?v=0.13.2';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.13.2';
-import { rankName, UNLOCK } from './progress.js?v=0.13.2';
-import { initMapMaker } from './mapmaker.js?v=0.13.2';
-import { RaceMode } from './race.js?v=0.13.2';
-import { WeaponPreview } from './wpreview.js?v=0.13.2';
-import { initTouch, blockZoom } from './touch.js?v=0.13.2';
-import { initGamepad } from './gamepad.js?v=0.13.2';
+import { Game, MODES, mpMode } from './game.js?v=0.13.3';
+import { Net, cleanCode, cleanName } from './net.js?v=0.13.3';
+import { watchForEgg } from './easter.js?v=0.13.3';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.13.3';
+import { Sound } from './audio.js?v=0.13.3';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js?v=0.13.3';
+import { loadModels } from './gunmodels.js?v=0.13.3';
+import { loadProps } from './props.js?v=0.13.3';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.13.3';
+import { rankName, UNLOCK } from './progress.js?v=0.13.3';
+import { initMapMaker } from './mapmaker.js?v=0.13.3';
+import { RaceMode } from './race.js?v=0.13.3';
+import { WeaponPreview } from './wpreview.js?v=0.13.3';
+import { initTouch, blockZoom } from './touch.js?v=0.13.3';
+import { initGamepad } from './gamepad.js?v=0.13.3';
 
 const $ = (id) => document.getElementById(id);
 

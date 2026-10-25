@@ -1,19 +1,19 @@
 import * as THREE from 'three';
-import { WEAPONS, PRIMARIES, SECONDARIES, withAtt, cleanMask, ATT_LASER } from './weapons.js?v=0.13.2';
-import { buildGun } from './gunmodels.js?v=0.13.2';
-import { buildMap } from './maps.js?v=0.13.2';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.13.2';
-import { buildWorld } from './world.js?v=0.13.2';
-import { Bot } from './bots.js?v=0.13.2';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.13.2';
-import { buildSoldier, SKIN } from './soldier.js?v=0.13.2';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.13.2';
-import { Zombies, PERKS } from './zombies.js?v=0.13.2';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.13.2';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.13.2';
-import { Objectives } from './objectives.js?v=0.13.2';
-import { Streaks, STREAKS } from './streaks.js?v=0.13.2';
-import { Gore } from './gore.js?v=0.13.2';
+import { WEAPONS, PRIMARIES, SECONDARIES, withAtt, cleanMask, ATT_LASER } from './weapons.js?v=0.13.3';
+import { buildGun, makeEnv } from './gunmodels.js?v=0.13.3';
+import { buildMap } from './maps.js?v=0.13.3';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.13.3';
+import { buildWorld } from './world.js?v=0.13.3';
+import { Bot } from './bots.js?v=0.13.3';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.13.3';
+import { buildSoldier, SKIN } from './soldier.js?v=0.13.3';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.13.3';
+import { Zombies, PERKS } from './zombies.js?v=0.13.3';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.13.3';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.13.3';
+import { Objectives } from './objectives.js?v=0.13.3';
+import { Streaks, STREAKS } from './streaks.js?v=0.13.3';
+import { Gore } from './gore.js?v=0.13.3';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -67,6 +67,7 @@ export class Game {
     this.vmScene = new THREE.Scene();
     this.vmCam = new THREE.PerspectiveCamera(58, 1, 0.01, 10);
     this.vmScene.add(new THREE.HemisphereLight(0xffffff, 0x555566, 1.6));
+    { const env = makeEnv(this.renderer); if (env) this.vmScene.environment = env; }
     const vl = new THREE.DirectionalLight(0xffffff, 2.2); vl.position.set(0.4, 1, 0.8); this.vmScene.add(vl);
     this.vmRoot = new THREE.Group(); this.vmScene.add(this.vmRoot);
     this.flashLight = new THREE.PointLight(0xffc870, 0, 3, 2); this.vmScene.add(this.flashLight);

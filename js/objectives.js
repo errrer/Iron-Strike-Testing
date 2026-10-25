@@ -1,7 +1,7 @@
 // Objective game modes (single player): Domination, Hardpoint, Kill Confirmed, Search & Destroy.
 // The game calls update(dt) every frame, onKill() for each kill and botGoal() when a bot picks where to go.
 import * as THREE from 'three';
-import { XP_REWARD } from './progress.js?v=0.13.2';
+import { XP_REWARD } from './progress.js?v=0.13.3';
 
 const C_ALLY = 0x58b4ff, C_ENEMY = 0xff5a4a, C_NEUTRAL = 0xcfd6dc, C_HOT = 0xffd45e;
 const rand = (a, b) => a + Math.random() * (b - a);

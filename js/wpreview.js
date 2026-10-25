@@ -1,6 +1,6 @@
 // Menu weapon preview: a slowly swaying 3D render of the selected gun, plus white icon thumbnails for the weapon tiles (COD-style loadout screen).
 import * as THREE from 'three';
-import { buildGun } from './gunmodels.js?v=0.13.2';
+import { buildGun, makeEnv } from './gunmodels.js?v=0.13.3';
 
 export class WeaponPreview {
   constructor(canvas) {
@@ -9,7 +9,8 @@ export class WeaponPreview {
       this.r = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
       this.r.setClearColor(0x000000, 0); if (this.r.setPixelRatio) this.r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       this.scene = new THREE.Scene();
-      this.scene.add(new THREE.HemisphereLight(0xdfe6f0, 0x4a4a52, 2.3));
+      { const env = makeEnv(this.r); if (env) this.scene.environment = env; }
+      this.scene.add(new THREE.HemisphereLight(0xdfe6f0, 0x4a4a52, 1.3));
       const key = new THREE.DirectionalLight(0xffffff, 3.4); key.position.set(-1.5, 2.2, 2.5); this.scene.add(key);
       const rim = new THREE.DirectionalLight(0xffb060, 1.6); rim.position.set(2, 0.6, -2.5); this.scene.add(rim);
       this.cam = new THREE.PerspectiveCamera(24, 2, 0.05, 20);
@@ -57,7 +58,7 @@ export class WeaponPreview {
     const key = w.id + ':' + (w.attMask | 0); if (this.icons[key]) return this.icons[key];
     try {
       const mat = new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.55, metalness: 0.1 }), holder = this.make({ ...w, attMask: 0 }, mat), sc = new THREE.Scene();
-      sc.add(new THREE.HemisphereLight(0xffffff, 0x8a8f96, 1.7)); const k = new THREE.DirectionalLight(0xffffff, 1.6); k.position.set(-1, 2, 3); sc.add(k); sc.add(holder);
+      sc.add(new THREE.HemisphereLight(0xffffff, 0x8a8f96, 1.7)); sc.environment = this.scene.environment; const k = new THREE.DirectionalLight(0xffffff, 1.6); k.position.set(-1, 2, 3); sc.add(k); sc.add(holder);
       const prevW = this.cw, prevH = this.ch, cv = this.r.domElement;
       this.r.setSize(320, 130, false); this.frame(holder, 320 / 130); this.r.render(sc, this.cam);
       const url = cv.toDataURL('image/png'); this.icons[key] = url;

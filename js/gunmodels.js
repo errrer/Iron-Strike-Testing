@@ -25,30 +25,90 @@ export async function loadModels(weapons) {
 // ---- shared materials -----------------------------------------------------------------------
 const matCache = new Map();
 function mat(color, metal = 0.5, rough = 0.5, extra) {
-  const k = `${color}|${metal}|${rough}|${extra ? JSON.stringify(extra) : ''}`;
+  const k = `${color}|${metal}|${rough}|${extra ? Object.entries(extra).map(([n, v]) => n + '=' + (v && v.isTexture ? 't' + n : v && v.isColor ? v.getHex() : typeof v === 'object' ? JSON.stringify(v) : v)).join(',') : ''}`;
   if (!matCache.has(k)) matCache.set(k, new THREE.MeshStandardMaterial({ color, metalness: metal, roughness: rough, ...(extra || {}) }));
   return matCache.get(k);
 }
+// procedural surface detail: a fine metal / polymer grain (bump) and a wood-grain colour map, generated once on a canvas
+let _grain = null, _wood = null;
+function grainTex() {
+  if (_grain || typeof document === 'undefined') return _grain;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); if (!g) return null;
+  for (let i = 0; i < 64 * 64; i++) { const v = 110 + Math.random() * 90; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(i % 64, (i / 64) | 0, 1, 1); }
+  _grain = new THREE.CanvasTexture(c); _grain.wrapS = _grain.wrapT = THREE.RepeatWrapping; return _grain;
+}
+function woodTex() {
+  if (_wood || typeof document === 'undefined') return _wood;
+  const c = document.createElement('canvas'); c.width = 8; c.height = 128; const g = c.getContext('2d'); if (!g) return null;
+  for (let y = 0; y < 128; y++) { const v = 0.78 + 0.22 * Math.sin(y * 0.55 + Math.sin(y * 0.11) * 3) * Math.sin(y * 0.21 + 1) + (Math.random() - 0.5) * 0.12, k = Math.round(255 * Math.min(1, Math.max(0.35, v))); g.fillStyle = `rgb(${k},${k},${k})`; g.fillRect(0, y, 8, 1); }
+  _wood = new THREE.CanvasTexture(c); _wood.wrapS = _wood.wrapT = THREE.RepeatWrapping; return _wood;
+}
+const gmat = (color, metal, rough, bump = 0.35) => { const t = grainTex(); return mat(color, metal, rough, { envMapIntensity: 1.0, ...(t ? { bumpMap: t, bumpScale: bump } : {}) }); };
+const wmat = (color, rough) => { const t = woodTex(); return mat(t ? 0xffffff : color, 0.05, rough, t ? { map: t, color: new THREE.Color(color), envMapIntensity: 0.6 } : {}); };
 const M = {
-  steel: () => mat(0x2c2f34, 0.85, 0.38),
-  blued: () => mat(0x1b1d21, 0.8, 0.42),
-  silver: () => mat(0xaeb3b9, 0.9, 0.3),
-  poly: () => mat(0x212327, 0.1, 0.8),
-  polyTan: () => mat(0x6b5f48, 0.1, 0.8),
-  rubber: () => mat(0x111213, 0.0, 0.95),
-  wood: () => mat(0x7a4a24, 0.05, 0.7),
-  woodDark: () => mat(0x4a2c15, 0.05, 0.7),
-  black: () => mat(0x08090a, 0.3, 0.6),
+  steel: () => gmat(0x4a4f57, 0.9, 0.32),
+  blued: () => gmat(0x30343a, 0.85, 0.36),
+  silver: () => gmat(0x80868e, 0.95, 0.32, 0.2),
+  poly: () => gmat(0x3a3d43, 0.1, 0.68, 0.6),
+  polyTan: () => gmat(0x7d7054, 0.1, 0.72, 0.6),
+  rubber: () => gmat(0x141516, 0.0, 0.92, 0.6),
+  wood: () => wmat(0x8a5428, 0.55),
+  woodDark: () => wmat(0x53301a, 0.55),
+  black: () => gmat(0x181a1d, 0.4, 0.45, 0.3),
   brass: () => mat(0xb08a3a, 0.9, 0.35),
   glass: () => mat(0x3a7fb0, 0.2, 0.1, { transparent: true, opacity: 0.55 }),
   lens: () => mat(0x1b3a55, 0.3, 0.05),
   red: () => mat(0xc0392b, 0.1, 0.6),
 };
 
+// bevelled box (chamfered edges catch the light, which is most of what makes a boxy gun read as machined metal). Flat shaded, cached by size.
+const bevelCache = new Map();
+function bevelBox(w, h, d) {
+  const r = Math.min(0.0026, Math.min(w, h, d) * 0.3);
+  if (!(r >= 0.0007)) return new THREE.BoxGeometry(w, h, d);
+  const key = `${w.toFixed(4)}|${h.toFixed(4)}|${d.toFixed(4)}`; if (bevelCache.has(key)) return bevelCache.get(key);
+  const H = [w / 2, h / 2, d / 2], P = [], tri = (a, b, c) => { const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, cx = a[0] + b[0] + c[0], cy = a[1] + b[1] + c[1], cz = a[2] + b[2] + c[2];
+    if (nx * cx + ny * cy + nz * cz < 0) P.push(a, c, b); else P.push(a, b, c); };
+  const quad = (a, b, c, e) => { tri(a, b, c); tri(a, c, e); };
+  // inset corner of face (axis k, sign s) with corner signs (cs[0..2]; the entry for axis k is ignored)
+  const fc = (k, s, cs) => { const p = [0, 0, 0]; for (let j = 0; j < 3; j++) p[j] = j === k ? s * H[k] : cs[j] * (H[j] - r); return p; };
+  for (let k = 0; k < 3; k++) for (const s of [-1, 1]) { const a = (k + 1) % 3, b = (k + 2) % 3, q = (ca, cb) => { const cs = [0, 0, 0]; cs[a] = ca; cs[b] = cb; return fc(k, s, cs); }; quad(q(-1, -1), q(1, -1), q(1, 1), q(-1, 1)); }
+  for (let k1 = 0; k1 < 3; k1++) for (let k2 = k1 + 1; k2 < 3; k2++) { const k3 = 3 - k1 - k2; for (const s1 of [-1, 1]) for (const s2 of [-1, 1]) {
+    const c = (face, s, o3) => { const cs = [0, 0, 0]; cs[k1 === face ? k2 : k1] = face === k1 ? s2 : s1; cs[k3] = o3; return fc(face, s, cs); };
+    quad(c(k1, s1, -1), c(k1, s1, 1), c(k2, s2, 1), c(k2, s2, -1)); } }
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) { const s = [sx, sy, sz]; tri(fc(0, sx, s), fc(1, sy, s), fc(2, sz, s)); }
+  const pos = new Float32Array(P.length * 3), uv = new Float32Array(P.length * 2);
+  P.forEach((p, i) => { pos[i * 3] = p[0]; pos[i * 3 + 1] = p[1]; pos[i * 3 + 2] = p[2]; });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
+  const nm = g.attributes.normal;                                           // box-projected UVs (metres * 18 so the grain stays the same size on every part)
+  for (let i = 0; i < P.length; i++) { const nx = nm ? Math.abs(nm.getX(i)) : 0, ny = nm ? Math.abs(nm.getY(i)) : 1, nz = nm ? Math.abs(nm.getZ(i)) : 0, p = P[i];
+    if (nx >= ny && nx >= nz) { uv[i * 2] = p[2] * 18; uv[i * 2 + 1] = p[1] * 18; } else if (ny >= nz) { uv[i * 2] = p[2] * 18; uv[i * 2 + 1] = p[0] * 18; } else { uv[i * 2] = p[0] * 18; uv[i * 2 + 1] = p[1] * 18; } }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); bevelCache.set(key, g); return g;
+}
+
+// image-based lighting for the gun scenes: a soft sky / ground gradient with a few bright softboxes, so metal has something to reflect
+const envCache = new WeakMap();
+export function makeEnv(renderer) {
+  if (!THREE.PMREMGenerator || !renderer) return null;
+  if (envCache.has(renderer)) return envCache.get(renderer);
+  let tex = null;
+  try {
+    const sc = new THREE.Scene(), geo = new THREE.SphereGeometry(10, 24, 16), pos = geo.attributes.position, cols = [];
+    for (let i = 0; i < pos.count; i++) { const y = pos.getY(i) / 10, t = Math.max(0, y), b = Math.max(0, -y), v = y >= 0 ? [0.42 + 0.4 * t, 0.44 + 0.42 * t, 0.47 + 0.46 * t] : [0.42 - 0.34 * Math.min(1, b * 1.6), 0.44 - 0.36 * Math.min(1, b * 1.6), 0.47 - 0.38 * Math.min(1, b * 1.6)]; cols.push(v[0], v[1], v[2]); }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    sc.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+    const panel = (w, h, x, y, z, i) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(i, i * 0.97, i * 0.92), side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); sc.add(m); };
+    panel(7, 3.5, -4.5, 6.5, 4.5, 7); panel(2.5, 6, 8, 1.5, -2, 5); panel(6, 1.6, 1, -1.5, 7, 1.6); panel(3, 3, -8, 2, -4, 2.5);
+    const pm = new THREE.PMREMGenerator(renderer); tex = pm.fromScene(sc, 0.03).texture; pm.dispose();
+  } catch (e) { tex = null; }
+  envCache.set(renderer, tex); return tex;
+}
+
 class B {
   constructor() { this.g = new THREE.Group(); }
   _add(geo, m, x, y, z, rx = 0, ry = 0, rz = 0) { const me = new THREE.Mesh(geo, m); me.position.set(x, y, z); me.rotation.set(rx, ry, rz); this.g.add(me); return me; }
-  box(w, h, d, x, y, z, m, rx = 0, ry = 0, rz = 0) { return this._add(new THREE.BoxGeometry(w, h, d), m, x, y, z, rx, ry, rz); }
+  box(w, h, d, x, y, z, m, rx = 0, ry = 0, rz = 0) { return this._add(bevelBox(w, h, d), m, x, y, z, rx, ry, rz); }
   // cylinder lying along Z (barrels, tubes)
   tube(r, len, x, y, z, m, r2) { return this._add(new THREE.CylinderGeometry(r2 ?? r, r, len, 12), m, x, y, z, Math.PI / 2); }
   // cylinder standing along Y
@@ -485,7 +545,7 @@ function buildFromAsset(w, data) {
     geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(part.normals), 3));
     geo.setIndex(part.indices);
     const color = parseInt(part.color.slice(1), 16);
-    const me = new THREE.Mesh(geo, mat(color, 0.2, 0.55));
+    const me = new THREE.Mesh(geo, mat(color, 0.2, 0.55, { envMapIntensity: 0 }));
     if (/^mag$/i.test(part.name || '')) me.userData.mag = true;
     if (part.name === 'iron') me.userData.iron = true;            // the model's own iron sights (hidden when a red dot is fitted)
     g.add(me);
