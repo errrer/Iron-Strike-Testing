@@ -7,9 +7,9 @@
 //
 // Hits are resolved by the host with lag compensation (targets are rewound to what the shooter saw).
 // Movement is client-trusted, so this is meant for playing with friends, not for ranked play.
-import { MODES, MAX_PLAYERS, mpMode } from './game.js';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js';
-import { WEAPONS, PRIMARIES, SECONDARIES, cleanMask } from './weapons.js';
+import { MODES, MAX_PLAYERS, mpMode } from './game.js?v=0.13.1';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.13.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, cleanMask } from './weapons.js?v=0.13.1';
 
 const PEER_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
 const PREFIX = 'ironstrike-v1-';

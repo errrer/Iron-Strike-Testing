@@ -1,18 +1,18 @@
-import { Game, MODES, mpMode } from './game.js';
-import { Net, cleanCode, cleanName } from './net.js';
-import { watchForEgg } from './easter.js';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js';
-import { Sound } from './audio.js';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js';
-import { loadModels } from './gunmodels.js';
-import { loadProps } from './props.js';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js';
-import { rankName, UNLOCK } from './progress.js';
-import { initMapMaker } from './mapmaker.js';
-import { RaceMode } from './race.js';
-import { WeaponPreview } from './wpreview.js';
-import { initTouch, blockZoom } from './touch.js';
-import { initGamepad } from './gamepad.js';
+import { Game, MODES, mpMode } from './game.js?v=0.13.1';
+import { Net, cleanCode, cleanName } from './net.js?v=0.13.1';
+import { watchForEgg } from './easter.js?v=0.13.1';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.13.1';
+import { Sound } from './audio.js?v=0.13.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js?v=0.13.1';
+import { loadModels } from './gunmodels.js?v=0.13.1';
+import { loadProps } from './props.js?v=0.13.1';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.13.1';
+import { rankName, UNLOCK } from './progress.js?v=0.13.1';
+import { initMapMaker } from './mapmaker.js?v=0.13.1';
+import { RaceMode } from './race.js?v=0.13.1';
+import { WeaponPreview } from './wpreview.js?v=0.13.1';
+import { initTouch, blockZoom } from './touch.js?v=0.13.1';
+import { initGamepad } from './gamepad.js?v=0.13.1';
 
 const $ = (id) => document.getElementById(id);
 
