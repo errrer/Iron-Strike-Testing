@@ -241,7 +241,7 @@ function build1911() {
   b.box(0.004, 0.08, 0.04, 0.0165, -0.058, 0.065, M.woodDark(), -0.22);         // grip panels
   b.box(0.004, 0.08, 0.04, -0.0165, -0.058, 0.065, M.woodDark(), -0.22);
   mark(b.box(0.026, 0.01, 0.045, 0, -0.104, 0.078, M.steel(), -0.22), 'mag');   // mag base
-  b.box(0.008, 0.024, 0.014, 0, 0.044, 0.1, M.steel(), 0.5);                    // hammer
+  mark(b.box(0.008, 0.024, 0.014, 0, 0.044, 0.1, M.steel(), 0.5), 'hammer');       // hammer
   b.box(0.008, 0.03, 0.02, 0, -0.03, 0.098, M.silver());                        // grip safety
   b.box(0.008, 0.012, 0.03, 0.018, 0.005, 0.07, M.steel());                     // thumb safety
   b.box(0.007, 0.004, 0.062, 0, -0.03, -0.005, M.silver());                     // trigger guard
@@ -260,7 +260,7 @@ function buildRevolver() {           // .357 Magnum
   b.box(0.02, 0.022, 0.11, 0, 0.012, -0.13, M.silver());                        // barrel shroud
   b.tube(0.005, 0.1, 0, -0.004, -0.11, M.steel());                              // ejector rod
   ironSights(b, { y: 0.05, zr: 0.085, zf: -0.2, br: 0.0295, bf: 0.0385, pistol: true });
-  b.box(0.008, 0.026, 0.014, 0, 0.034, 0.1, M.steel(), 0.5);                    // hammer
+  mark(b.box(0.008, 0.026, 0.014, 0, 0.034, 0.1, M.steel(), 0.5), 'hammer');       // hammer
   b.box(0.032, 0.095, 0.045, 0, -0.065, 0.098, M.wood(), -0.3);                 // grip
   b.box(0.006, 0.01, 0.05, 0, -0.025, 0.04, M.silver());                        // trigger guard bottom
   b.box(0.006, 0.026, 0.005, 0, -0.012, 0.012, M.silver());
@@ -519,6 +519,7 @@ function addAttachments(g, w) {
       S(b.box(0.017, 0.018, 0.002, 0, cy, z + 0.015, mat(0x7fb6d8, 0.1, 0.05, { transparent: true, opacity: 0.16 })));
       S(b.ball(0.0012, 0, cy, z, dotRed()));
       u.sightY = cy;
+      g.traverse((o) => { if (o.userData && o.userData.hammer) o.position.y -= Math.max(0, o.position.y + 0.016 - (cy - 0.008)); });   // drop the hammer below the sight line so it does not block the dot
     } else {                                                // tube-less open reflex sight on the top rail
       const cy = m.y + 0.026, h0 = cy - 0.018 - m.y;
       if (h0 > 0.002) b.box(0.026, h0, 0.06, 0, m.y + h0 / 2, z, M.blued());
