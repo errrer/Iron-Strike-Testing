@@ -9,7 +9,8 @@ import { loadProps } from './props.js';
 import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js';
 import { rankName, UNLOCK } from './progress.js';
 import { initMapMaker } from './mapmaker.js';
-import { initTouch } from './touch.js';
+import { initTouch, blockZoom } from './touch.js';
+import { initGamepad } from './gamepad.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -36,7 +37,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll !== false, aimAssist: cfg.aimAssist !== false, autoFire: !!cfg.autoFire };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll !== false };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -137,14 +138,6 @@ for (const id of ['rag', 'rag2']) {
   el.checked = cfg.ragdoll !== false;
   el.addEventListener('change', () => { cfg.ragdoll = el.checked; game.settings.ragdoll = el.checked; for (const o of ['rag', 'rag2']) if ($(o)) $(o).checked = el.checked; save(); });
 }
-// touch settings: aim assist + auto shoot (main menu + pause menu; only visible on touch devices)
-for (const [ids, key] of [[['assist', 'assist2'], 'aimAssist'], [['auto', 'auto2'], 'autoFire']]) {
-  for (const id of ids) {
-    const el = $(id); if (!el) continue;
-    el.checked = key === 'aimAssist' ? cfg.aimAssist !== false : !!cfg.autoFire;
-    el.addEventListener('change', () => { cfg[key] = el.checked; game.settings[key] = el.checked; for (const o of ids) if ($(o)) $(o).checked = el.checked; save(); });
-  }
-}
 // gore toggle (main menu + pause menu)
 for (const id of ['gore', 'gore2']) {
   const el = $(id); if (!el) continue;
@@ -213,7 +206,9 @@ Promise.all([loadModels(WEAPONS), loadProps().catch(() => [])]).then(([ids]) => 
 const screens = ['landing', 'menu', 'zmenu', 'mmaker', 'mdmaker'];
 function showScreen(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
 initMapMaker($, showScreen);
+blockZoom();
 initTouch(game, $);
+initGamepad(game, $);
 $('lMP').addEventListener('click', () => showScreen('menu'));
 $('lZM').addEventListener('click', () => { $('zmName').value = cfg.name; zmStatus(''); showScreen('zmenu'); });
 $('btnLandBack').addEventListener('click', () => showScreen('landing'));

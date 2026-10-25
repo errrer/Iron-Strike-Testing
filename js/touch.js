@@ -10,6 +10,16 @@ export function wantsTouch() {
   return coarse || (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) && (navigator.maxTouchPoints || 0) > 0);
 }
 
+// Stop the browser zooming when you tap quickly or pinch (double-tap zoom), on any touch device
+export function blockZoom() {
+  if (!(navigator.maxTouchPoints > 0 || 'ontouchstart' in window)) return;
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+  let last = 0;
+  document.addEventListener('touchend', (e) => { const n = Date.now(); if (n - last < 350 && e.cancelable) e.preventDefault(); last = n; }, { passive: false });
+  document.addEventListener('touchstart', (e) => { if (e.touches.length > 1 && e.cancelable) e.preventDefault(); }, { passive: false });
+  document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+}
+
 export function initTouch(game, $) {
   if (!wantsTouch()) return null;
   game.touchMode = true; document.body.classList.add('touch');

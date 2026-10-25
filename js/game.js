@@ -73,7 +73,7 @@ export class Game {
 
     this.state = 'menu';
     this.keys = {}; this.fireHeld = false; this.fireEdge = false; this.adsHeld = false; this.showScore = false;
-    this.joy = { x: 0, y: 0 }; this.touchMode = false; this.autoFire = false; this.assistSlow = 1;          // touch controls (js/touch.js) drive these
+    this.joy = { x: 0, y: 0 }; this.touchMode = false;          // touch controls (js/touch.js) drive these
     this.mouseDX = 0; this.swayX = 0; this.swayY = 0;
     this.time = 0; this.matchT = 0;
     this.actors = []; this.player = null; this.world = null; this.scene = null;
@@ -147,7 +147,7 @@ export class Game {
   // turn the view by a pointer / finger movement (px); used by the mouse and by the touch look pad
   look(dx, dy, k) {
     const p = this.player; if (!p || !p.alive || this.state !== 'playing') return;
-    const s = k * this.settings.sens * (this.camera.fov / this.settings.fov) * (this.touchMode && this.settings.aimAssist ? this.assistSlow : 1);
+    const s = k * this.settings.sens * (this.camera.fov / this.settings.fov);
     p.yaw -= dx * s; p.pitch = clamp(p.pitch - dy * s, -1.5, 1.5);
     this.mouseDX += dx; this.mouseDY = (this.mouseDY || 0) + dy;
   }
@@ -1174,55 +1174,21 @@ export class Game {
     p.sprint = sprint;
     p.speed2 = Math.hypot(p.vel.x, p.vel.z);
 
-    this.assist(p, dt, ads, sprint, frozen);
-    const trig = this.fireHeld || this.autoFire;
-
     // recoil recovery
-    const firing = trig && p.fireCd > -0.05;
+    const firing = this.fireHeld && p.fireCd > -0.05;
     if (!firing) p.recoilBias *= Math.max(0, 1 - dt * 2.5);
     if (this.vmS.inspectT > 0 && (this.fireHeld || ads || sprint || p.reloading)) this.vmS.inspectT = 0;
     if (!firing && p.recoilDebt > 0) { const rec = Math.min(p.recoilDebt, dt * (0.1 + p.recoilDebt * 4)); p.pitch -= rec; p.recoilDebt -= rec; }
 
     // firing
     if (!frozen) {
-      const want = w.auto ? trig : (this.fireEdge || this.autoFire);
+      const want = w.auto ? this.fireHeld : this.fireEdge;
       if (want && !sprint && (!down || w.cls === 'pistol')) {
         if (p.ammo[p.cur].mag <= 0) { if (this.fireEdge) { this.sound.click(); } this.startReload(p); }
         else if (this.canFire(p)) this.playerShoot(p, ads);
       }
     }
     this.fireEdge = false;
-  }
-
-  // Touch aim helpers (settings: Aim assist, Auto shoot). Aim assist slows the look speed over an enemy and gently pulls the crosshair onto one
-  // while you fire or aim; auto shoot pulls the trigger when the crosshair is on an enemy you can see.
-  assist(p, dt, ads, sprint, frozen) {
-    this.autoFire = false; this.assistSlow = 1;
-    const st = this.settings;
-    if (!this.touchMode || !(st.aimAssist || st.autoFire) || !p.alive || frozen || p.down) return;
-    const w = p.weapon, range = Math.min(w.range[1] * 1.3, 70);
-    const ox = p.pos.x, oy = p.pos.y + p.eye, oz = p.pos.z, f = this.dirFrom(p.yaw, p.pitch, new V3());
-    let best = null, bang = 9, bd = 0, bdx = 0, bdy = 0, bdz = 0;
-    for (const e of this.actors) {
-      if (!e.alive || e === p || e.team === p.team || e.down) continue;
-      const dx = e.pos.x - ox, dy = e.pos.y + e.h * 0.72 - oy, dz = e.pos.z - oz, d = Math.hypot(dx, dy, dz);
-      if (d > range || d < 0.5) continue;
-      const dot = (dx * f.x + dy * f.y + dz * f.z) / d; if (dot < 0.93) continue;
-      const ang = Math.acos(Math.min(1, dot)); if (ang >= bang || !this.los(p, e)) continue;
-      best = e; bang = ang; bd = d; bdx = dx; bdy = dy; bdz = dz;
-    }
-    if (!best) return;
-    if (st.aimAssist) {
-      if (bang < 0.07) this.assistSlow = 0.5;                                              // sticky: swiping over a target is slower
-      const cone = ads ? 0.13 : 0.1;
-      if ((this.fireHeld || ads) && bang < cone && !sprint) {                                // pull toward the chest while firing / aiming
-        const wy = Math.atan2(-bdx, -bdz), wp = Math.atan2(bdy, Math.hypot(bdx, bdz));
-        let dyaw = wy - p.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
-        const rate = (0.5 + 2.2 * (1 - bang / cone)) * dt;
-        p.yaw += clamp(dyaw, -rate, rate); p.pitch = clamp(p.pitch + clamp(wp - p.pitch, -rate, rate), -1.5, 1.5);
-      }
-    }
-    if (st.autoFire && !sprint && bang < Math.atan2(0.3, bd) + 0.012) this.autoFire = true;   // crosshair is on the body
   }
 
   // current bullet spread (radians): hip -> ADS blend, then movement / heat / air penalties
