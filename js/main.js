@@ -9,6 +9,7 @@ import { loadProps } from './props.js';
 import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js';
 import { rankName, UNLOCK } from './progress.js';
 import { initMapMaker } from './mapmaker.js';
+import { RaceMode } from './race.js';
 import { initTouch, blockZoom } from './touch.js';
 import { initGamepad } from './gamepad.js';
 
@@ -209,6 +210,8 @@ initMapMaker($, showScreen);
 blockZoom();
 initTouch(game, $);
 initGamepad(game, $);
+const race = new RaceMode(game, $, showScreen);
+$('lRace').addEventListener('click', () => race.open());
 $('lMP').addEventListener('click', () => showScreen('menu'));
 $('lZM').addEventListener('click', () => { $('zmName').value = cfg.name; zmStatus(''); showScreen('zmenu'); });
 $('btnLandBack').addEventListener('click', () => showScreen('landing'));

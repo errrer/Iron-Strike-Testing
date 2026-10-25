@@ -773,6 +773,7 @@ export class Game {
   // ------------------------------------------------------------------ main loop
   frame(dt) {
     dt = Math.min(dt, 0.05);
+    if (this.race && this.race.active) { this.race.frame(dt); return; }
     if (!this.scene) return;
     if (this.state === 'playing' || (this.net && this.state === 'paused')) this.update(dt);
     this.render(dt);
