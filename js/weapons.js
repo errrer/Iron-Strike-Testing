@@ -8,7 +8,7 @@ export const WEAPONS = {
     spread: 0.030, adsSpread: 0.006, recoil: 0.0045, recoilYaw: 0.0030, range: [10, 30], minMul: 0.5, pellets: 1,
     zoom: 1.3, scope: false, moveMul: 1.08, snd: { f: 3200, len: 0.09, thump: 0.5 },
     builder: 'smg', attach: ['dot', 'grip', 'laser'],
-    asset: { id: 'vmp', grip: 'handle', fore: 'grip', foreOffset: [0, -0.02, 0], gripOffset: [0, 0.0, 0], mount: [0, 0.066, -0.04], under: [0, -0.053, -0.1], side: [0.022, -0.02, -0.2] },
+    asset: { id: 'vmp', grip: 'handle', fore: 'grip', foreOffset: [0, -0.02, 0], gripOffset: [0, 0.0, 0], mount: [0, 0.066, -0.04], under: [0, -0.053, -0.1], side: [0.022, -0.02, -0.2], sights: { zr: 0.06, zf: -0.19, br: 0.0734, bf: 0.0734 } },
   },
   super46: {
     id: 'super46', name: 'Super 46', slot: 'primary', cls: 'smg', desc: 'Kriss-style SMG with a ferocious rate of fire and low recoil. Drains a magazine in two seconds.',

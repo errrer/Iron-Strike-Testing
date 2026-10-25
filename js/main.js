@@ -10,6 +10,7 @@ import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js';
 import { rankName, UNLOCK } from './progress.js';
 import { initMapMaker } from './mapmaker.js';
 import { RaceMode } from './race.js';
+import { WeaponPreview } from './wpreview.js';
 import { initTouch, blockZoom } from './touch.js';
 import { initGamepad } from './gamepad.js';
 
@@ -62,11 +63,24 @@ for (const id of MAP_IDS) {
   const i = MAP_INFO[id];
   card($('maps'), `<div class="thumb" style="background:${i.thumb}"></div><h3>${i.name}</h3><p>${i.desc}</p>`, cfg.map === id, () => { cfg.map = id; });
 }
+// ---------------- COD-style loadout preview ----------------
+let wprev = null, curSlot = 'primary';
+const CLS_NAMES = { ar: 'ASSAULT RIFLE', smg: 'SMG', pistol: 'HANDGUN', shotgun: 'SHOTGUN', sniper: 'SNIPER RIFLE', melee: 'MELEE', lmg: 'LMG', dmr: 'MARKSMAN RIFLE' };
+function showWeapon(id, slot) {
+  const w = WEAPONS[id]; if (!w || !$('wpName')) return;
+  curSlot = slot || curSlot;
+  $('wpSlot').textContent = (slot || curSlot).toUpperCase(); $('wpCls').textContent = CLS_NAMES[w.cls] || String(w.cls).toUpperCase(); $('wpName').textContent = w.name; $('wpDesc').textContent = w.desc;
+  $('wpBars').innerHTML = Object.entries(weaponBars(w)).map(([k, v]) => `<div class="bar"><span>${k}</span><i><b style="width:${Math.round(v * 100)}%"></b></i></div>`).join('');
+  $('wpMag').textContent = w.mag; $('wpRes').textContent = w.reserve;
+  if (wprev && wprev.ok) wprev.show({ ...w, attMask: maskFor(id) });
+}
 function weaponCard(parent, id, key) {
   const w = WEAPONS[id], bars = weaponBars(w);
   const barsHtml = Object.entries(bars).map(([k, v]) => `<div class="bar"><span>${k}</span><i><b style="width:${Math.round(v * 100)}%"></b></i></div>`).join('');
-  const el = card(parent, `<span class="cls">${w.cls}</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars">${barsHtml}</div>`, cfg[key] === id, () => { cfg[key] = id; refreshAtt(); });
+  const el = card(parent, `<img class="wicon" alt="" draggable="false"><span class="cls">${CLS_NAMES[w.cls] || w.cls}</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars">${barsHtml}</div>`, cfg[key] === id, () => { cfg[key] = id; refreshAtt(); showWeapon(id, key); });
   el.dataset.wid = id; el.insertAdjacentHTML('beforeend', '<span class="lock"></span>');
+  el.addEventListener('mouseenter', () => showWeapon(id, key)); el.addEventListener('focus', () => showWeapon(id, key));
+  parent.onmouseleave = () => showWeapon(cfg[curSlot], curSlot);
 }
 let net = null;
 // ---------------- progression: rank box + weapon unlocks ----------------
@@ -98,7 +112,7 @@ function renderAtt(el, slot) {
     b.className = 'chip' + (maskFor(id) & a.bit ? ' sel' : '');
     for (const [tag, text] of [['b', a.name], ['span', a.desc], ['em', a.stats]]) { const x = document.createElement(tag); x.textContent = text; b.appendChild(x); }
     b.addEventListener('click', () => {
-      cfg.att[id] = maskFor(id) ^ a.bit; save(); refreshAtt(); loadoutChanged();
+      cfg.att[id] = maskFor(id) ^ a.bit; save(); refreshAtt(); loadoutChanged(); if (slot === 'primary' || slot === 'secondary') showWeapon(id, slot);
     });
     el.appendChild(b);
   }
@@ -115,7 +129,8 @@ function loadoutChanged() {
   if (game.mode && game.mode.sandbox && game.scene && (game.state === 'playing' || game.state === 'paused')) game.applyLoadout(game.player, cfg.primary, cfg.secondary, maskFor(cfg.primary), maskFor(cfg.secondary));
 }
 refreshAtt();
-
+try { wprev = new WeaponPreview($('wpCanvas')); } catch (e) { wprev = null; }
+showWeapon(cfg.primary, 'primary');
 
 for (const d of ['easy', 'normal', 'hard']) {
   const b = document.createElement('button'); b.textContent = d; if (cfg.difficulty === d) b.classList.add('sel');
@@ -201,7 +216,10 @@ showView(cfg.view);
 const startBtn = $('btnStart');
 startBtn.disabled = true; startBtn.textContent = 'LOADING...';
 Promise.all([loadModels(WEAPONS), loadProps().catch(() => [])]).then(([ids]) => ids).then((ids) => console.log('[models] loaded:', ids.join(', ') || 'none (procedural fallbacks)'))
-  .catch(() => {}).finally(() => { startBtn.disabled = false; startBtn.textContent = 'DEPLOY'; });
+  .catch(() => {}).finally(() => {
+    startBtn.disabled = false; startBtn.textContent = 'DEPLOY';
+    if (wprev && wprev.ok) { for (const c of document.querySelectorAll('[data-wid]')) { const im = c.querySelector('.wicon'); if (im) im.src = wprev.icon(WEAPONS[c.dataset.wid]); } showWeapon(cfg[curSlot], curSlot); }
+  });
 
 // ---------------- start screen: Multiplayer / Zombies ----------------
 const screens = ['landing', 'menu', 'zmenu', 'mmaker', 'mdmaker'];
@@ -212,6 +230,11 @@ initTouch(game, $);
 initGamepad(game, $);
 const race = new RaceMode(game, $, showScreen);
 $('lRace').addEventListener('click', () => race.open());
+for (const b of document.querySelectorAll('.cod-nav .cn')) {
+  const hov = () => { $('codTitle').textContent = b.querySelector('span').textContent; $('codDesc').textContent = b.dataset.d || ''; for (const o of document.querySelectorAll('.cod-nav .cn')) o.classList.toggle('on', o === b); };
+  b.addEventListener('mouseenter', hov); b.addEventListener('focus', hov);
+}
+$('lMP').addEventListener('mouseenter', () => {}); { const first = $('lMP'); $('codTitle').textContent = 'MULTIPLAYER'; $('codDesc').textContent = first.dataset.d; first.classList.add('on'); }
 $('lMP').addEventListener('click', () => showScreen('menu'));
 $('lZM').addEventListener('click', () => { $('zmName').value = cfg.name; zmStatus(''); showScreen('zmenu'); });
 $('btnLandBack').addEventListener('click', () => showScreen('landing'));
@@ -394,6 +417,7 @@ let last = performance.now();
 function loop(now) {
   const dt = (now - last) / 1000; last = now;
   try { game.frame(dt); } catch (err) { console.error(err); }
+  if (wprev && !$('menu').classList.contains('hidden')) { try { wprev.tick(Math.min(dt, 0.1)); } catch (e) { wprev.ok = false; } }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);

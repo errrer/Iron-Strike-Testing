@@ -99,31 +99,20 @@
 </div>
 
 <!-- ============ START SCREEN ============ -->
-<div id="landing" class="overlay">
-  <div class="landing-inner">
-    <div class="logo huge">IRON<span>STRIKE</span></div>
-    <div class="tag">3D TACTICAL SHOOTER</div>
-    <div class="lcards">
-      <button id="lMP" class="lcard mp" type="button">
-        <h2>MULTIPLAYER</h2>
-        <p>Team Deathmatch, Free For All, 1v1, Domination, Hardpoint, Kill Confirmed, Search &amp; Destroy and sandbox. Play against bots or go online with friends.</p>
-        <span class="go">PLAY &rsaquo;</span>
-      </button>
-      <button id="lZM" class="lcard zm" type="button">
-        <h2>ZOMBIES</h2>
-        <p>Hold out against endless rounds of the undead. Board up windows, buy weapons off the wall, open doors, drink perks and try the Mystery Box. Solo or 4-player online co-op.</p>
-        <span class="go">SURVIVE &rsaquo;</span>
-      </button>
-      <button id="lRace" class="lcard race" type="button">
-        <h2>DIRT BIKE RACE</h2>
-        <p>Guns down. Jump on a dirt bike and race five riders round a dirt track with four big jumps, nitro and a free-ride mode. Keyboard, controller or touch.</p>
-        <span class="go">RACE &rsaquo;</span>
-      </button>
-    </div>
-    <div style="margin-top:14px"><button id="lMM" class="btn alt" type="button">Map Maker</button> <button id="lMD" class="btn alt" type="button">Model Maker</button></div>
-    <div id="landRank" class="rankbox"><b id="landRankName"></b><div class="xpbar"><i id="landRankFill"></i></div><span id="landRankTxt"></span></div>
-    <footer>Fan-made, non-commercial project. Not affiliated with or endorsed by any game publisher.</footer>
-  </div>
+<div id="landing" class="overlay cod">
+  <div class="cod-smoke"><i></i><i></i><i></i></div>
+  <div class="cod-top"><span class="cod-crumb">&lsaquo; IRON STRIKE</span>
+    <div id="landRank" class="rankbox pill"><b id="landRankName"></b><div class="xpbar"><i id="landRankFill"></i></div><span id="landRankTxt"></span></div></div>
+  <div class="cod-logo"><div class="cod-box"><span>IRON</span><b>STRIKE</b></div><small>3D TACTICAL SHOOTER</small></div>
+  <nav class="cod-nav">
+    <button id="lMP" class="cn mp" type="button" data-d="Team Deathmatch, Free For All, 1v1, Domination, Hardpoint, Kill Confirmed, Search &amp; Destroy and sandbox. Play against bots or go online with friends."><span>MULTIPLAYER</span></button>
+    <button id="lZM" class="cn zm" type="button" data-d="Hold out against endless rounds of the undead. Board up windows, buy weapons off the wall, open doors, drink perks and try the Mystery Box. Solo or 4-player online co-op."><span>ZOMBIES</span><small>SOLO / CO-OP</small></button>
+    <button id="lRace" class="cn race" type="button" data-d="Guns down. Jump on a dirt bike and race five riders round a dirt track with four big jumps, nitro and a free-ride mode. Keyboard, controller or touch."><span>DIRT BIKE RACE</span><small>NEW</small></button>
+    <button id="lMM" class="cn" type="button" data-d="Build your own 3D map: place shapes, import models, export it. Not playable in game unless the developer adds it."><span>MAP MAKER</span></button>
+    <button id="lMD" class="cn" type="button" data-d="Build and export 3D models, including gun models. Not usable in game unless the developer adds them."><span>MODEL MAKER</span></button>
+  </nav>
+  <div class="cod-desc"><h3 id="codTitle">MULTIPLAYER</h3><p id="codDesc"></p></div>
+  <footer class="cod-foot">Fan-made, non-commercial project. Not affiliated with or endorsed by any game publisher.</footer>
 </div>
 
 <!-- ============ MAP MAKER ============ -->
@@ -200,6 +189,19 @@
     <section>
       <h2>2 &middot; Map</h2>
       <div id="maps" class="cards"></div>
+    </section>
+
+    <section id="loadout">
+      <h2>Loadout</h2>
+      <div class="wp">
+        <div class="wp-info">
+          <div class="wp-tag"><span id="wpSlot">PRIMARY</span> &middot; <span id="wpCls">ASSAULT RIFLE</span></div>
+          <div class="wp-name" id="wpName">M4A1</div>
+          <p class="wp-desc" id="wpDesc"></p>
+          <div class="wp-stats"><div class="wp-bars" id="wpBars"></div><div class="wp-ammo"><small>ROUNDS</small><b id="wpMag">30</b><small>RESERVE</small><b id="wpRes">90</b></div></div>
+        </div>
+        <canvas id="wpCanvas" class="wp-canvas"></canvas>
+      </div>
     </section>
 
     <section class="two">

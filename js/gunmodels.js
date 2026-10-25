@@ -497,7 +497,7 @@ function buildFromAsset(w, data) {
     grip: p(a.grip, a.gripOffset), fore: p(a.fore, a.foreOffset), pistol: false,
     mount: V(...(a.mount || [0, data.sightY - 0.008, 0])), under: V(...(a.under || [0, -0.05, -0.1])), side: V(...(a.side || [0.025, -0.02, -0.2])),
   };
-  if (!data.sights) { const bb = new B(); bb.g = g; ironSights(bb, { y: 0.092, zr: 0.11, zf: -0.2, br: 0.073, bf: 0.073 }); }   // the VMP model has no sights of its own; the Super 46 brings its own
+  if (!data.sights) { const bb = new B(); bb.g = g; const sg = a.sights || { zr: 0.11, zf: -0.2, br: 0.073, bf: 0.073 }; ironSights(bb, { y: 0.092, ...sg }); }   // the VMP model has no sights of its own; the Super 46 brings its own
   return g;
 }
 
