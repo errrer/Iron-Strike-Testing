@@ -94,7 +94,7 @@ export class Track {
 export class Bike {
   constructor(track, o = {}) {
     this.track = track; this.id = o.id || 0; this.name = o.name || 'Rider'; this.color = o.color || 0xd8281c; this.isPlayer = !!o.isPlayer;
-    this.skill = o.skill || 1; this.lane = o.lane || 0; this.laneT = this.lane;
+    this.nid = o.nid ?? this.id; this.remote = false; this.gone = false; this.bestLap = 0; this.skill = o.skill || 1; this.lane = o.lane || 0; this.laneT = this.lane;
     this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.speed = 0; this.vx = 0; this.vz = 0; this.vy = 0;
     this.air = false; this.pitch = 0; this.roll = 0; this.st = 0; this.nitro = 1; this.boosting = false; this.on = true;
     this.idx = 0; this.prog = 0; this.lap = 0; this.lapStart = 0; this.lapTimes = []; this.finished = false; this.finishT = 0; this.stuckT = 0; this.landed = 0; this.offT = 0;
@@ -188,20 +188,29 @@ export class RaceSim {
     this.diff = o.diff || 'normal'; this.t = this.free ? 0 : -3.5; this.state = this.free ? 'racing' : 'countdown'; this.finishOrder = [];
     const base = { easy: 0.86, normal: 0.94, hard: 1.0 }[this.diff] || 0.94, T = this.track;
     this.bikes = [];
-    const n = this.free ? 1 : 6, playerSlot = Math.min(4, n - 1);
-    for (let k = 0; k < n; k++) {
-      const isP = k === playerSlot;
-      const b = new Bike(T, { id: k, isPlayer: isP, name: isP ? 'You' : NAMES[(k * 3 + 1) % NAMES.length], color: isP ? (o.color ?? 0xd8281c) : COLORS[(k + 1) % COLORS.length], skill: isP ? 1 : base * (0.97 + 0.05 * ((k * 7) % 5) / 4), lane: (((k * 5) % 7) - 3) * 1.1 });
+    // riders: [{ nid, name, color, kind }]  kind 'me' = driven here, 'bot' = AI simulated here, 'remote' = driven by someone else (poses come from the network)
+    const riders = o.riders || RaceSim.defaultRiders(this.free ? 0 : (o.bots ?? 5), o.color);
+    riders.forEach((r, k) => {
+      const isP = r.kind === 'me';
+      const b = new Bike(T, { id: k, nid: r.nid ?? k, isPlayer: isP, name: r.name, color: r.color, skill: r.kind === 'bot' ? base * (0.97 + 0.05 * ((k * 7) % 5) / 4) : 1, lane: (((k * 5) % 7) - 3) * 1.1 });
+      b.remote = r.kind === 'remote';
       const row = Math.floor(k / 2), side = k % 2 ? 2.4 : -2.4;
       b.place(T.N - Math.round((7 + row * 7) / T.ds), side);
       b.prog = -(7 + row * 7); b.idx = ((T.N - Math.round((7 + row * 7) / T.ds)) % T.N + T.N) % T.N;
       this.bikes.push(b);
-    }
-    this.player = this.bikes[playerSlot];
+    });
+    this.player = this.bikes.find((b) => b.isPlayer) || this.bikes[0];
+  }
+
+  // you + `bots` AI riders (you start towards the back of the grid, like before)
+  static defaultRiders(bots, color) {
+    const n = bots + 1, slot = Math.min(4, n - 1), out = [];
+    for (let k = 0; k < n; k++) out.push(k === slot ? { nid: k, kind: 'me', name: 'You', color: color ?? 0xd8281c } : { nid: k, kind: 'bot', name: NAMES[(k * 3 + 1) % NAMES.length], color: COLORS[(k + 1) % COLORS.length] });
+    return out;
   }
 
   rank() {
-    const arr = this.bikes.slice().sort((a, b) => (a.finished && b.finished) ? a.finishT - b.finishT : a.finished ? -1 : b.finished ? 1 : b.prog - a.prog);
+    const arr = this.bikes.filter((b) => !b.gone).sort((a, b) => (a.finished && b.finished) ? a.finishT - b.finishT : a.finished ? -1 : b.finished ? 1 : b.prog - a.prog);
     arr.forEach((b, i) => { b.place_ = i + 1; });
     return arr;
   }
@@ -214,6 +223,7 @@ export class RaceSim {
     const racing = this.state !== 'countdown';
     const pp = this.player.prog;
     for (const b of this.bikes) {
+      if (b.remote || b.gone) continue;                                                             // other people's bikes are posed from the network
       let inp = { thr: 0, brk: 0, steer: 0, boost: false };
       if (racing && !(b.finished && b.isPlayer)) {
         if (b.isPlayer) inp = pin; else {
@@ -231,7 +241,7 @@ export class RaceSim {
     }
     // bikes shove each other a little
     for (let i = 0; i < this.bikes.length; i++) for (let j = i + 1; j < this.bikes.length; j++) {
-      const a = this.bikes[i], c = this.bikes[j], dx = c.x - a.x, dz = c.z - a.z, d = Math.hypot(dx, dz);
+      const a = this.bikes[i], c = this.bikes[j]; if (a.gone || c.gone) continue; const dx = c.x - a.x, dz = c.z - a.z, d = Math.hypot(dx, dz);
       if (d < 1.1 && d > 1e-4 && Math.abs(a.y - c.y) < 1.4) {
         const push = (1.1 - d) * 0.5, nx = dx / d, nz = dz / d;
         a.x -= nx * push; a.z -= nz * push; c.x += nx * push; c.z += nz * push;

@@ -7,9 +7,9 @@
 //
 // Hits are resolved by the host with lag compensation (targets are rewound to what the shooter saw).
 // Movement is client-trusted, so this is meant for playing with friends, not for ranked play.
-import { MODES, MAX_PLAYERS, mpMode } from './game.js?v=0.13.3';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.13.3';
-import { WEAPONS, PRIMARIES, SECONDARIES, cleanMask } from './weapons.js?v=0.13.3';
+import { MODES, MAX_PLAYERS, mpMode } from './game.js?v=0.14.0';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.14.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, cleanMask } from './weapons.js?v=0.14.0';
 
 const PEER_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
 const PREFIX = 'ironstrike-v1-';
@@ -18,7 +18,7 @@ const PROTOCOL = 1;
 
 export const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
 export const cleanName = (s) => (String(s || '').replace(/[<>&"'`]/g, '').trim().slice(0, 14)) || 'Player';
-const genCode = () => Array.from({ length: 6 }, () => ALPHA[Math.floor(Math.random() * ALPHA.length)]).join('');
+export const genCode = () => Array.from({ length: 6 }, () => ALPHA[Math.floor(Math.random() * ALPHA.length)]).join('');
 
 export function loadPeerLib() {
   if (window.Peer) return Promise.resolve();
@@ -39,7 +39,7 @@ const ICE = {
   iceCandidatePoolSize: 4,
 };
 
-function openPeer(id) {
+export function openPeer(id) {
   return new Promise((res, rej) => {
     let done = false;
     const p = id ? new window.Peer(id, { debug: 0, config: ICE }) : new window.Peer({ debug: 0, config: ICE });

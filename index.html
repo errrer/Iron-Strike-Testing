@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b0f14">
 <title>IRON STRIKE - 3D Tactical Shooter</title>
 <meta name="description" content="A free browser-based 3D first-person shooter with 4 maps, Team Deathmatch, 1v1 and Free-For-All, and 8 weapons. Built with Three.js.">
-<link rel="stylesheet" href="css/style.css?v=0.13.3">
+<link rel="stylesheet" href="css/style.css?v=0.14.0">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/", "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.0/build/index.module.js", "three-bvh-csg": "https://cdn.jsdelivr.net/npm/three-bvh-csg@0.0.6/build/index.module.js" } }
 </script>
@@ -105,7 +105,8 @@
     <div id="landRank" class="rankbox pill"><b id="landRankName"></b><div class="xpbar"><i id="landRankFill"></i></div><span id="landRankTxt"></span></div></div>
   <div class="cod-logo"><div class="cod-box"><span>IRON</span><b>STRIKE</b></div><small>3D TACTICAL SHOOTER</small></div>
   <nav class="cod-nav">
-    <button id="lMP" class="cn mp" type="button" data-d="Team Deathmatch, Free For All, 1v1, Domination, Hardpoint, Kill Confirmed, Search &amp; Destroy and sandbox. Play against bots or go online with friends."><span>MULTIPLAYER</span></button>
+    <button id="lOnline" class="cn mp" type="button" data-d="Create a room and send the 6-letter code to your friends, or enter their code to join. Works peer-to-peer, no account needed."><span>ONLINE</span><small>FRIENDS</small></button>
+    <button id="lMP" class="cn mp" type="button" data-d="Team Deathmatch, Free For All, 1v1, Domination, Hardpoint, Kill Confirmed, Search &amp; Destroy and sandbox against bots, with full loadout and class editing."><span>PLAY VS BOTS</span></button>
     <button id="lZM" class="cn zm" type="button" data-d="Hold out against endless rounds of the undead. Board up windows, buy weapons off the wall, open doors, drink perks and try the Mystery Box. Solo or 4-player online co-op."><span>ZOMBIES</span><small>SOLO / CO-OP</small></button>
     <button id="lRace" class="cn race" type="button" data-d="Guns down. Jump on a dirt bike and race five riders round a dirt track with four big jumps, nitro and a free-ride mode. Keyboard, controller or touch."><span>DIRT BIKE RACE</span><small>NEW</small></button>
     <button id="lMM" class="cn" type="button" data-d="Build your own 3D map: place shapes, import models, export it. Not playable in game unless the developer adds it."><span>MAP MAKER</span></button>
@@ -291,6 +292,6 @@
 </div>
 
 <div id="loaderr" class="hidden"></div>
-<script type="module" src="js/main.js?v=0.13.3"></script>
+<script type="module" src="js/main.js?v=0.14.0"></script>
 </body>
 </html>

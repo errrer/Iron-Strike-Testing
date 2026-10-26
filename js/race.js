@@ -1,6 +1,7 @@
 // Dirt Bike Race: a gun-free racing mode. Rendering, input and HUD live here; the simulation is in race-core.js.
 import * as THREE from 'three';
-import { RaceSim, HW, VMAX } from './race-core.js?v=0.13.3';
+import { RaceSim, HW, VMAX } from './race-core.js?v=0.14.0';
+import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.14.0';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrap = (a) => { const T = Math.PI * 2; a %= T; if (a > Math.PI) a -= T; if (a < -Math.PI) a += T; return a; };
@@ -68,7 +69,7 @@ export function makeBikeMesh(color = 0xd8281c, jersey = 0x222831) {
 export class RaceMode {
   constructor(game, $, showScreen) {
     this.game = game; this.$ = $; this.showScreen = showScreen; this.sim = null; this.active = false; this.paused = false;
-    this.keys = {}; this.touch = {}; this.padPrev = {}; this.cfg = { laps: 3, diff: 'normal', color: 'Red' };
+    this.keys = {}; this.touch = {}; this.padPrev = {}; this.cfg = { laps: 3, diff: 'normal', color: 'Red', bots: 5 }; this.net = null; this.endAcc = 0;
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.1, 700);
     this.buildDom();
     this._kd = (e) => this.onKey(e, true); this._ku = (e) => this.onKey(e, false);
@@ -79,13 +80,30 @@ export class RaceMode {
     const mk = (id, cls, html) => { const d = document.createElement('div'); d.id = id; d.className = cls; d.innerHTML = html; document.body.appendChild(d); return d; };
     let best = ''; try { best = localStorage.getItem('ironstrike.race.best') || ''; } catch (e) { /* storage blocked */ }
     this.menu = mk('raceMenu', 'overlay hidden', `<div class="panel racepanel"><h2>DIRT BIKE RACE</h2>
-      <p class="rsub">No guns. Just you, five riders and a dirt track with four jumps. Hold the throttle, hit the kickers and keep it pinned.</p>
+      <p class="rsub">No guns. A dirt track with four jumps. Race bots, race friends online, or both. Hold the throttle, hit the kickers and keep it pinned.</p>
       <div class="rrow"><label for="rLaps">Laps</label><select id="rLaps"><option value="0">Free ride (no race)</option><option value="1">1 lap</option><option value="3" selected>3 laps</option><option value="5">5 laps</option></select></div>
-      <div class="rrow"><label for="rDiff">Riders</label><select id="rDiff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div>
+      <div class="rrow"><label for="rBots">Bots</label><select id="rBots"><option value="0">None (just you)</option><option value="1">1 bot</option><option value="3">3 bots</option><option value="5" selected>5 bots</option></select></div>
+      <div class="rrow"><label for="rDiff">Bot skill</label><select id="rDiff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div>
       <div class="rrow"><label for="rColor">Your bike</label><select id="rColor">${Object.keys(BIKE_COLORS).map((c) => `<option>${c}</option>`).join('')}</select></div>
       <div class="rkeys"><b>W / &uarr;</b> throttle &middot; <b>S / &darr;</b> brake &middot; <b>A D / &larr; &rarr;</b> steer &middot; <b>Shift / Space</b> nitro &middot; <b>R</b> reset to track &middot; <b>V</b> camera &middot; <b>Esc</b> pause<br>Controller: RT gas, LT brake, left stick steer, A nitro, Y reset, Start pause. Touch: on-screen buttons.</div>
       <div class="rbest" id="rBest">${best ? 'Best lap: ' + fmt(parseFloat(best)) : ''}</div>
-      <button id="rGo" class="btn primary" type="button">START RACE</button> <button id="rBack" class="btn" type="button">Back</button></div>`);
+      <button id="rGo" class="btn primary" type="button">START RACE</button> <button id="rOnline" class="btn alt" type="button">PLAY ONLINE</button> <button id="rBack" class="btn" type="button">Back</button></div>`);
+    let nm = 'Player'; try { nm = localStorage.getItem('ironstrike.race.name') || nm; } catch (e) { /* storage blocked */ }
+    this.netEl = mk('raceNet', 'overlay hidden', `<div class="panel racepanel"><h2>RACE ONLINE</h2>
+      <div class="rrow"><label for="rnName">Callsign</label><input id="rnName" maxlength="14" autocomplete="off" spellcheck="false" value="${nm}"></div>
+      <div class="rrow"><label for="rnColor">Your bike</label><select id="rnColor">${COLOR_NAMES.map((c) => `<option>${c}</option>`).join('')}</select></div>
+      <div id="rnHome"><div class="rnbtns"><button id="rnHost" class="btn primary" type="button">Create room</button></div>
+        <div class="rnor">or join a friend</div>
+        <div class="rnbtns"><input id="rnCode" maxlength="6" placeholder="ABCDEF" autocomplete="off" spellcheck="false"><button id="rnJoin" class="btn primary" type="button">Join</button></div></div>
+      <div id="rnRoom" class="hidden"><div class="mpcode">ROOM CODE <b id="rnCodeTxt">------</b> <button id="rnCopy" class="btn small" type="button">Copy</button></div>
+        <table id="rnPlayers"></table>
+        <div id="rnOpts"><div class="rrow"><label for="rnLaps">Laps</label><select id="rnLaps"><option value="1">1 lap</option><option value="3" selected>3 laps</option><option value="5">5 laps</option></select></div>
+        <div class="rrow"><label for="rnBots">Bots</label><select id="rnBots"><option value="0">None (players only)</option><option value="1">1 bot</option><option value="2">2 bots</option><option value="3" selected>3 bots</option><option value="5">5 bots</option></select></div>
+        <div class="rrow"><label for="rnDiff">Bot skill</label><select id="rnDiff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div></div>
+        <p id="rnInfo" class="rsub"></p>
+        <div class="rnbtns"><button id="rnStart" class="btn primary" type="button">START RACE</button></div></div>
+      <p id="rnStatus" class="mpstatus"></p>
+      <button id="rnBack" class="btn" type="button">Back</button></div>`);
     this.hud = mk('race', 'hidden', `<div id="rLapBox"><small>LAP</small><b id="rLap">1/3</b></div><div id="rPosBox"><small>POSITION</small><b id="rPos">1st</b></div>
       <div id="rTimeBox"><small>TIME</small><b id="rTime">0:00.00</b><span id="rLast"></span></div>
       <div id="rSpd"><b id="rKmh">0</b><small>km/h</small><div id="rNit"><i id="rNitFill"></i></div></div>
@@ -97,7 +115,8 @@ export class RaceMode {
     const $ = this.$, on = (id, f) => document.getElementById(id).addEventListener('click', f);
     on('rGo', () => this.start()); on('rBack', () => { this.menu.classList.add('hidden'); this.showScreen('landing'); });
     on('rResume', () => this.setPause(false)); on('rRestart', () => this.start()); on('rQuit', () => this.exit());
-    on('rAgain', () => this.start()); on('rEndQuit', () => this.exit()); on('rPauseBtn', () => this.setPause(true));
+    on('rAgain', () => this.again());
+    on('rOnline', () => this.openOnline()); this.bindOnline(on); on('rEndQuit', () => this.exit()); on('rPauseBtn', () => this.setPause(true));
     this.map = document.getElementById('rMap'); this.mapCtx = this.map.getContext('2d');
     const bind = (btn, k) => {
       const set = (v) => (e) => { this.touch[k] = v; if (e && e.preventDefault) e.preventDefault(); };
@@ -107,7 +126,98 @@ export class RaceMode {
     void $;
   }
 
-  open() { this.showScreen(''); this.menu.classList.remove('hidden'); this.active = false; }
+  open() { this.showScreen(''); this.menu.classList.remove('hidden'); this.netEl.classList.add('hidden'); this.active = false; }
+
+  // ---------------- online: lobby panel and the glue between the race and RaceNet
+  bindOnline(on) {
+    const $ = (id) => document.getElementById(id), name = () => { const n = ($('rnName').value || '').trim() || 'Player'; try { localStorage.setItem('ironstrike.race.name', n); } catch (e) { /* blocked */ } return n; };
+    const status = (t, err) => { const e = $('rnStatus'); e.textContent = t || ''; e.classList.toggle('err', !!err); };
+    this.rnStatus = status;
+    const mkNet = () => { if (this.net) this.net.leave(); this.net = new RaceNet(this.netUi()); return this.net; };
+    const run = async (label, f) => { status(label); $('rnHost').disabled = $('rnJoin').disabled = true; try { await f(); status(''); } catch (e) { status((e && e.message) || 'Could not connect.', true); if (this.net && !this.net.active) this.net = null; } $('rnHost').disabled = $('rnJoin').disabled = false; };
+    on('rnHost', () => run('Creating room...', async () => { const n = mkNet(); await n.host(name(), $('rnColor').value); }));
+    on('rnJoin', () => run('Connecting...', async () => { const n = mkNet(); await n.join($('rnCode').value, name(), $('rnColor').value); }));
+    $('rnCode').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
+    $('rnColor').addEventListener('change', () => { if (this.net && this.net.active) this.net.setMyColor($('rnColor').value); });
+    for (const id of ['rnLaps', 'rnBots', 'rnDiff']) $(id).addEventListener('change', () => { if (this.net && this.net.role === 'host') this.net.setOpts({ laps: +$('rnLaps').value, bots: +$('rnBots').value, diff: $('rnDiff').value }); });
+    on('rnStart', () => { if (this.net) { const e = this.net.start(); if (e) status(e, true); } });
+    on('rnCopy', () => { const c = $('rnCodeTxt').textContent; try { navigator.clipboard.writeText(c); status('Code copied.'); } catch (e) { status('Code: ' + c); } });
+    on('rnBack', () => { if (this.net) { this.net.leave(); this.net = null; } this.netEl.classList.add('hidden'); this.open(); });
+  }
+
+  openOnline(msg) {
+    this.menu.classList.add('hidden'); this.netEl.classList.remove('hidden'); this.showScreen('');
+    const $ = (id) => document.getElementById(id);
+    const inRoom = !!(this.net && this.net.active); $('rnHome').classList.toggle('hidden', inRoom); $('rnRoom').classList.toggle('hidden', !inRoom);
+    this.rnStatus(msg || '', !!msg);
+  }
+
+  netUi() {
+    return {
+      lobby: (l) => this.renderLobby(l),
+      go: (info) => this.startOnline(info),
+      apply: (rows) => this.applyNet(rows),
+      collect: () => this.collect(),
+      left: (nid) => { const b = this.sim && this.sim.bikes.find((x) => x.nid === nid); if (b && !b.isPlayer) { b.gone = true; if (this.meshes) { const m = this.meshes[this.sim.bikes.indexOf(b)]; if (m) m.root.visible = false; } } },
+      closed: (why) => { this.net = null; const racing = this.active; if (racing) this.exit(true); this.openOnline(why); },
+    };
+  }
+
+  renderLobby(l) {
+    const $ = (id) => document.getElementById(id), net = this.net; if (!net) return;
+    const host = net.role === 'host', n = l.players.length;
+    $('rnCodeTxt').textContent = l.code;
+    $('rnPlayers').innerHTML = '<tr><th></th><th>Rider</th><th>Bike</th></tr>' + l.players.map((p) => `<tr class="${p.id === net.myId ? 'me' : ''}"><td><i class="rndot" style="background:#${(BIKE_COLORS[p.color] ?? 0xffffff).toString(16).padStart(6, '0')}"></i></td><td>${p.name.replace(/[<>&"]/g, '')}${p.id === 0 ? ' (host)' : ''}</td><td>${p.color}</td></tr>`).join('');
+    const bots = Math.min(l.opts.bots, MAX_RIDERS - n);
+    $('rnOpts').classList.toggle('hidden', !host); $('rnStart').classList.toggle('hidden', !host);
+    if (host) { $('rnLaps').value = String(l.opts.laps); $('rnBots').value = String(l.opts.bots); $('rnDiff').value = l.opts.diff; }
+    $('rnColor').value = (l.players.find((p) => p.id === net.myId) || {}).color || $('rnColor').value;
+    $('rnInfo').textContent = `${n} rider${n > 1 ? 's' : ''} + ${bots} bot${bots === 1 ? '' : 's'}, ${l.opts.laps} lap${l.opts.laps > 1 ? 's' : ''}` + (host ? (n < MAX_HUMANS ? '. Share the code with friends.' : '.') : '. Waiting for the host to start.') + (l.running && !this.active ? ' A race is running, you join the next one.' : '');
+    if (!this.active) { this.netEl.classList.remove('hidden'); $('rnHome').classList.add('hidden'); $('rnRoom').classList.remove('hidden'); }
+  }
+
+  // host announced a race (or we are the host and pressed start)
+  startOnline(info) {
+    const net = this.net; if (!net) return;
+    const riders = info.roster.map((r) => ({ nid: r.nid, name: r.name, color: BIKE_COLORS[r.color] ?? 0xd8281c, kind: r.bot ? (net.role === 'host' ? 'bot' : 'remote') : (r.nid === net.myId ? 'me' : 'remote') }));
+    this.netEl.classList.add('hidden'); this.start({ riders, laps: info.laps, diff: info.diff, color: (net.players.get(net.myId) || {}).color });
+  }
+
+  again() { if (this.net) { if (this.net.role === 'host') this.net.start(); } else this.start(); }
+
+  // state of the bikes this machine owns (the player, plus the AI riders on the host)
+  collect() {
+    if (!this.sim) return []; const f = (v, d = 2) => +v.toFixed(d), out = [];
+    for (const b of this.sim.bikes) {
+      if (b.remote || b.gone) continue;
+      out.push([b.nid, f(b.x), f(b.y), f(b.z), f(b.yaw, 3), f(b.pitch, 3), f(b.roll, 3), f(b.speed), f(b.st), f(b.thr, 1), (b.air ? 1 : 0) | (b.boosting ? 2 : 0) | (b.finished ? 4 : 0) | (b.on ? 8 : 0), f(b.prog, 1), b.lap, f(b.finishT), f(b.nitro), f(b.lapTimes.length ? Math.min(...b.lapTimes) : 0)]);
+    }
+    return out;
+  }
+  applyNet(rows) {
+    if (!this.sim || !this.active) return; const now = performance.now();
+    for (const r of rows) {
+      const b = this.sim.bikes.find((x) => x.nid === r[0]); if (!b || !b.remote || !isFinite(r[1])) continue;
+      const fl = r[10] | 0, first = !b.net;
+      b.net = { x: r[1], y: r[2], z: r[3], yaw: r[4], pitch: r[5], roll: r[6], speed: r[7], st: r[8], thr: r[9], t: now };
+      b.air = !!(fl & 1); b.boosting = !!(fl & 2); b.on = !!(fl & 8); b.finished = !!(fl & 4);
+      b.prog = r[11]; b.lap = r[12]; b.finishT = r[13]; b.nitro = r[14]; b.bestLap = r[15];
+      if (first) { b.x = r[1]; b.y = r[2]; b.z = r[3]; b.yaw = r[4]; }
+    }
+  }
+  // glide the other riders towards their latest reported pose (and carry them forward by their speed so they don't stutter)
+  smoothRemotes(dt) {
+    const k = 1 - Math.exp(-dt * 14), now = performance.now(), T = this.sim.track;
+    for (const b of this.sim.bikes) {
+      const n = b.net; if (!b.remote || !n || b.gone) continue;
+      const age = Math.min(0.25, (now - n.t) / 1000), fx = -Math.sin(n.yaw), fz = -Math.cos(n.yaw);
+      const tx = n.x + fx * n.speed * age, tz = n.z + fz * n.speed * age;
+      b.x += (tx - b.x) * k; b.z += (tz - b.z) * k; b.y += (n.y + (b.air ? 0 : 0) - b.y) * k;
+      b.yaw += wrap(n.yaw - b.yaw) * k; b.pitch += (n.pitch - b.pitch) * k; b.roll += (n.roll - b.roll) * k; b.st += (n.st - b.st) * k;
+      b.speed = n.speed; b.thr = n.thr; b.wheel += n.speed * dt;
+      if (!b.air) { const g = T.ground(b.x, b.z, b.idx); b.idx = g.i; }
+    }
+  }
 
   // ---------------- build the world
   buildScene() {
@@ -172,7 +282,13 @@ export class RaceMode {
     const ban = new THREE.Mesh(new THREE.BoxGeometry((HW + 1.2) * 2, 1.4, 0.25), new THREE.MeshBasicMaterial({ map: tex })); ban.position.set(0, 6.6, 0); arch.add(ban); scene.add(arch);
     const lineM = new THREE.Mesh(new THREE.BoxGeometry(HW * 2, 0.02, 1.0), new THREE.MeshBasicMaterial({ color: 0xffffff })); lineM.position.set(T.x[0], T.y[0] + 0.1, T.z[0]); lineM.rotation.y = T.yaw[0]; scene.add(lineM);
     // bikes
-    this.meshes = this.sim.bikes.map((bk) => { const m = makeBikeMesh(bk.color, bk.isPlayer ? 0x15181d : [0x2b3a67, 0x6a2c2c, 0x2c5b3a, 0x5e4b1c, 0x4a2f63, 0x1f5b5b][bk.id % 6]); scene.add(m.root); return m; });
+    this.meshes = this.sim.bikes.map((bk) => { const m = makeBikeMesh(bk.color, bk.isPlayer ? 0x15181d : [0x2b3a67, 0x6a2c2c, 0x2c5b3a, 0x5e4b1c, 0x4a2f63, 0x1f5b5b][bk.id % 6]); scene.add(m.root);
+      if (this.net && !bk.isPlayer) { try {                                   // name tag above other racers
+        const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d');
+        if (x) { x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.lineWidth = 6; x.strokeStyle = 'rgba(0,0,0,.8)'; x.strokeText(bk.name, 128, 44); x.fillStyle = '#fff'; x.fillText(bk.name, 128, 44); }
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true })); sp.scale.set(3.2, 0.8, 1); sp.position.set(0, 2.5, 0); sp.renderOrder = 9; m.root.add(sp);
+      } catch (e) { /* no canvas */ } }
+      return m; });
     // dust
     this.dustN = 260; this.dustPos = new Float32Array(this.dustN * 3).fill(-9999); this.dustAge = new Float32Array(this.dustN).fill(9); this.dustVel = new Float32Array(this.dustN * 3); this.dustI = 0;
     const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.Float32BufferAttribute(this.dustPos, 3)); this.dustGeo = dg;
@@ -196,14 +312,17 @@ export class RaceMode {
   }
 
   // ---------------- lifecycle
-  start() {
+  start(mp) {
     const $ = (id) => document.getElementById(id);
-    this.cfg = { laps: parseInt($('rLaps').value, 10), diff: $('rDiff').value, color: $('rColor').value };
+    this.cfg = mp ? { laps: mp.laps, diff: mp.diff, color: mp.color || 'Red', bots: 0 } : { laps: parseInt($('rLaps').value, 10), diff: $('rDiff').value, color: $('rColor').value, bots: parseInt($('rBots').value, 10) };
+    if (!mp && this.net) { this.net.leave(); this.net = null; }
     this.menu.classList.add('hidden'); this.pauseEl.classList.add('hidden'); this.endEl.classList.add('hidden');
     this.showScreen(''); if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    this.sim = new RaceSim({ laps: this.cfg.laps, diff: this.cfg.diff, color: BIKE_COLORS[this.cfg.color] });
+    this.sim = new RaceSim({ laps: this.cfg.laps, diff: this.cfg.diff, color: BIKE_COLORS[this.cfg.color], bots: this.cfg.bots, riders: mp && mp.riders });
     this.buildScene();
-    const g = this.game; g.state = 'race'; g.race = this; this.active = true; this.paused = false; this.endShown = false; this.lastCount = 99; this.goT = 0; this.finT = 0; this.camPos = null; this.camYaw = this.sim.player.yaw; this.shake = 0; this.close = false; this.wrongT = 0; this.last = '';
+    const g = this.game; g.state = 'race'; g.race = this; this.active = true; this.paused = false; this.endShown = false; this.lastCount = 99; this.goT = 0; this.finT = 0; this.camPos = null; this.camYaw = this.sim.player.yaw; this.shake = 0; this.close = false; this.wrongT = 0; this.last = ''; this.endAcc = 0; this.raceOverSent = false;
+    document.getElementById('rRestart').style.display = this.net ? 'none' : '';
+    document.getElementById('rAgain').textContent = this.net && this.net.role !== 'host' ? 'Waiting for host...' : 'Race again'; document.getElementById('rAgain').disabled = !!(this.net && this.net.role !== 'host');
     this.hud.classList.remove('hidden'); document.body.classList.add('racing');
     $('rLapBox').style.display = this.cfg.laps ? '' : 'none'; $('rPosBox').style.display = this.cfg.laps ? '' : 'none';
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
@@ -211,17 +330,19 @@ export class RaceMode {
     if (this.cfg.laps === 0) this.msg('FREE RIDE', 1.6);
   }
 
-  exit() {
+  exit(keepNet) {
+    if (this.net && !keepNet) { this.net.leave(); this.net = null; } else if (this.net && keepNet) this.net = null;
     this.active = false; this.stopEngine(); const g = this.game; g.race = null; g.state = 'menu';
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
-    this.hud.classList.add('hidden'); this.pauseEl.classList.add('hidden'); this.endEl.classList.add('hidden'); this.menu.classList.add('hidden'); document.body.classList.remove('racing');
+    this.hud.classList.add('hidden'); this.pauseEl.classList.add('hidden'); this.endEl.classList.add('hidden'); this.menu.classList.add('hidden'); this.netEl.classList.add('hidden'); document.body.classList.remove('racing');
     this.scene = null; this.sim = null; this.keys = {}; this.touch = {};
     this.showScreen('landing');
   }
 
   setPause(p) {
     if (!this.active || (this.endShown && p)) return;
-    this.paused = p; this.pauseEl.classList.toggle('hidden', !p); if (this.gain) this.gain.gain.value = 0;
+    this.paused = p; document.getElementById('rResume').parentNode.querySelector('#rRestart').style.display = this.net ? 'none' : '';
+     this.pauseEl.classList.toggle('hidden', !p); if (this.gain) this.gain.gain.value = 0;
     if (!p) this.keys = {};
   }
 
@@ -274,13 +395,15 @@ export class RaceMode {
     if (!this.active || !this.sim || !this.scene) return;
     dt = Math.min(dt, 0.05);
     const sim = this.sim, p = sim.player, inp = this.readInput();
-    if (!this.paused) {
+    if (!this.paused || this.net) {
       const prevCount = this.lastCount;
-      sim.update(dt, p.finished ? { thr: 0, brk: 0, steer: 0, boost: false } : inp);
+      sim.update(dt, (p.finished || this.paused) ? { thr: 0, brk: 0, steer: 0, boost: false } : inp);
+      if (this.net) { this.smoothRemotes(dt); this.net.tick(dt); if (this.net.role === 'host' && this.net.running && !this.raceOverSent && sim.bikes.every((b) => b.gone || b.nid >= 100 || b.finished)) { this.raceOverSent = true; this.net.raceOver(); } }
       if (sim.state === 'countdown') { const c = Math.ceil(-sim.t); if (c !== this.lastCount) { this.lastCount = c; this.msg(String(c), 0.9); this.game.sound.beep(false); } }
       else if (prevCount !== 0 && this.cfg.laps) { this.lastCount = 0; this.msg('GO!', 1.0); this.game.sound.beep(true); }
       this.finT = p.finished ? this.finT + dt : 0;
       if (p.finished && !this.endShown) { if (this.finT < 0.05) this.msg(sim.rank().indexOf(p) === 0 ? 'YOU WIN!' : 'FINISHED', 2.4); if (this.finT > 2.4) this.showEnd(); }
+      if (this.endShown && this.net && (this.endAcc += dt) > 0.5) { this.endAcc = 0; this.fillEnd(); }
       this.updateEngine(p, inp.thr);
       if (p.landed > 0) { this.shake = Math.max(this.shake, Math.min(0.5, p.landed * 0.025)); p.landed = 0; }
     }
@@ -314,7 +437,7 @@ export class RaceMode {
   updateHud(dt, inp) {
     const sim = this.sim, p = sim.player, $ = (id) => document.getElementById(id), set = (id, v) => { const e = $(id); if (e.textContent !== v) e.textContent = v; };
     const order = sim.rank();
-    if (this.cfg.laps) { set('rLap', Math.min(this.cfg.laps, p.lap + 1) + '/' + this.cfg.laps); set('rPos', ordinal(order.indexOf(p) + 1) + ' / ' + sim.bikes.length); }
+    if (this.cfg.laps) { set('rLap', Math.min(this.cfg.laps, p.lap + 1) + '/' + this.cfg.laps); set('rPos', ordinal(order.indexOf(p) + 1) + ' / ' + order.length); }
     set('rTime', fmt(Math.max(0, sim.t))); set('rKmh', String(Math.round(Math.abs(p.speed) * 3.6)));
     $('rNitFill').style.width = Math.round(p.nitro * 100) + '%'; $('rBoostFx').style.opacity = p.boosting ? '1' : '0';
     if (p.lapTimes.length) { const best = Math.min(...p.lapTimes); set('rLast', 'Last ' + fmt(p.lapTimes[p.lapTimes.length - 1]) + '  Best ' + fmt(best)); }
@@ -324,7 +447,7 @@ export class RaceMode {
     // minimap
     const g = this.mapCtx; if (g && this.mapBg) {
       g.clearRect(0, 0, 150, 150); g.drawImage(this.mapBg, 0, 0);
-      for (const b of sim.bikes) { g.fillStyle = b.isPlayer ? '#ffffff' : '#' + b.color.toString(16).padStart(6, '0'); g.beginPath(); g.arc(b.x * this.mapScale + this.mapOx, b.z * this.mapScale + this.mapOz, b.isPlayer ? 4.2 : 3, 0, 7); g.fill(); if (b.isPlayer) { g.strokeStyle = '#000'; g.lineWidth = 1.2; g.stroke(); } }
+      for (const b of sim.bikes) { if (b.gone) continue; g.fillStyle = b.isPlayer ? '#ffffff' : '#' + b.color.toString(16).padStart(6, '0'); g.beginPath(); g.arc(b.x * this.mapScale + this.mapOx, b.z * this.mapScale + this.mapOz, b.isPlayer ? 4.2 : 3, 0, 7); g.fill(); if (b.isPlayer) { g.strokeStyle = '#000'; g.lineWidth = 1.2; g.stroke(); } }
     }
     void inp;
   }
@@ -345,16 +468,18 @@ export class RaceMode {
     r.clear(); r.render(this.scene, cam);
   }
 
-  showEnd() {
-    this.endShown = true; const sim = this.sim, order = sim.rank(), p = sim.player, pos = order.indexOf(p) + 1;
+  showEnd() { this.endShown = true; this.fillEnd(); this.endEl.classList.remove('hidden'); }
+
+  fillEnd() {
+    const sim = this.sim; if (!sim) return; const order = sim.rank(), p = sim.player, pos = order.indexOf(p) + 1;
     document.getElementById('rEndTitle').textContent = pos === 1 ? 'YOU WIN!' : ordinal(pos) + ' PLACE';
-    const rows = order.map((b, i) => `<tr class="${b.isPlayer ? 'me' : ''}"><td>${i + 1}</td><td>${b.name}</td><td>${b.finished ? fmt(b.finishT) : 'Lap ' + Math.min(this.cfg.laps, b.lap + 1)}</td><td>${b.lapTimes.length ? fmt(Math.min(...b.lapTimes)) : '-'}</td></tr>`).join('');
+    const bestOf = (b) => (b.remote ? b.bestLap : (b.lapTimes.length ? Math.min(...b.lapTimes) : 0));
+    const rows = order.map((b, i) => `<tr class="${b.isPlayer ? 'me' : ''}"><td>${i + 1}</td><td>${b.name}</td><td>${b.finished ? fmt(b.finishT) : 'Lap ' + Math.min(this.cfg.laps, b.lap + 1)}</td><td>${bestOf(b) ? fmt(bestOf(b)) : '-'}</td></tr>`).join('');
     document.getElementById('rEndTable').innerHTML = '<tr><th>#</th><th>Rider</th><th>Time</th><th>Best lap</th></tr>' + rows;
     let best = Infinity; try { best = parseFloat(localStorage.getItem('ironstrike.race.best')) || Infinity; } catch (e) { /* blocked */ }
     const mine = p.lapTimes.length ? Math.min(...p.lapTimes) : Infinity;
     if (mine < best) { try { localStorage.setItem('ironstrike.race.best', String(mine)); } catch (e) { /* blocked */ } best = mine; document.getElementById('rEndBest').textContent = 'New best lap: ' + fmt(mine) + '!'; }
     else document.getElementById('rEndBest').textContent = isFinite(best) ? 'Best lap: ' + fmt(best) : '';
     document.getElementById('rBest').textContent = isFinite(best) ? 'Best lap: ' + fmt(best) : '';
-    this.endEl.classList.remove('hidden');
   }
 }

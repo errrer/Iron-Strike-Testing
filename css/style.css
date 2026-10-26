@@ -532,7 +532,7 @@ body.pad .overlay :focus { outline: 3px solid var(--accent2); outline-offset: 2p
 .cod-nav .cn small { font-size: 10px; letter-spacing: 3px; color: var(--amber); }
 .cod-nav .cn.on, .cod-nav .cn:hover, .cod-nav .cn:focus-visible { color: #fff; outline: none; transform: translateX(6px); }
 .cod-nav .cn.on::before, .cod-nav .cn:hover::before, .cod-nav .cn:focus-visible::before { transform: rotate(45deg) scale(1); }
-.cod-nav .cn:nth-child(3) { margin-bottom: 14px; }
+.cod-nav .cn:nth-child(4) { margin-bottom: 14px; }
 .cod-desc { position: absolute; z-index: 3; right: 6vw; bottom: 16vh; width: min(430px, 36vw); text-align: left; }
 .cod-desc h3 { margin: 0 0 8px; font-size: 30px; letter-spacing: 6px; color: #fff; border-left: 4px solid var(--amber); padding-left: 14px; }
 .cod-desc p { margin: 0; color: #b4b8bd; line-height: 1.6; font-size: 14px; padding-left: 18px; }
@@ -591,3 +591,11 @@ body.pad .overlay :focus { outline: 3px solid var(--accent2); outline-offset: 2p
 
 /* start row */
 #menu .btn.big { clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%); padding-right: 64px; }
+
+/* online race lobby */
+.rnbtns { display: flex; gap: 10px; justify-content: center; align-items: center; margin: 10px 0; }
+.rnbtns input { width: 150px; text-align: center; letter-spacing: 6px; font-size: 20px; text-transform: uppercase; }
+.rnor { text-align: center; opacity: .6; letter-spacing: 3px; font-size: 12px; margin: 14px 0 4px; text-transform: uppercase; }
+#rnPlayers { margin: 10px 0; } #rnPlayers th, #rnPlayers td { text-align: left; padding: 5px 8px; }
+.rndot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,.5); }
+#raceNet .rrow input { min-width: 190px; }

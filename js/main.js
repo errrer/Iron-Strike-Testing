@@ -1,18 +1,18 @@
-import { Game, MODES, mpMode } from './game.js?v=0.13.3';
-import { Net, cleanCode, cleanName } from './net.js?v=0.13.3';
-import { watchForEgg } from './easter.js?v=0.13.3';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.13.3';
-import { Sound } from './audio.js?v=0.13.3';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js?v=0.13.3';
-import { loadModels } from './gunmodels.js?v=0.13.3';
-import { loadProps } from './props.js?v=0.13.3';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.13.3';
-import { rankName, UNLOCK } from './progress.js?v=0.13.3';
-import { initMapMaker } from './mapmaker.js?v=0.13.3';
-import { RaceMode } from './race.js?v=0.13.3';
-import { WeaponPreview } from './wpreview.js?v=0.13.3';
-import { initTouch, blockZoom } from './touch.js?v=0.13.3';
-import { initGamepad } from './gamepad.js?v=0.13.3';
+import { Game, MODES, mpMode } from './game.js?v=0.14.0';
+import { Net, cleanCode, cleanName } from './net.js?v=0.14.0';
+import { watchForEgg } from './easter.js?v=0.14.0';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.14.0';
+import { Sound } from './audio.js?v=0.14.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js?v=0.14.0';
+import { loadModels } from './gunmodels.js?v=0.14.0';
+import { loadProps } from './props.js?v=0.14.0';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.14.0';
+import { rankName, UNLOCK } from './progress.js?v=0.14.0';
+import { initMapMaker } from './mapmaker.js?v=0.14.0';
+import { RaceMode } from './race.js?v=0.14.0';
+import { WeaponPreview } from './wpreview.js?v=0.14.0';
+import { initTouch, blockZoom } from './touch.js?v=0.14.0';
+import { initGamepad } from './gamepad.js?v=0.14.0';
 
 const $ = (id) => document.getElementById(id);
 
@@ -234,7 +234,8 @@ for (const b of document.querySelectorAll('.cod-nav .cn')) {
   const hov = () => { $('codTitle').textContent = b.querySelector('span').textContent; $('codDesc').textContent = b.dataset.d || ''; for (const o of document.querySelectorAll('.cod-nav .cn')) o.classList.toggle('on', o === b); };
   b.addEventListener('mouseenter', hov); b.addEventListener('focus', hov);
 }
-$('lMP').addEventListener('mouseenter', () => {}); { const first = $('lMP'); $('codTitle').textContent = 'MULTIPLAYER'; $('codDesc').textContent = first.dataset.d; first.classList.add('on'); }
+{ const first = $('lOnline'); $('codTitle').textContent = 'ONLINE'; $('codDesc').textContent = first.dataset.d; first.classList.add('on'); }
+$('lOnline').addEventListener('click', () => { showScreen('menu'); $('btnMP').click(); });
 $('lMP').addEventListener('click', () => showScreen('menu'));
 $('lZM').addEventListener('click', () => { $('zmName').value = cfg.name; zmStatus(''); showScreen('zmenu'); });
 $('btnLandBack').addEventListener('click', () => showScreen('landing'));
