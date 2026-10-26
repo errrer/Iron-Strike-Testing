@@ -83,7 +83,7 @@ export class HUD {
     const row = document.createElement('div'); row.className = 'kf';
     const rel = (a) => (game.mode.team ? (a.team === game.player.team ? 'ally' : 'enemy') : (a.isPlayer ? 'ally' : 'enemy'));
     const mk = (a) => { const s = document.createElement('b'); s.className = rel(a); s.textContent = a.name; return s; };
-    const mid = document.createElement('span'); mid.className = 'wp'; mid.textContent = ` ${k === v ? 'x' : w.name}${head ? ' (HS)' : ''} `;
+    const mid = document.createElement('span'); mid.className = 'kfw'; mid.textContent = ` ${k === v ? 'x' : w.name}${head ? ' (HS)' : ''} `;
     row.appendChild(k === v ? document.createTextNode('') : mk(k)); row.appendChild(mid); row.appendChild(mk(v));
     if (k.isPlayer || v.isPlayer) row.classList.add('mine');
     this.el.killfeed.appendChild(row);

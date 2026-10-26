@@ -76,7 +76,7 @@ tr.me td { background: rgba(255, 255, 255, 0.07); font-weight: 700; }
 #killfeed { position: absolute; top: 14px; right: 16px; display: grid; gap: 4px; justify-items: end; font-size: 14px; text-shadow: 0 1px 3px #000; }
 .kf { background: rgba(8, 12, 16, 0.55); padding: 4px 10px; border-radius: 4px; animation: kfin .2s ease-out; }
 .kf.mine { outline: 1px solid rgba(255, 138, 31, 0.7); background: rgba(40, 24, 8, 0.7); }
-.kf .wp { color: var(--dim); font-size: 12px; } .kf .ally { color: var(--ally); } .kf .enemy { color: var(--enemy); }
+.kf .kfw { color: var(--dim); font-size: 12px; } .kf .ally { color: var(--ally); } .kf .enemy { color: var(--enemy); }
 @keyframes kfin { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 0, 0, 0.9) 100%); opacity: 0; transition: opacity .15s; }
 #dmgind { position: absolute; inset: 0; }
