@@ -1,18 +1,20 @@
-import { Game, MODES, mpMode } from './game.js?v=0.14.1';
-import { Net, cleanCode, cleanName } from './net.js?v=0.14.1';
-import { watchForEgg } from './easter.js?v=0.14.1';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.14.1';
-import { Sound } from './audio.js?v=0.14.1';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponBars, ATT, cleanMask } from './weapons.js?v=0.14.1';
-import { loadModels } from './gunmodels.js?v=0.14.1';
-import { loadProps } from './props.js?v=0.14.1';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.14.1';
-import { rankName, UNLOCK } from './progress.js?v=0.14.1';
-import { initMapMaker } from './mapmaker.js?v=0.14.1';
-import { RaceMode } from './race.js?v=0.14.1';
-import { WeaponPreview } from './wpreview.js?v=0.14.1';
-import { initTouch, blockZoom } from './touch.js?v=0.14.1';
-import { initGamepad } from './gamepad.js?v=0.14.1';
+import { Game, MODES, mpMode } from './game.js?v=0.15.0';
+import { Net, cleanCode, cleanName } from './net.js?v=0.15.0';
+import { watchForEgg } from './easter.js?v=0.15.0';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.15.0';
+import { Sound } from './audio.js?v=0.15.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.15.0';
+import { loadModels } from './gunmodels.js?v=0.15.0';
+import { loadProps } from './props.js?v=0.15.0';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.15.0';
+import { rankName, UNLOCK } from './progress.js?v=0.15.0';
+import { initMapMaker } from './mapmaker.js?v=0.15.0';
+import { RaceMode } from './race.js?v=0.15.0';
+import { initKeybinds } from './keybinds.js?v=0.15.0';
+import { Gunsmith } from './gunsmith.js?v=0.15.0';
+import { WeaponPreview } from './wpreview.js?v=0.15.0';
+import { initTouch, blockZoom } from './touch.js?v=0.15.0';
+import { initGamepad } from './gamepad.js?v=0.15.0';
 
 const $ = (id) => document.getElementById(id);
 
@@ -26,6 +28,7 @@ if (!PRIMARIES.includes(cfg.primary)) cfg.primary = DEFAULTS.primary;
 if (!SECONDARIES.includes(cfg.secondary)) cfg.secondary = DEFAULTS.secondary;
 cfg.xh = cleanXh(cfg.xh);
 if (!cfg.att || typeof cfg.att !== 'object') cfg.att = {};
+if (cfg.attv !== 2) { for (const k of Object.keys(cfg.att)) cfg.att[k] = migrateOldMask(cfg.att[k]); cfg.attv = 2; }
 if (!cfg.name) cfg.name = 'Player' + Math.floor(100 + Math.random() * 900);
 if (cfg.view !== 'first' && cfg.view !== 'third') cfg.view = 'first';
 const save = () => { try { localStorage.setItem('ironstrike', JSON.stringify(cfg)); } catch (e) { /* ignore */ } };
@@ -63,21 +66,24 @@ for (const id of MAP_IDS) {
   const i = MAP_INFO[id];
   card($('maps'), `<div class="thumb" style="background:${i.thumb}"></div><h3>${i.name}</h3><p>${i.desc}</p>`, cfg.map === id, () => { cfg.map = id; });
 }
+const maskFor = (id) => cleanMask(WEAPONS[id], cfg.att[id] | 0);
 // ---------------- COD-style loadout preview ----------------
 let wprev = null, curSlot = 'primary';
 const CLS_NAMES = { ar: 'ASSAULT RIFLE', smg: 'SMG', pistol: 'HANDGUN', shotgun: 'SHOTGUN', sniper: 'SNIPER RIFLE', melee: 'MELEE', lmg: 'LMG', dmr: 'MARKSMAN RIFLE' };
+const CARD_STATS = ['Damage', 'Fire rate', 'Range', 'Control', 'Mobility'];
+const barsHtml = (w, all) => weaponStats(w).filter((r) => all || CARD_STATS.includes(r.k)).map((r) => `<div class="bar num"><span>${r.k}</span><i><b style="width:${Math.round(r.bar * 100)}%"></b></i><em>${r.text}</em></div>`).join('');
 function showWeapon(id, slot) {
   const w = WEAPONS[id]; if (!w || !$('wpName')) return;
   curSlot = slot || curSlot;
   $('wpSlot').textContent = (slot || curSlot).toUpperCase(); $('wpCls').textContent = CLS_NAMES[w.cls] || String(w.cls).toUpperCase(); $('wpName').textContent = w.name; $('wpDesc').textContent = w.desc;
-  $('wpBars').innerHTML = Object.entries(weaponBars(w)).map(([k, v]) => `<div class="bar"><span>${k}</span><i><b style="width:${Math.round(v * 100)}%"></b></i></div>`).join('');
-  $('wpMag').textContent = w.mag; $('wpRes').textContent = w.reserve;
+  const eff = withAtt(w, maskFor(id));
+  $('wpBars').innerHTML = barsHtml(eff, true);
+  $('wpMag').textContent = eff.mag; $('wpRes').textContent = w.reserve;
   if (wprev && wprev.ok) wprev.show({ ...w, attMask: maskFor(id) });
 }
 function weaponCard(parent, id, key) {
-  const w = WEAPONS[id], bars = weaponBars(w);
-  const barsHtml = Object.entries(bars).map(([k, v]) => `<div class="bar"><span>${k}</span><i><b style="width:${Math.round(v * 100)}%"></b></i></div>`).join('');
-  const el = card(parent, `<img class="wicon" alt="" draggable="false"><span class="cls">${CLS_NAMES[w.cls] || w.cls}</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars">${barsHtml}</div>`, cfg[key] === id, () => { cfg[key] = id; refreshAtt(); showWeapon(id, key); });
+  const w = WEAPONS[id], bh = barsHtml(withAtt(w, maskFor(id)), false);
+  const el = card(parent, `<img class="wicon" alt="" draggable="false"><span class="cls">${CLS_NAMES[w.cls] || w.cls}</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars">${bh}</div>`, cfg[key] === id, () => { cfg[key] = id; refreshAtt(); showWeapon(id, key); });
   el.dataset.wid = id; el.insertAdjacentHTML('beforeend', '<span class="lock"></span>');
   el.addEventListener('mouseenter', () => showWeapon(id, key)); el.addEventListener('focus', () => showWeapon(id, key));
   parent.onmouseleave = () => showWeapon(cfg[curSlot], curSlot);
@@ -103,20 +109,15 @@ for (const id of PRIMARIES) weaponCard($('primaries'), id, 'primary');
 for (const id of SECONDARIES) weaponCard($('secondaries'), id, 'secondary');
 // ---------------- attachments (equipped per weapon, remembered between sessions) ----------------
 const MAX_DUMMIES_UI = 20;
-const maskFor = (id) => cleanMask(WEAPONS[id], cfg.att[id] | 0);
+const mk = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
+let gsm = null;
 function renderAtt(el, slot) {
   const id = cfg[slot], w = WEAPONS[id]; el.textContent = '';
-  const label = document.createElement('div'); label.className = 'attlabel'; label.textContent = `${w.name} attachments`; el.appendChild(label);
-  for (const key of w.attach || []) {
-    const a = ATT[key], b = document.createElement('button'); b.type = 'button';
-    b.className = 'chip' + (maskFor(id) & a.bit ? ' sel' : '');
-    for (const [tag, text] of [['b', a.name], ['span', a.desc], ['em', a.stats]]) { const x = document.createElement(tag); x.textContent = text; b.appendChild(x); }
-    b.addEventListener('click', () => {
-      cfg.att[id] = maskFor(id) ^ a.bit; save(); refreshAtt(); loadoutChanged(); if (slot === 'primary' || slot === 'secondary') showWeapon(id, slot);
-    });
-    el.appendChild(b);
-  }
-  if (!(w.attach || []).length) { const n = document.createElement('div'); n.className = 'none'; n.textContent = 'No attachments for this weapon.'; el.appendChild(n); }
+  const m = maskFor(id), l = attList(m), total = Object.keys(w.opts || {}).length;
+  const b = mk('button', 'btn gsbtn'); b.type = 'button'; b.appendChild(mk('span', null, `GUNSMITH - ${w.name}`)); b.appendChild(mk('span', null, `${l.length}/${total} attachments${camoOf(m) ? ' - ' + CAMOS[camoOf(m)].name : ''}`));
+  b.addEventListener('click', () => { if (gsm) gsm.show(id); });
+  el.appendChild(b);
+  if (l.length) { const s = mk('div', 'attsum'); s.textContent = l.map((a) => a.name).join(' \u00b7 '); el.appendChild(s); }
 }
 function refreshAtt() {
   renderAtt($('attP'), 'primary'); renderAtt($('attS'), 'secondary');
@@ -130,6 +131,8 @@ function loadoutChanged() {
 }
 refreshAtt();
 try { wprev = new WeaponPreview($('wpCanvas')); } catch (e) { wprev = null; }
+initKeybinds();
+gsm = new Gunsmith({ prog: game.prog, getMask: (id) => maskFor(id), setMask: (id, m) => { cfg.att[id] = m; save(); }, onClose: (id) => { refreshAtt(); loadoutChanged(); showWeapon(cfg[curSlot], curSlot); for (const c of document.querySelectorAll('[data-wid]')) { const w = WEAPONS[c.dataset.wid], bx = c.querySelector('.bars'); if (bx && w) bx.innerHTML = barsHtml(withAtt(w, maskFor(w.id)), false); } } });
 showWeapon(cfg.primary, 'primary');
 
 for (const d of ['easy', 'normal', 'hard']) {
@@ -331,7 +334,7 @@ function renderLobby(st) {
     const r = tbl.insertRow(); r.className = (team ? 't' + (p.team % 2) : '') + (p.id === net.myId ? ' me' : '');
     r.insertCell().textContent = p.name + (p.id === 0 ? ' (host)' : '') + (p.id === net.myId ? ' (you)' : '');
     r.insertCell().textContent = team ? (p.team % 2 === 0 ? 'Blue' : 'Red') : '-';
-    const tag = (id, mask) => (WEAPONS[id] || {}).name + ((mask | 0) ? ` (${Object.values(ATT).filter((a) => mask & a.bit).map((a) => a.name.split(' ')[0]).join('+')})` : '');
+    const tag = (id, mask) => { const l = attList(mask | 0); return (WEAPONS[id] || {}).name + (l.length ? ` (${l.length} att.)` : ''); };
     r.insertCell().textContent = `${tag(p.prim, p.ap)} / ${tag(p.sec, p.as)}`;
   }
   $('mpStart').classList.toggle('hidden', !host);
@@ -418,7 +421,8 @@ let last = performance.now();
 function loop(now) {
   const dt = (now - last) / 1000; last = now;
   try { game.frame(dt); } catch (err) { console.error(err); }
-  if (wprev && !$('menu').classList.contains('hidden')) { try { wprev.tick(Math.min(dt, 0.1)); } catch (e) { wprev.ok = false; } }
+  if (gsm && gsm.open) gsm.tick(Math.min(dt, 0.1));
+  else if (wprev && !$('menu').classList.contains('hidden')) { try { wprev.tick(Math.min(dt, 0.1)); } catch (e) { wprev.ok = false; } }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);

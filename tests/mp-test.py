@@ -71,7 +71,7 @@ with sync_playwright() as pw:
       // 3 clients join
       const clients = [];
       const specs = [['m4a1','g18'], ['ak47','magnum'], ['kar98k','m1911']];
-      for (let i = 0; i < 3; i++) { const c = H.mkClient(M, closed); await Promise.all([c.netObj.join(code, 'Joiner' + i, {prim: specs[i][0], sec: specs[i][1], ap: i === 0 ? 3 : 0, as: i === 0 ? 5 : 0}), window.__bus.pumpAsync(1)]); clients.push(c); }
+      for (let i = 0; i < 3; i++) { const c = H.mkClient(M, closed); await Promise.all([c.netObj.join(code, 'Joiner' + i, {prim: specs[i][0], sec: specs[i][1], ap: i === 0 ? 257 : 0, as: i === 0 ? 1025 : 0}), window.__bus.pumpAsync(1)]); clients.push(c); }
       await window.__bus.pumpAsync(0.5);
       out.lobbyPlayers = hostNet.lobby.players.map(p => p.name + ':' + p.team);
       out.lobbyRows = document.querySelectorAll('#mpPlayers tr').length;
@@ -97,7 +97,7 @@ with sync_playwright() as pw:
     assert R['lobbyRows'] == 5 and R['clientSees'] == [4, 4, 4] and R['clientLobbyMap'] == ['frostbite'] * 3, R
     assert all(x in ('playing','paused') for x in R['states']) and R['actorCounts'] == [4] * 4 and sorted(R['teams']) == [0, 0, 1, 1], R
 
-    assert R['attHost'][1] == [3, 5] and R['attClient'][1] == [3, 5], (R['attHost'], R['attClient'])   # dot+grip on the M4A1, laser (not dot) kept on the G18 mask 5 -> 4
+    assert R['attHost'][1] == [257, 1025] and R['attClient'][1] == [257, 1025], (R['attHost'], R['attClient'])   # dot+grip on the M4A1, laser (not dot) kept on the G18 mask 5 -> 4
     S = pg.evaluate("""async () => {
       const {games, errs} = window.__T, host = games[0];
       await H.run(games, 45, errs);

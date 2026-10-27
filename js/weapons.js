@@ -117,47 +117,168 @@ WEAPONS.zclaw = { id: 'zclaw', name: 'Zombie', slot: 'none', cls: 'melee', desc:
 export const PRIMARIES = ['vmp', 'super46', 'mp5', 'p90', 'm4a1', 'ak47', 'scar', 'lmg', 'dmr', 'kar98k', 'm680', 'aa12'];
 export const SECONDARIES = ['g18', 'm1911', 'skorp', 'magnum', 'deagle'];
 
-// Stats used by the loadout screen bars (0..1)
+// Stats shown on the loadout / gunsmith screens: a 0..100 style number per row plus a 0..1 bar. `good` says which way is better.
+export function weaponStats(w) {
+  const pel = Math.max(1, w.pellets || 1), cl = (x) => Math.max(0, Math.min(1, x));
+  const acc = Math.round(100 * cl(1 - w.adsSpread / 0.03)), hip = Math.round(100 * cl(1 - w.spread / 0.12)), ctl = Math.round(100 * cl(1 - w.recoil / 0.032));
+  return [
+    { k: 'Damage', v: Math.round(w.dmg * pel * 10) / 10, text: pel > 1 ? `${Math.round(w.dmg * 10) / 10} x${pel}` : String(Math.round(w.dmg * 10) / 10), bar: cl((w.dmg * Math.min(pel, 4)) / 105), good: 1 },
+    { k: 'Fire rate', v: Math.round(w.rpm), text: String(Math.round(w.rpm)), bar: cl(w.rpm / 1100), good: 1 },
+    { k: 'Range', v: Math.round(w.range[1]), text: Math.round(w.range[1]) + ' m', bar: cl(w.range[1] / 120), good: 1 },
+    { k: 'Accuracy', v: acc, text: String(acc), bar: acc / 100, good: 1 },
+    { k: 'Hip fire', v: hip, text: String(hip), bar: hip / 100, good: 1 },
+    { k: 'Control', v: ctl, text: String(ctl), bar: Math.max(0.05, ctl / 100), good: 1 },
+    { k: 'Mobility', v: Math.round(w.moveMul * 100), text: Math.round(w.moveMul * 100) + '%', bar: cl((w.moveMul - 0.85) / 0.3), good: 1 },
+    { k: 'Reload', v: Math.round(w.reload * 100) / 100, text: (Math.round(w.reload * 100) / 100).toFixed(2) + ' s', bar: cl(1 - (w.reload - 0.8) / 3), good: -1 },
+    { k: 'Magazine', v: w.mag, text: String(w.mag), bar: cl(w.mag / 60), good: 1 },
+  ];
+}
 export function weaponBars(w) {
-  return {
-    Damage: Math.min(1, (w.dmg * Math.min(w.pellets, 4)) / 105),
-    'Fire rate': Math.min(1, w.rpm / 1100),
-    Range: Math.min(1, w.range[1] / 120),
-    Control: Math.max(0.1, 1 - w.recoil / 0.032),
-    Mobility: Math.min(1, (w.moveMul - 0.85) / 0.3),
-  };
+  const o = {}; for (const r of weaponStats(w)) if (['Damage', 'Fire rate', 'Range', 'Control', 'Mobility'].includes(r.k)) o[r.k] = r.bar; return o;
 }
 
 // ---------------- attachments ----------------
-// Equipped attachments are stored as a bit mask (1 = red dot, 2 = vertical grip, 4 = laser) so they are cheap to send online.
-export const ATT = {
-  dot: { bit: 1, name: 'Red Dot Sight', desc: 'Clear sight picture, aim down the dot. Tighter aimed fire.', stats: 'ADS accuracy +20%' },
-  grip: { bit: 2, name: 'Vertical Grip', desc: 'Steadies the weapon. Less recoil and tighter hip fire.', stats: 'Recoil -20%, hip spread -10%' },
-  laser: { bit: 4, name: 'Laser Sight', desc: 'Projects a red dot where you point. Much tighter hip fire.', stats: 'Hip spread -30%, ADS +5%' },
-  supp: { bit: 8, name: 'Suppressor', desc: 'Muffles the shot and calms the muzzle climb, but robs a little punch and range.', stats: 'Quiet, recoil -10%, damage -6%, range -8%' },
-  xmag: { bit: 16, name: 'Extended Mag', desc: 'A longer magazine. More shots before you reload, a slower reload.', stats: 'Mag +50%, reload +15%' },
-  comp: { bit: 32, name: 'Compensator', desc: 'Vents the gas up and out to keep the muzzle down.', stats: 'Recoil -15%, sideways kick -25%' },
-  lbar: { bit: 64, name: 'Long Barrel', desc: 'Longer barrel for more range and a tighter aimed shot. Heavier to swing.', stats: 'Range +20%, ADS spread -10%, speed -3%' },
-};
-export const ATT_DOT = 1, ATT_GRIP = 2, ATT_LASER = 4, ATT_SUPP = 8, ATT_XMAG = 16, ATT_COMP = 32, ATT_LBAR = 64;
+// A loadout for one gun is a single integer (cheap to save and to send online) made of one small field per SLOT, COD-gunsmith style:
+// you pick at most one attachment in each slot. The top bits hold the camo.
+export const SLOTS = [
+  { id: 'optic', name: 'Optic', shift: 0, bits: 3 },
+  { id: 'muzzle', name: 'Muzzle', shift: 3, bits: 3 },
+  { id: 'barrel', name: 'Barrel', shift: 6, bits: 2 },
+  { id: 'under', name: 'Underbarrel', shift: 8, bits: 2 },
+  { id: 'laser', name: 'Laser', shift: 10, bits: 2 },
+  { id: 'mag', name: 'Magazine', shift: 12, bits: 2 },
+  { id: 'stock', name: 'Stock', shift: 14, bits: 2 },
+  { id: 'ammo', name: 'Ammunition', shift: 16, bits: 2 },
+];
+export const CAMO_SHIFT = 18, CAMO_BITS = 6;
+const range = (o, a, b = a) => { o.range = [o.range[0] * a, o.range[1] * b]; };
 
-// every gun gets the muzzle / magazine attachments that suit its class
-const EXTRA = { pistol: ['supp', 'xmag', 'comp'], smg: ['supp', 'xmag', 'comp', 'lbar'], ar: ['supp', 'xmag', 'comp', 'lbar'], shotgun: ['comp', 'lbar'], sniper: ['supp', 'comp', 'lbar'] };
-for (const w of Object.values(WEAPONS)) if (w.attach && w.cls !== 'melee') w.attach = [...w.attach, ...(EXTRA[w.cls] || []).filter((k) => !w.attach.includes(k))];
-export const allowedMask = (w) => (w.attach || []).reduce((m, k) => m | ATT[k].bit, 0);
-export const cleanMask = (w, mask) => (mask | 0) & allowedMask(w);
+// id -> { slot, v (value inside the slot), name, desc, stats, mod(o) }; mod edits a copy of the weapon
+export const ATT = {
+  // optics: aim better, pay for it in hip fire and handling (the bigger the scope, the bigger the price)
+  dot: { slot: 'optic', v: 1, name: 'Red Dot Sight', desc: 'Clear sight picture. Light and quick.', stats: 'ADS spread -12%, hip spread +4%', mod: (o) => { o.adsSpread *= 0.88; o.spread *= 1.04; } },
+  holo: { slot: 'optic', v: 2, name: 'Holographic Sight', desc: 'Wide window with a ring reticle and a touch of zoom.', stats: 'ADS spread -10%, zoom +10%, hip +6%, speed -1%', mod: (o) => { o.adsSpread *= 0.9; o.zoom *= 1.1; o.spread *= 1.06; o.moveMul *= 0.99; } },
+  hybrid: { slot: 'optic', v: 3, name: 'Hybrid 2x Scope', desc: 'Reflex sight on a 2x magnifier.', stats: 'ADS spread -8%, zoom x1.6, hip +8%, speed -2%', mod: (o) => { o.adsSpread *= 0.92; o.zoom *= 1.6; o.spread *= 1.08; o.moveMul *= 0.98; } },
+  acog: { slot: 'optic', v: 4, name: 'ACOG 4x Scope', desc: 'Fixed 4x combat scope for long lanes.', stats: 'ADS spread -6%, zoom x2.2, hip +12%, speed -3%', mod: (o) => { o.adsSpread *= 0.94; o.zoom *= 2.2; o.spread *= 1.12; o.moveMul *= 0.97; } },
+  // muzzle
+  fh: { slot: 'muzzle', v: 1, name: 'Flash Hider', desc: 'Hides the muzzle flash and trims sideways kick.', stats: 'Flash -70%, sideways kick -8%, recoil +3%', mod: (o) => { o.flash = 0.3; o.recoilYaw *= 0.92; o.recoil *= 1.03; } },
+  comp: { slot: 'muzzle', v: 2, name: 'Compensator', desc: 'Vents the gas up and out to keep the muzzle down. Loud.', stats: 'Recoil -7%, sideways kick -15%, louder, range -3%', mod: (o) => { o.recoil *= 0.93; o.recoilYaw *= 0.85; o.loud = 1.1; range(o, 0.97); } },
+  brake: { slot: 'muzzle', v: 3, name: 'Muzzle Brake', desc: 'Big side ports soak up the sideways jolt. Very loud, a little wild when aimed.', stats: 'Sideways kick -30%, recoil -4%, louder, ADS spread +4%', mod: (o) => { o.recoilYaw *= 0.7; o.recoil *= 0.96; o.loud = 1.2; o.adsSpread *= 1.04; } },
+  supp1: { slot: 'muzzle', v: 4, name: 'Light Suppressor', desc: 'Compact can. Takes the edge off the report.', stats: 'Quieter, recoil -3%, damage -2%, range -5%', mod: (o) => { o.quiet = 0.55; o.flash = 0.5; o.recoil *= 0.97; o.dmg *= 0.98; range(o, 0.95); } },
+  supp2: { slot: 'muzzle', v: 5, name: 'Tactical Suppressor', desc: 'Standard length suppressor. Muffles the shot and calms the climb.', stats: 'Quiet, recoil -6%, damage -4%, range -10%, speed -1%', mod: (o) => { o.quiet = 0.3; o.flash = 0.3; o.recoil *= 0.94; o.dmg *= 0.96; range(o, 0.9); o.moveMul *= 0.99; } },
+  supp3: { slot: 'muzzle', v: 6, name: 'Heavy Suppressor', desc: 'Long, fat can. Nearly silent and steady, but it robs punch and range.', stats: 'Near silent, recoil -10%, damage -7%, range -15%, speed -2%', mod: (o) => { o.quiet = 0.15; o.flash = 0.1; o.recoil *= 0.9; o.dmg *= 0.93; range(o, 0.85); o.moveMul *= 0.98; } },
+  // barrels
+  sbar: { slot: 'barrel', v: 1, name: 'Short Barrel', desc: 'Cut-down barrel: quick to swing, but short on reach and kicky.', stats: 'Speed +4%, hip spread -8%, range -15%, recoil +6%', mod: (o) => { o.moveMul *= 1.04; o.spread *= 0.92; range(o, 0.85); o.recoil *= 1.06; } },
+  lbar: { slot: 'barrel', v: 2, name: 'Long Barrel', desc: 'More range and a tighter aimed shot. Heavy to swing and sloppy from the hip.', stats: 'Range +15%, ADS spread -8%, speed -4%, hip +6%', mod: (o) => { range(o, 1.15); o.adsSpread *= 0.92; o.moveMul *= 0.96; o.spread *= 1.06; } },
+  hbar: { slot: 'barrel', v: 3, name: 'Heavy Barrel', desc: 'Thick barrel. Soaks recoil and carries further, but drags and wanders from the hip.', stats: 'Recoil -10%, range +8%, speed -6%, hip +5%', mod: (o) => { o.recoil *= 0.9; range(o, 1.08); o.moveMul *= 0.94; o.spread *= 1.05; } },
+  // underbarrel
+  grip: { slot: 'under', v: 1, name: 'Vertical Grip', desc: 'Steadies the weapon. Less recoil, a bit more weight to carry.', stats: 'Recoil -12%, sideways kick -15%, speed -2%', mod: (o) => { o.recoil *= 0.88; o.recoilYaw *= 0.85; o.moveMul *= 0.98; } },
+  agrip: { slot: 'under', v: 2, name: 'Angled Grip', desc: 'Low, forward-angled grip for snappy hip fire. Not great when aimed.', stats: 'Hip spread -14%, recoil -4%, ADS spread +5%', mod: (o) => { o.spread *= 0.86; o.recoil *= 0.96; o.adsSpread *= 1.05; } },
+  sgrip: { slot: 'under', v: 3, name: 'Stubby Grip', desc: 'Short grip that kills sideways drift and keeps the aimed shot tight.', stats: 'Sideways kick -25%, recoil -6%, ADS spread -4%, hip +5%, speed -1%', mod: (o) => { o.recoilYaw *= 0.75; o.recoil *= 0.94; o.adsSpread *= 0.96; o.spread *= 1.05; o.moveMul *= 0.99; } },
+  // lasers: hip fire only - they do nothing for (and slightly hurt) aimed shots
+  laser: { slot: 'laser', v: 1, name: 'Laser Sight', desc: 'Projects a red dot where you point. Good hip fire, a little weight.', stats: 'Hip spread -20%, ADS spread +3%, speed -1%', mod: (o) => { o.spread *= 0.8; o.adsSpread *= 1.03; o.moveMul *= 0.99; o.laser = 1; } },
+  tlaser: { slot: 'laser', v: 2, name: 'Tactical Laser', desc: 'Bright green beam. Tighter hip fire, but it is heavier.', stats: 'Hip spread -26%, ADS spread +5%, speed -2%', mod: (o) => { o.spread *= 0.74; o.adsSpread *= 1.05; o.moveMul *= 0.98; o.laser = 2; } },
+  wlaser: { slot: 'laser', v: 3, name: 'Compact Laser', desc: 'Light blue pointer. Smaller bonus, no weight penalty, but it kicks a little.', stats: 'Hip spread -12%, recoil +3%', mod: (o) => { o.spread *= 0.88; o.recoil *= 1.03; o.laser = 3; } },
+  // magazines
+  xmag: { slot: 'mag', v: 1, name: 'Extended Mag', desc: 'A longer magazine. More shots before you reload, slower to swap.', stats: 'Mag +40%, reload +15%, speed -1%', mod: (o) => { o.mag = Math.round(o.mag * 1.4); o.reload *= 1.15; o.moveMul *= 0.99; } },
+  fmag: { slot: 'mag', v: 2, name: 'Fast Mags', desc: 'Pull-tab magazines that drop and seat quickly, but hold fewer rounds.', stats: 'Reload -20%, mag -10%', mod: (o) => { o.reload *= 0.8; o.mag = Math.max(1, Math.round(o.mag * 0.9)); } },
+  drum: { slot: 'mag', v: 3, name: 'Drum Mag', desc: 'Huge drum. Nearly double the ammo, slow to reload and heavy to carry.', stats: 'Mag +80%, reload +30%, speed -4%, hip +5%', mod: (o) => { o.mag = Math.round(o.mag * 1.8); o.reload *= 1.3; o.moveMul *= 0.96; o.spread *= 1.05; } },
+  // stocks
+  lstock: { slot: 'stock', v: 1, name: 'Light Stock', desc: 'Stripped-down stock. Fast on your feet, kicks more and wobbles when aimed.', stats: 'Speed +3%, recoil +8%, ADS spread +4%', mod: (o) => { o.moveMul *= 1.03; o.recoil *= 1.08; o.adsSpread *= 1.04; } },
+  hstock: { slot: 'stock', v: 2, name: 'Heavy Stock', desc: 'Weighted stock that soaks the kick. Slower to move and to swing.', stats: 'Recoil -10%, speed -3%, hip +5%', mod: (o) => { o.recoil *= 0.9; o.moveMul *= 0.97; o.spread *= 1.05; } },
+  tstock: { slot: 'stock', v: 3, name: 'Tactical Stock', desc: 'Adjustable cheek-weld. Steadier hip aim and less drift, a touch more kick.', stats: 'Hip spread -10%, sideways kick -12%, recoil +3%, speed -1%', mod: (o) => { o.spread *= 0.9; o.recoilYaw *= 0.88; o.recoil *= 1.03; o.moveMul *= 0.99; } },
+  // ammunition
+  fmj: { slot: 'ammo', v: 1, name: 'FMJ Rounds', desc: 'Full metal jacket. Flies further but hits a little softer.', stats: 'Range +10%, damage -3%', mod: (o) => { range(o, 1.1); o.dmg *= 0.97; } },
+  hp: { slot: 'ammo', v: 2, name: 'Hollow Point', desc: 'Expanding rounds hit harder up close and fall off quickly.', stats: 'Damage +8%, range -12%, recoil +3%', mod: (o) => { o.dmg *= 1.08; range(o, 0.88); o.recoil *= 1.03; } },
+  ap: { slot: 'ammo', v: 3, name: 'Armour Piercing', desc: 'Hot-loaded rounds: more bite everywhere, more kick and a heavier load.', stats: 'Damage +4%, range +4%, recoil +6%, speed -1%', mod: (o) => { o.dmg *= 1.04; range(o, 1.04); o.recoil *= 1.06; o.moveMul *= 0.99; } },
+};
+for (const [k, a] of Object.entries(ATT)) a.id = k;
+export const ATT_BY_SLOT = {}; for (const s of SLOTS) ATT_BY_SLOT[s.id] = Object.values(ATT).filter((a) => a.slot === s.id);
+
+// what each class of gun can take (a few guns have exceptions below)
+const ALL = { optic: ['dot', 'holo', 'hybrid', 'acog'], muzzle: ['fh', 'comp', 'brake', 'supp1', 'supp2', 'supp3'], barrel: ['sbar', 'lbar', 'hbar'], under: ['grip', 'agrip', 'sgrip'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag', 'fmag', 'drum'], stock: ['lstock', 'hstock', 'tstock'], ammo: ['fmj', 'hp', 'ap'] };
+const CLASS_OPTS = {
+  smg: { ...ALL, optic: ['dot', 'holo', 'hybrid'] },
+  ar: { ...ALL },
+  pistol: { optic: ['dot', 'holo'], muzzle: ['fh', 'comp', 'supp1', 'supp2'], barrel: ['lbar'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag', 'fmag'], ammo: ['fmj', 'hp', 'ap'] },
+  shotgun: { optic: ['dot', 'holo'], muzzle: ['comp', 'brake'], barrel: ['sbar', 'lbar'], under: ['grip', 'agrip', 'sgrip'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag', 'drum'], stock: ['lstock', 'hstock', 'tstock'] },
+  sniper: { optic: ['dot', 'holo', 'hybrid', 'acog'], muzzle: ['fh', 'comp', 'brake', 'supp1', 'supp2', 'supp3'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag', 'fmag'], stock: ['lstock', 'hstock', 'tstock'], ammo: ['fmj', 'hp', 'ap'] },
+};
+const OVERRIDE = {
+  kar98k: { optic: [], under: [], mag: [], laser: ['laser', 'tlaser', 'wlaser'], barrel: ['lbar', 'hbar'] },   // the bolt-action already has its own scope
+  m680: { mag: [], optic: ['dot', 'holo'] },
+  lmg: { optic: ['dot', 'holo', 'hybrid', 'acog'], mag: ['xmag', 'fmag'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'] },
+  p90: { under: [], barrel: ['sbar', 'lbar'], mag: ['xmag', 'fmag'] },
+  skorp: { optic: ['dot', 'holo'], muzzle: ['fh', 'comp', 'supp1', 'supp2'], barrel: ['lbar'], mag: ['xmag', 'fmag'], laser: ['laser', 'tlaser', 'wlaser'], ammo: ['fmj', 'hp', 'ap'] },
+  magnum: { mag: [], optic: ['dot', 'holo'], barrel: ['lbar'] },
+  deagle: { optic: ['dot', 'holo'], barrel: ['lbar'] },
+};
+const CLS_KEY = { smg: 'smg', ar: 'ar', pistol: 'pistol', shotgun: 'shotgun', sniper: 'sniper' };
+for (const w of Object.values(WEAPONS)) {
+  if (w.cls === 'melee' || !w.slot || w.slot === 'none') { w.opts = {}; w.attach = []; continue; }
+  const base = CLASS_OPTS[CLS_KEY[w.cls]] || CLASS_OPTS.ar, ov = OVERRIDE[w.id] || {};
+  w.opts = {}; for (const s of SLOTS) { const l = (ov[s.id] || base[s.id] || []); if (l.length) w.opts[s.id] = l; }
+  w.attach = Object.values(w.opts).flat();
+}
+
+// ---- mask helpers
+const slotMax = (s) => (1 << s.bits) - 1;
+export const getSlot = (mask, slotId) => { const s = SLOTS.find((x) => x.id === slotId); return s ? ((mask | 0) >> s.shift) & slotMax(s) : 0; };
+export const attIn = (mask, slotId) => { const v = getSlot(mask, slotId); return v ? ATT_BY_SLOT[slotId].find((a) => a.v === v) || null : null; };
+export function setSlot(mask, slotId, v) { const s = SLOTS.find((x) => x.id === slotId); if (!s) return mask | 0; return ((mask | 0) & ~(slotMax(s) << s.shift)) | ((v & slotMax(s)) << s.shift); }
+export const hasAtt = (mask, id) => { const a = ATT[id]; return !!a && getSlot(mask, a.slot) === a.v; };
+export const camoOf = (mask) => ((mask | 0) >> CAMO_SHIFT) & ((1 << CAMO_BITS) - 1);
+export const setCamo = (mask, c) => ((mask | 0) & ~(((1 << CAMO_BITS) - 1) << CAMO_SHIFT)) | ((c & ((1 << CAMO_BITS) - 1)) << CAMO_SHIFT);
+export const allowedMask = (w) => (w.attach || []).reduce((m, k) => setSlot(m, ATT[k].slot, ATT[k].v) | 0, 0);   // (only used as a "has any attachment" test)
+// keep only attachments this gun can take (never trust a mask that came over the wire)
+export function cleanMask(w, mask) {
+  mask |= 0; let out = 0;
+  for (const s of SLOTS) {
+    const v = getSlot(mask, s.id); if (!v) continue;
+    const a = ATT_BY_SLOT[s.id].find((x) => x.v === v);
+    if (a && ((w && w.opts && w.opts[s.id]) || []).includes(a.id)) out = setSlot(out, s.id, v);
+  }
+  const c = camoOf(mask); if (c > 0 && c < CAMOS.length) out = setCamo(out, c);
+  return out;
+}
+// the old (pre-V0.15) save format was one bit per attachment: 1 dot, 2 grip, 4 laser, 8 suppressor, 16 xmag, 32 comp, 64 long barrel
+export function migrateOldMask(old) {
+  old |= 0; let m = 0;
+  if (old & 1) m = setSlot(m, 'optic', 1);
+  if (old & 2) m = setSlot(m, 'under', 1);
+  if (old & 4) m = setSlot(m, 'laser', 1);
+  if (old & 8) m = setSlot(m, 'muzzle', 5);
+  else if (old & 32) m = setSlot(m, 'muzzle', 2);
+  if (old & 16) m = setSlot(m, 'mag', 1);
+  if (old & 64) m = setSlot(m, 'barrel', 2);
+  return m;
+}
+export const attList = (mask) => SLOTS.map((s) => attIn(mask, s.id)).filter(Boolean);
 
 // returns a copy of the weapon with the attachment stat changes applied (the original WEAPONS entry is never modified)
 export function withAtt(w, mask) {
   mask = cleanMask(w, mask);
-  if (!mask) return { ...w, attMask: 0 };
-  const o = { ...w, attMask: mask };
-  if (mask & ATT_DOT) o.adsSpread *= 0.8;
-  if (mask & ATT_GRIP) { o.recoil *= 0.8; o.recoilYaw *= 0.8; o.spread *= 0.9; }
-  if (mask & ATT_LASER) { o.spread *= 0.7; o.adsSpread *= 0.95; }
-  if (mask & ATT_SUPP) { o.recoil *= 0.9; o.dmg = Math.round(o.dmg * 0.94); o.range = [o.range[0] * 0.92, o.range[1] * 0.92]; }
-  if (mask & ATT_XMAG) { o.mag = Math.round(o.mag * 1.5); o.reload *= 1.15; }
-  if (mask & ATT_COMP) { o.recoil *= 0.85; o.recoilYaw *= 0.75; }
-  if (mask & ATT_LBAR) { o.range = [o.range[0] * 1.2, o.range[1] * 1.2]; o.adsSpread *= 0.9; o.moveMul *= 0.97; }
+  const o = { ...w, range: w.range ? [w.range[0], w.range[1]] : w.range, attMask: mask };
+  o.quiet = 1; o.flash = 1; o.loud = 1; o.laser = 0;
+  for (const a of attList(mask)) a.mod(o);
+  o.suppressed = o.quiet < 1;
   return o;
 }
+
+// ---------------- camos ----------------
+// id 0 = factory finish. `req` says how a camo is earned: free, player level, kills or headshots with that particular gun.
+export const CAMOS = [
+  { id: 0, name: 'Factory', req: { t: 'free' } },
+  { id: 1, name: 'Woodland', req: { t: 'level', n: 2 } },
+  { id: 2, name: 'Desert', req: { t: 'level', n: 4 } },
+  { id: 3, name: 'Arctic', req: { t: 'level', n: 6 } },
+  { id: 4, name: 'Urban Digital', req: { t: 'level', n: 9 } },
+  { id: 5, name: 'Tiger', req: { t: 'kills', n: 20 } },
+  { id: 6, name: 'Blue Tiger', req: { t: 'kills', n: 50 } },
+  { id: 7, name: 'Crimson Digital', req: { t: 'kills', n: 100 } },
+  { id: 8, name: 'Gold', req: { t: 'heads', n: 40 } },
+  { id: 9, name: 'Diamond', req: { t: 'heads', n: 100 } },
+  { id: 10, name: 'Obsidian', req: { t: 'level', n: 30 } },
+  { id: 11, name: 'Galaxy', req: { t: 'kills', n: 250 } },
+];
+export const camoReqText = (c) => ({ free: 'Unlocked', level: `Reach level ${c.req.n}`, kills: `${c.req.n} kills with this gun`, heads: `${c.req.n} headshots with this gun` })[c.req.t];

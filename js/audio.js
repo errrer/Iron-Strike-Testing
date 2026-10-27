@@ -44,7 +44,7 @@ export class Sound {
   }
 
   shot(w, vol = 1, pan = 0) {
-    if (w && (w.attMask & 8)) vol *= 0.4;                 // suppressed
+    if (w && w.quiet != null) vol *= w.quiet;                 // suppressed
     if (!this.ctx || vol < 0.04) return;
     const t = this.ctx.currentTime, s = w.snd, bus = this._bus(vol, pan);
     this._noise(t, s.len, s.f, 0.9, bus);

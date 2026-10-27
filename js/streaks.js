@@ -1,3 +1,4 @@
+import { labelFor } from './keybinds.js?v=0.15.0';
 // Killstreak rewards (offline matches): earn them with kills in a row, then press the number key.
 //   3 kills  UAV        - every enemy shows on the radar for 25 s            (key 4)
 //   5 kills  SENTRY GUN - an automatic turret guards the spot for 60 s       (key 5)
@@ -26,7 +27,7 @@ export class Streaks {
     const s = STREAKS.find((x) => x.at === n % 10);
     if (!s) return;
     this.ready[s.id] = (this.ready[s.id] || 0) + 1;
-    this.g.hud.center(`${s.name} READY - PRESS ${s.key}`, 2); this.g.sound.beep(true);
+    this.g.hud.center(`${s.name} READY - PRESS ${labelFor(s.code)}`, 2); this.g.sound.beep(true);
   }
 
   use(id) {
@@ -130,7 +131,7 @@ export class Streaks {
     const rows = [];
     for (const s of STREAKS) {
       const n = this.ready[s.id] || 0, on = (s.id === 'uav' && this.uav > 0) || (s.id === 'sentry' && this.sentries.length);
-      if (n) rows.push(`<div class="ready">[${s.key}] ${s.name}${n > 1 ? ' x' + n : ''}</div>`);
+      if (n) rows.push(`<div class="ready">[${labelFor(s.code)}] ${s.name}${n > 1 ? ' x' + n : ''}</div>`);
       else if (on) rows.push(`<div class="active">${s.name}${s.id === 'uav' ? ' ' + Math.ceil(this.uav) + 's' : ''}</div>`);
     }
     const st = this.g.player.streak; const nxt = STREAKS.map((s) => s.at).find((a) => a > st % 10) || 3;

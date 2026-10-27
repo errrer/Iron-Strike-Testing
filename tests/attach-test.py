@@ -9,10 +9,10 @@ threading.Thread(target=srv.serve_forever, daemon=True).start()
 stub = open('tests/three-stub.js').read(); errs = []
 JS = """async () => { const W = await import('/js/weapons.js'), G = await import('/js/gunmodels.js'); const g = window.__game, out = {bad: [], n: 0};
   for (const id of [...W.PRIMARIES, ...W.SECONDARIES]) {
-    const w = W.withAtt(W.WEAPONS[id], 127);
+    const w = W.withAtt(W.WEAPONS[id], 4272 | 1 | (2 << 10));
     try { const m = G.buildGun(w); out.n++; if (!m.userData.muzzle || ![m.userData.muzzle.x, m.userData.muzzle.y, m.userData.muzzle.z].every(Number.isFinite)) out.bad.push(id + ' muzzle'); } catch (e) { out.bad.push(id + ': ' + e.message); }
   }
-  g.start({mode:'tdm',map:'warehouse',mapName:'W',primary:'m4a1',secondary:'g18',attP:120,attS:120,difficulty:'normal'}); g.state='playing';
+  g.start({mode:'tdm',map:'warehouse',mapName:'W',primary:'m4a1',secondary:'g18',attP:4272,attS:4272,difficulty:'normal'}); g.state='playing';
   for (let i = 0; i < 60; i++) { try { g.frame(1/60); } catch (e) { out.bad.push('frame ' + e.message); break; } }
   out.mag = g.player.weapons[0].mag; return out; }"""
 with sync_playwright() as p:
@@ -21,4 +21,4 @@ with sync_playwright() as p:
     pg.route('**/cdn.jsdelivr.net/npm/three@**', lambda r: r.fulfill(body=stub, content_type='application/javascript'))
     pg.goto(f'http://127.0.0.1:{port}/index.html'); pg.wait_for_timeout(500)
     r = pg.evaluate(JS); print(r, errs[:2]); b.close()
-print('PASS' if not r['bad'] and not errs and r['n'] >= 17 and r['mag'] == 45 else 'FAIL')
+print('PASS' if not r['bad'] and not errs and r['n'] >= 17 and r["mag"] == 42 else 'FAIL')

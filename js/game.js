@@ -1,19 +1,20 @@
 import * as THREE from 'three';
-import { WEAPONS, PRIMARIES, SECONDARIES, withAtt, cleanMask, ATT_LASER } from './weapons.js?v=0.14.1';
-import { buildGun, makeEnv } from './gunmodels.js?v=0.14.1';
-import { buildMap } from './maps.js?v=0.14.1';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.14.1';
-import { buildWorld } from './world.js?v=0.14.1';
-import { Bot } from './bots.js?v=0.14.1';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.14.1';
-import { buildSoldier, SKIN } from './soldier.js?v=0.14.1';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.14.1';
-import { Zombies, PERKS } from './zombies.js?v=0.14.1';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.14.1';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.14.1';
-import { Objectives } from './objectives.js?v=0.14.1';
-import { Streaks, STREAKS } from './streaks.js?v=0.14.1';
-import { Gore } from './gore.js?v=0.14.1';
+import { canon } from './keybinds.js?v=0.15.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.15.0';
+import { buildGun, makeEnv } from './gunmodels.js?v=0.15.0';
+import { buildMap } from './maps.js?v=0.15.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.15.0';
+import { buildWorld } from './world.js?v=0.15.0';
+import { Bot } from './bots.js?v=0.15.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.15.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.15.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.15.0';
+import { Zombies, PERKS } from './zombies.js?v=0.15.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.15.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.15.0';
+import { Objectives } from './objectives.js?v=0.15.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.15.0';
+import { Gore } from './gore.js?v=0.15.0';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -90,8 +91,9 @@ export class Game {
   bindEvents() {
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('blur', () => { this.adsKey = false; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; });
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', (ev) => {
       if (this.state !== 'playing') return;
+      const e = { code: canon(ev.code), repeat: ev.repeat, shiftKey: ev.shiftKey, preventDefault: () => ev.preventDefault() };
       this.keys[e.code] = true;
       if (e.code === 'Tab') { this.showScore = true; e.preventDefault(); }
       if (e.repeat) return;
@@ -109,7 +111,7 @@ export class Game {
       else if (e.code === 'KeyF' && p.alive && !p.reloading && !p.sprint && this.vmS.inspectT <= 0) this.vmS.inspectT = 2.8;
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
-    document.addEventListener('keyup', (e) => { this.keys[e.code] = false; if (e.code === 'KeyQ') this.adsKey = false; if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
+    document.addEventListener('keyup', (ev) => { const e = { code: canon(ev.code), preventDefault: () => ev.preventDefault() }; this.keys[e.code] = false; if (e.code === 'KeyQ') this.adsKey = false; if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
     this.canvas.addEventListener('mousedown', (e) => {
       if (this.state !== 'playing') return;
       if (e.button === 0) { this.fireHeld = true; this.fireEdge = true; }
@@ -1071,14 +1073,21 @@ export class Game {
     if (lv) {
       this.hud.xp(`LEVEL ${lv} - ${rankName(lv).toUpperCase()}`, true);
       for (const [id, l] of Object.entries(UNLOCK)) if (l === lv && WEAPONS[id]) this.hud.xp(`UNLOCKED ${WEAPONS[id].name.toUpperCase()}`, true);
+      CAMOS.forEach((c) => { if (c.req.t === 'level' && c.req.n === lv) this.hud.xp(`${c.name.toUpperCase()} CAMO UNLOCKED`, true); });
     }
   }
 
   // called on every peer for each kill; only counts the local player's own kills and deaths
+  gunKill(k, head) {                                  // per-gun kill / headshot tally -> weapon camo unlocks
+    const id = k.weapon && k.weapon.id; if (!id || !this.prog.wstat) return;
+    for (const c of this.prog.wstat(id, head) || []) this.hud.xp(`${WEAPONS[id].name.toUpperCase()}: ${CAMOS[c].name.toUpperCase()} CAMO UNLOCKED`, true);
+  }
+
   killXp(k, v, head) {
     if (this.mode.sandbox || !k || !v) return;
     if (v.isPlayer) this.prog.stat('deaths');
     if (!k.isPlayer || k === v || v.dummy) return;
+    this.gunKill(k, head);
     if (v.zombie) { this.prog.stat('kills'); this.award(10, head ? 'HEADSHOT' : 'ZOMBIE'); return; }
     this.prog.stat('kills'); this.award(XP_REWARD.kill, 'KILL');
     if (head) { this.prog.stat('heads'); this.award(XP_REWARD.headshot, 'HEADSHOT'); }
@@ -1225,7 +1234,7 @@ export class Game {
     const S = this.vmS; S.slide = 1; S.cycle = 1; S.rand = (Math.random() - 0.5) * 2 + p.recoilBias * 0.4;
     S.shake = Math.min(1, S.shake + 0.35 * big * (w.cls === 'sniper' || w.cls === 'shotgun' ? 2 : 1));
     this.vmKick = Math.min(1.5, (this.vmKick || 0) + (w.cls === 'sniper' ? 1.5 : w.cls === 'shotgun' ? 1.2 : 0.55) * (0.75 + Math.random() * 0.5));
-    if (this.vm) { this.vm.flash.visible = true; this.vm.flash.rotation.z = Math.random() * 6.28; const s = 0.7 + Math.random() * 0.6; this.vm.flash.scale.set(s, s, 1); }
+    if (this.vm) { this.vm.flash.visible = true; this.vm.flash.rotation.z = Math.random() * 6.28; const s = (0.7 + Math.random() * 0.6) * (this.player.weapon.flash == null ? 1 : this.player.weapon.flash); this.vm.flash.scale.set(s, s, 1); }
     this.flashLight.intensity = 6; this.flashT = 0.045;
   }
 
@@ -1333,7 +1342,8 @@ export class Game {
   // laser sight: a red dot where the crosshair ray lands (what the bullet will hit, spread aside)
   updateLaser(p, cam, scoped) {
     const ld = this.laserDot; if (!ld) return;
-    if (!(p.weapon.attMask & ATT_LASER) || !p.alive || scoped || p.ads > 0.85) { ld.visible = false; return; }
+    if (!p.weapon.laser || !p.alive || scoped || p.ads > 0.85) { ld.visible = false; return; }
+    ld.material.color.setHex(p.weapon.laser === 2 ? 0x2aff6a : p.weapon.laser === 3 ? 0x3aa0ff : 0xff2a1a);
     const d = this.dirFrom(p.yaw + (this.swX || 0), p.pitch + (this.swY || 0), new V3());
     let t = this.aimDistance(cam.position, d, p, 90);
     if (d.y < -0.02) t = Math.min(t, -cam.position.y / d.y);                 // the ground plane counts too

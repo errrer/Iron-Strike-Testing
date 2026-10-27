@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getSlot, camoOf } from './weapons.js?v=0.15.0';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -45,15 +46,16 @@ function woodTex() {
 }
 const gmat = (color, metal, rough, bump = 0.35) => { const t = grainTex(); return mat(color, metal, rough, { envMapIntensity: 1.0, ...(t ? { bumpMap: t, bumpScale: bump } : {}) }); };
 const wmat = (color, rough) => { const t = woodTex(); return mat(t ? 0xffffff : color, 0.05, rough, t ? { map: t, color: new THREE.Color(color), envMapIntensity: 0.6 } : {}); };
+const cm = (m) => { m.userData = m.userData || {}; m.userData.camo = true; return m; };       // parts painted by a camo (receiver, handguard, furniture)
 const M = {
   steel: () => gmat(0x4a4f57, 0.9, 0.32),
-  blued: () => gmat(0x30343a, 0.85, 0.36),
-  silver: () => gmat(0x80868e, 0.95, 0.32, 0.2),
-  poly: () => gmat(0x3a3d43, 0.1, 0.68, 0.6),
-  polyTan: () => gmat(0x7d7054, 0.1, 0.72, 0.6),
+  blued: () => cm(gmat(0x30343a, 0.85, 0.36)),
+  silver: () => cm(gmat(0x80868e, 0.95, 0.32, 0.2)),
+  poly: () => cm(gmat(0x3a3d43, 0.1, 0.68, 0.6)),
+  polyTan: () => cm(gmat(0x7d7054, 0.1, 0.72, 0.6)),
   rubber: () => gmat(0x141516, 0.0, 0.92, 0.6),
-  wood: () => wmat(0x8a5428, 0.55),
-  woodDark: () => wmat(0x53301a, 0.55),
+  wood: () => cm(wmat(0x8a5428, 0.55)),
+  woodDark: () => cm(wmat(0x53301a, 0.55)),
   black: () => gmat(0x181a1d, 0.4, 0.45, 0.3),
   brass: () => mat(0xb08a3a, 0.9, 0.35),
   glass: () => mat(0x3a7fb0, 0.2, 0.1, { transparent: true, opacity: 0.55 }),
@@ -537,19 +539,39 @@ const BUILDERS = { smg: buildSmg, ar: buildAR, ak: buildAK, bolt: buildBolt, pum
 // ------------------------------------------------------------------------------------------------
 // Baked model (FBX -> JSON)
 // ------------------------------------------------------------------------------------------------
+// planar UVs from position + dominant normal (metres * 18): the baked models carry none, and the grain bump needs some
+function boxUV(geo) {
+  const p = geo.attributes.position, n = geo.attributes.normal; if (!p || geo.attributes.uv || !THREE.BufferAttribute) return;
+  const uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), nx = n ? Math.abs(n.getX(i)) : 0, ny = n ? Math.abs(n.getY(i)) : 1, nz = n ? Math.abs(n.getZ(i)) : 0;
+    if (nx >= ny && nx >= nz) { uv[i * 2] = z * 18; uv[i * 2 + 1] = y * 18; } else if (ny >= nz) { uv[i * 2] = z * 18; uv[i * 2 + 1] = x * 18; } else { uv[i * 2] = x * 18; uv[i * 2 + 1] = y * 18; }
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+// the same machined-metal / polymer look as the procedural guns, chosen from the colour of each baked part (the shapes are never touched)
+function bakedMat(color, name) {
+  const r = (color >> 16) & 255, g = (color >> 8) & 255, b = color & 255, lum = (r * 0.3 + g * 0.59 + b * 0.11) / 255;
+  if (name === 'iron') return gmat(0x1d1f22, 0.7, 0.4, 0.3);
+  if (lum > 0.26) return gmat(Math.min(0xffffff, color + 0x0d0f12), 0.88, 0.34, 0.3);            // bare / blued metal
+  if (lum > 0.12) return gmat(color + 0x050607, 0.75, 0.4, 0.3);                                 // dark steel
+  return gmat(color + 0x080808, 0.12, 0.62, 0.6);                                                // polymer
+}
 function buildFromAsset(w, data) {
   const g = new THREE.Group(), a = w.asset;
-  for (const part of data.parts) {
+  data.parts.forEach((part) => {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(part.positions), 3));
     geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(part.normals), 3));
     geo.setIndex(part.indices);
-    const color = parseInt(part.color.slice(1), 16);
-    const me = new THREE.Mesh(geo, mat(color, 0.2, 0.55, { envMapIntensity: 0 }));
+    try { boxUV(geo); } catch (e) { /* stub three: no uv needed */ }
+    const color = parseInt(part.color.slice(1), 16), tris = part.indices.length / 3;
+    const base = bakedMat(color, part.name), me = new THREE.Mesh(geo, base);
     if (/^mag$/i.test(part.name || '')) me.userData.mag = true;
+    else if (part.name !== 'iron' && (/^(body|rail|grip|stock)$/i.test(part.name || '') || (!part.name || part.name === 'part') && tris >= 90)) me.userData.camoPart = true;   // the big parts take a camo
     if (part.name === 'iron') me.userData.iron = true;            // the model's own iron sights (hidden when a red dot is fitted)
     g.add(me);
-  }
+  });
   const anc = data.anchors || {};
   const p = (name, off = [0, 0, 0]) => { const c = anc[name] || [0, -0.05, 0]; return V(c[0] + off[0], c[1] + off[1], c[2] + off[2]); };
   g.userData = {
@@ -561,81 +583,287 @@ function buildFromAsset(w, data) {
   return g;
 }
 
+
 // ------------------------------------------------------------------------------------------------
-// Attachments (red dot, vertical grip, laser) - built from the gun's `mount` / `under` anchors
+// Camos: procedural textures painted onto the receiver / furniture (the parts whose material is flagged `camo`).
+// The pattern is projected in the gun's own space (triplanar), so it flows over every part without stretching.
+// ------------------------------------------------------------------------------------------------
+const CS = 512;
+const seeded = (seed) => { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; };
+const canvasOf = () => { if (typeof document === 'undefined') return null; const c = document.createElement('canvas'); c.width = c.height = CS; const g = c.getContext('2d'); return g ? [c, g] : null; };
+const wrapped = (g, fn) => { for (const dx of [-CS, 0, CS]) for (const dy of [-CS, 0, CS]) { g.save(); g.translate(dx, dy); fn(); g.restore(); } };   // draw at the 9 neighbouring offsets so the tile repeats seamlessly
+function blobs(g, rnd, color, n, r0, r1) {
+  g.fillStyle = color;
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * CS, y = rnd() * CS, r = r0 + rnd() * (r1 - r0), k = 5 + Math.floor(rnd() * 4), rot = rnd() * 6.28;
+    wrapped(g, () => { for (let j = 0; j < k; j++) { const a = rot + (j / k) * 6.28 + rnd() * 0.8, d = r * (0.2 + rnd() * 0.55); g.beginPath(); g.ellipse(x + Math.cos(a) * d, y + Math.sin(a) * d, r * (0.45 + rnd() * 0.4), r * (0.3 + rnd() * 0.35), rnd() * 3.14, 0, 6.28); g.fill(); } });
+  }
+}
+function tnoise(rnd, P) {                                    // tileable value noise with period P cells
+  const L = new Float32Array(P * P).map(() => rnd()), at = (x, y) => L[((y % P) + P) % P * P + ((x % P) + P) % P];
+  return (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    return (at(xi, yi) * (1 - sx) + at(xi + 1, yi) * sx) * (1 - sy) + (at(xi, yi + 1) * (1 - sx) + at(xi + 1, yi + 1) * sx) * sy; };
+}
+function digital(g, rnd, pal, cell) {
+  const P = CS / cell, n1 = tnoise(rnd, 8), n2 = tnoise(rnd, 16);
+  for (let y = 0; y < P; y++) for (let x = 0; x < P; x++) {
+    const v = n1(x / P * 8, y / P * 8) * 0.65 + n2(x / P * 16, y / P * 16) * 0.35 + (rnd() - 0.5) * 0.12;
+    g.fillStyle = pal[Math.max(0, Math.min(pal.length - 1, Math.floor(v * pal.length * 1.05 - 0.02)))]; g.fillRect(x * cell, y * cell, cell, cell);
+  }
+}
+function stripes(g, rnd, color, n, w0, len0) {
+  g.fillStyle = color;
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * CS, y = rnd() * CS, len = len0 * (0.7 + rnd() * 0.7), w = w0 * (0.6 + rnd() * 0.8), ang = -1.05 + (rnd() - 0.5) * 0.5, bend = (rnd() - 0.5) * 1.6, pts = [], pts2 = [];
+    for (let k = 0; k <= 14; k++) { const t = k / 14, a = ang + bend * t * t, px = x + Math.cos(a) * len * t, py = y + Math.sin(a) * len * t, ww = Math.sin(Math.PI * Math.pow(t, 0.8)) * w * (1 + 0.25 * Math.sin(t * 9 + i)); const nx = -Math.sin(a), ny = Math.cos(a); pts.push([px + nx * ww, py + ny * ww]); pts2.push([px - nx * ww, py - ny * ww]); }
+    wrapped(g, () => { g.beginPath(); pts.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); for (let k = pts2.length - 1; k >= 0; k--) g.lineTo(pts2[k][0], pts2[k][1]); g.closePath(); g.fill(); });
+  }
+}
+function veins(g, rnd, colors, n) {
+  for (let i = 0; i < n; i++) {
+    let x = rnd() * CS, y = rnd() * CS, a = rnd() * 6.28; const col = colors[i % colors.length], w = 1 + rnd() * 2.2, steps = 40 + Math.floor(rnd() * 60), pts = [[x, y]];
+    for (let k = 0; k < steps; k++) { a += (rnd() - 0.5) * 0.9; x += Math.cos(a) * 9; y += Math.sin(a) * 9; pts.push([x, y]); }
+    wrapped(g, () => { g.strokeStyle = col; g.lineWidth = w; g.shadowColor = col; g.shadowBlur = 8; g.beginPath(); pts.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.stroke(); });
+  }
+  g.shadowBlur = 0;
+}
+// each painter returns [colour canvas, optional emissive canvas]
+const CAMO_PAINT = {
+  1: () => { const [c, g] = canvasOf(), r = seeded(11); g.fillStyle = '#4a5a2a'; g.fillRect(0, 0, CS, CS); blobs(g, r, '#6d5c30', 9, 70, 120); blobs(g, r, '#2c3a1b', 10, 60, 110); blobs(g, r, '#8a9a55', 7, 40, 80); blobs(g, r, '#1c2512', 14, 16, 34); return [c]; },
+  2: () => { const [c, g] = canvasOf(), r = seeded(22); g.fillStyle = '#c9a977'; g.fillRect(0, 0, CS, CS); blobs(g, r, '#a88655', 10, 70, 120); blobs(g, r, '#e5d3a2', 9, 55, 100); blobs(g, r, '#7c6241', 8, 40, 80); blobs(g, r, '#5a452c', 12, 14, 30); return [c]; },
+  3: () => { const [c, g] = canvasOf(), r = seeded(33); g.fillStyle = '#e7eef3'; g.fillRect(0, 0, CS, CS); blobs(g, r, '#b4c1d0', 10, 60, 110); blobs(g, r, '#d3dde6', 9, 55, 100); blobs(g, r, '#8496ad', 8, 36, 72); blobs(g, r, '#5b6b82', 10, 12, 26); return [c]; },
+  4: () => { const [c, g] = canvasOf(), r = seeded(44); digital(g, r, ['#1f2329', '#323840', '#4d545e', '#78808b', '#a3abb5'], 16); return [c]; },
+  5: () => { const [c, g] = canvasOf(), r = seeded(55); g.fillStyle = '#c4621a'; g.fillRect(0, 0, CS, CS); blobs(g, r, '#e59a3c', 14, 50, 90); stripes(g, r, '#5a2a0c', 16, 11, 150); stripes(g, r, '#0b0705', 22, 9, 170); return [c]; },
+  6: () => { const [c, g] = canvasOf(), r = seeded(66); g.fillStyle = '#1e5cae'; g.fillRect(0, 0, CS, CS); blobs(g, r, '#5aa6ec', 14, 50, 90); stripes(g, r, '#0f3270', 16, 11, 150); stripes(g, r, '#040d22', 22, 9, 170); return [c]; },
+  7: () => { const [c, g] = canvasOf(), r = seeded(77); digital(g, r, ['#12080a', '#3a0d12', '#7a1219', '#b8171f', '#ec3a40'], 14); return [c]; },
+  8: () => { const [c, g] = canvasOf(), r = seeded(88); const gr = g.createLinearGradient(0, 0, CS, CS); gr.addColorStop(0, '#c99524'); gr.addColorStop(0.5, '#f1c552'); gr.addColorStop(1, '#b07c16'); g.fillStyle = gr; g.fillRect(0, 0, CS, CS);
+    for (let i = 0; i < 500; i++) { const y = r() * CS, x = r() * CS, l = 40 + r() * 160; g.fillStyle = r() > 0.5 ? 'rgba(255,240,170,0.10)' : 'rgba(120,80,10,0.12)'; wrapped(g, () => g.fillRect(x, y, l, 1 + r() * 1.5)); }
+    for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(255,236,150,${0.05 + r() * 0.12})`; g.fillRect(r() * CS, r() * CS, 2, 2); } return [c]; },
+  9: () => { const [c, g] = canvasOf(), r = seeded(99), N = 8, cell = CS / N, pts = []; for (let y = 0; y < N; y++) { pts[y] = []; for (let x = 0; x < N; x++) pts[y][x] = [(x + 0.5 + (r() - 0.5) * 0.8) * cell, (y + 0.5 + (r() - 0.5) * 0.8) * cell]; }
+    const P = (x, y) => { const p = pts[((y % N) + N) % N][((x % N) + N) % N]; return [p[0] + Math.floor(x / N) * CS, p[1] + Math.floor(y / N) * CS]; };
+    for (let y = -1; y < N; y++) for (let x = -1; x < N; x++) for (const tri of [[[x, y], [x + 1, y], [x, y + 1]], [[x + 1, y], [x + 1, y + 1], [x, y + 1]]]) {
+      const t = r(), l = 48 + t * 38; g.fillStyle = `hsl(${196 + (r() - 0.5) * 22},${70 + t * 25}%,${l}%)`; g.beginPath(); tri.forEach(([a, b], k) => { const p = P(a, b); if (k) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }); g.closePath(); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1; g.stroke(); }
+    for (let i = 0; i < 26; i++) { const x = r() * CS, y = r() * CS, s = 3 + r() * 6; g.fillStyle = 'rgba(255,255,255,0.9)'; wrapped(g, () => { g.fillRect(x - s, y - 0.7, s * 2, 1.4); g.fillRect(x - 0.7, y - s, 1.4, s * 2); }); } return [c]; },
+  10: () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(101); g.fillStyle = '#07070b'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);
+    const lg = g.createRadialGradient(CS * 0.3, CS * 0.3, 10, CS * 0.3, CS * 0.3, CS * 0.7); lg.addColorStop(0, 'rgba(60,30,110,0.35)'); lg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = lg; g.fillRect(0, 0, CS, CS);
+    veins(g, seeded(5), ['#8a4bff', '#3fd0ff', '#b46bff'], 26); veins(ge, seeded(5), ['#8a4bff', '#3fd0ff', '#b46bff'], 26); return [c, e]; },
+  11: () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(111); const bg = g.createLinearGradient(0, 0, 0, CS); bg.addColorStop(0, '#080820'); bg.addColorStop(1, '#190a36'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);
+    for (const [col, n] of [['120,60,220', 7], ['40,90,230', 6], ['220,60,150', 5]]) for (let i = 0; i < n; i++) { const x = r() * CS, y = r() * CS, rad = 70 + r() * 110; wrapped(g, () => { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, `rgba(${col},0.55)`); rg.addColorStop(1, `rgba(${col},0)`); g.fillStyle = rg; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); }); wrapped(ge, () => { const rg = ge.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, `rgba(${col},0.22)`); rg.addColorStop(1, `rgba(${col},0)`); ge.fillStyle = rg; ge.fillRect(x - rad, y - rad, rad * 2, rad * 2); }); }
+    for (let i = 0; i < 380; i++) { const x = r() * CS, y = r() * CS, s = r() < 0.07 ? 2.6 : 1.1, a = 0.4 + r() * 0.6; for (const q of [g, ge]) { q.fillStyle = `rgba(255,255,255,${a})`; q.fillRect(x, y, s, s); } } return [c, e]; },
+};
+const CAMO_LOOK = { 8: { m: 1.0, r: 0.24, env: 1.4 }, 9: { m: 0.85, r: 0.14, env: 1.5 }, 10: { m: 0.7, r: 0.1, env: 1.3, em: 1.6 }, 11: { m: 0.5, r: 0.26, env: 1.0, em: 1.3 } };
+const camoCache = new Map();
+function camoSet(id) {
+  if (camoCache.has(id)) return camoCache.get(id);
+  let out = null;
+  try {
+    const paint = CAMO_PAINT[id], res = paint && paint();
+    if (res && res[0]) {
+      const mk = (cv) => { const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+      out = { canvas: res[0], map: mk(res[0]), em: res[1] ? mk(res[1]) : null };
+    }
+  } catch (e) { out = null; }
+  camoCache.set(id, out); return out;
+}
+export function camoSwatch(id, w = 72, h = 44) {                                // small preview image for the menu
+  const set = camoSet(id); if (!set || typeof document === 'undefined') return '';
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); if (!g) return '';
+  g.drawImage(set.canvas, 0, 0, CS * 0.45, CS * 0.45 * h / w, 0, 0, w, h); return c.toDataURL();
+}
+const camoMats = new Map();
+function camoMat(id) {
+  if (camoMats.has(id)) return camoMats.get(id);
+  const set = camoSet(id); if (!set) { camoMats.set(id, null); return null; }
+  const look = CAMO_LOOK[id] || { m: 0.18, r: 0.55, env: 0.9 };
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: look.m, roughness: look.r, envMapIntensity: look.env });
+  if (set.em) { m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = look.em || 1; }
+  const hasEm = !!set.em;
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.camoMap = { value: set.map }; sh.uniforms.camoEm = { value: set.em || set.map }; sh.uniforms.camoScale = { value: 6.5 };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 gpos;\nattribute vec3 gnrm;\nvarying vec3 vGp;\nvarying vec3 vGn;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvGp = gpos; vGn = gnrm;');
+    const tri = 'vec3 camoTri(sampler2D t, vec3 p, vec3 n) { vec3 w = pow(abs(normalize(n)), vec3(4.0)); w /= (w.x + w.y + w.z); return texture2D(t, p.zy * camoScale).rgb * w.x + texture2D(t, p.xz * camoScale).rgb * w.y + texture2D(t, p.xy * camoScale).rgb * w.z; }';
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D camoMap;\nuniform sampler2D camoEm;\nuniform float camoScale;\nvarying vec3 vGp;\nvarying vec3 vGn;\n' + tri)
+      .replace('#include <map_fragment>', 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn);')
+      .replace('#include <emissivemap_fragment>', hasEm ? 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn);' : '');
+  };
+  m.customProgramCacheKey = () => 'camo' + (hasEm ? 'E' : 'P');
+  camoMats.set(id, m); return m;
+}
+function applyCamo(g, id) {
+  if (!id || !THREE.BufferAttribute || !THREE.Matrix4 || !THREE.Matrix3) return;
+  const cmat = camoMat(id); if (!cmat) return;
+  g.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), nm = new THREE.Matrix3(), v = new THREE.Vector3();
+  g.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes || !o.geometry.attributes.position) return;
+    if (!((o.material && o.material.userData && o.material.userData.camo) || o.userData.camoPart)) return;
+    const rel = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld); nm.getNormalMatrix(rel);
+    const geo = o.geometry.clone(), p = geo.attributes.position, n = geo.attributes.normal, gp = new Float32Array(p.count * 3), gn = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i).applyMatrix4(rel); gp[i * 3] = v.x; gp[i * 3 + 1] = v.y; gp[i * 3 + 2] = v.z;
+      if (n) v.fromBufferAttribute(n, i).applyMatrix3(nm).normalize(); else v.set(0, 1, 0); gn[i * 3] = v.x; gn[i * 3 + 1] = v.y; gn[i * 3 + 2] = v.z;
+    }
+    geo.setAttribute('gpos', new THREE.BufferAttribute(gp, 3)); geo.setAttribute('gnrm', new THREE.BufferAttribute(gn, 3));
+    o.geometry = geo; o.material = cmat;
+  });
+}
+
+// ------------------------------------------------------------------------------------------------
+// Attachments - built from the gun's `mount` / `under` / `side` / `muzzle` anchors
 // ------------------------------------------------------------------------------------------------
 const dotRed = () => mat(0xff2a1a, 0, 1, { emissive: 0xff2a1a, emissiveIntensity: 2 });
-function addAttachments(g, w) {
-  const u = g.userData, mask = w.attMask || 0, b = new B(); b.g = g;
-  if ((mask & 1) && u.mount) {
-    g.traverse((o) => { if (o.userData && o.userData.iron) o.visible = false; });
-    const m = u.mount, z = m.z;
-    if (u.pistol) {                                         // compact slide-mounted reflex sight
-      const cy = m.y + 0.014;
-      const S = (o) => mark(o, 'slide');           // the sight rides on the slide
-      S(b.box(0.024, 0.004, 0.042, 0, m.y + 0.002, z, M.black()));
-      S(b.box(0.024, 0.004, 0.042, 0, m.y + 0.0255, z, M.black()));
-      S(b.box(0.004, 0.024, 0.042, 0.0105, cy, z, M.black())); S(b.box(0.004, 0.024, 0.042, -0.0105, cy, z, M.black()));
-      S(b.box(0.017, 0.018, 0.002, 0, cy, z + 0.015, mat(0x7fb6d8, 0.1, 0.05, { transparent: true, opacity: 0.16 })));
-      S(b.ball(0.0012, 0, cy, z, dotRed()));
-      u.sightY = cy;
-      g.traverse((o) => { if (o.userData && o.userData.hammer) o.position.y -= Math.max(0, o.position.y + 0.016 - (cy - 0.008)); });   // drop the hammer below the sight line so it does not block the dot
-    } else {                                                // tube-less open reflex sight on the top rail
-      const cy = m.y + 0.026, h0 = cy - 0.018 - m.y;
-      if (h0 > 0.002) b.box(0.026, h0, 0.06, 0, m.y + h0 / 2, z, M.blued());
-      b.box(0.03, 0.006, 0.07, 0, cy - 0.015, z, M.black());
-      b.box(0.03, 0.007, 0.07, 0, cy + 0.0145, z, M.black());
-      b.box(0.004, 0.034, 0.07, 0.0135, cy, z, M.black()); b.box(0.004, 0.034, 0.07, -0.0135, cy, z, M.black());
-      b.box(0.023, 0.021, 0.002, 0, cy, z + 0.02, mat(0x7fb6d8, 0.1, 0.05, { transparent: true, opacity: 0.16 }));
-      b.ball(0.0015, 0, cy, z, dotRed());
-      u.sightY = cy;
+const dotGreen = () => mat(0x2aff6a, 0, 1, { emissive: 0x2aff6a, emissiveIntensity: 2 });
+const dotBlue = () => mat(0x3aa0ff, 0, 1, { emissive: 0x3aa0ff, emissiveIntensity: 2 });
+const lens = () => mat(0x7fb6d8, 0.1, 0.05, { transparent: true, opacity: 0.16 });
+const ring = (b, r, x, y, z, m, n = 10) => { for (let i = 0; i < n; i++) { const a = (i / n) * 6.283; b.ball(0.0008, x + Math.cos(a) * r, y + Math.sin(a) * r, z, m); } };
+
+function buildOptic(b, u, g, kind) {
+  const m = u.mount, z = m.z;
+  g.traverse((o) => { if (o.userData && o.userData.iron) o.visible = false; });
+  if (u.pistol) {                                         // compact slide-mounted reflex sight (the holographic one gets a ring reticle)
+    const cy = m.y + 0.014, S = (o) => mark(o, 'slide');           // the sight rides on the slide
+    S(b.box(0.024, 0.004, 0.042, 0, m.y + 0.002, z, M.black()));
+    S(b.box(0.024, 0.004, 0.042, 0, m.y + 0.0255, z, M.black()));
+    S(b.box(0.004, 0.024, 0.042, 0.0105, cy, z, M.black())); S(b.box(0.004, 0.024, 0.042, -0.0105, cy, z, M.black()));
+    S(b.box(0.017, 0.018, 0.002, 0, cy, z + 0.015, lens()));
+    if (kind === 2) { ring(b, 0.004, 0, cy, z, dotRed(), 8); b.ball(0.0009, 0, cy, z, dotRed()); } else S(b.ball(0.0012, 0, cy, z, dotRed()));
+    u.sightY = cy;
+    g.traverse((o) => { if (o.userData && o.userData.hammer) o.position.y -= Math.max(0, o.position.y + 0.016 - (cy - 0.008)); });   // drop the hammer below the sight line so it does not block the dot
+    return;
+  }
+  if (kind === 1 || kind === 3) {                         // open reflex (also the front half of the hybrid)
+    const zz = kind === 3 ? z - 0.03 : z, cy = m.y + 0.026, h0 = cy - 0.018 - m.y;
+    if (h0 > 0.002) b.box(0.026, h0, 0.06, 0, m.y + h0 / 2, zz, M.blued());
+    b.box(0.03, 0.006, 0.07, 0, cy - 0.015, zz, M.black());
+    b.box(0.03, 0.007, 0.07, 0, cy + 0.0145, zz, M.black());
+    b.box(0.004, 0.034, 0.07, 0.0135, cy, zz, M.black()); b.box(0.004, 0.034, 0.07, -0.0135, cy, zz, M.black());
+    b.box(0.023, 0.021, 0.002, 0, cy, zz + 0.02, lens());
+    b.ball(0.0015, 0, cy, zz, dotRed());
+    if (kind === 3) {                                     // 2x magnifier behind it
+      b.box(0.02, 0.014, 0.08, 0, m.y + 0.007, z + 0.07, M.blued());
+      b.tube(0.0185, 0.075, 0, cy, z + 0.07, M.black());
+      b.tube(0.0195, 0.01, 0, cy, z + 0.108, M.blued()); b.tube(0.0165, 0.002, 0, cy, z + 0.03, lens()); b.tube(0.0155, 0.002, 0, cy, z + 0.114, lens());
     }
+    u.sightY = cy; return;
   }
-  if ((mask & 2) && !u.pistol && u.under) {
-    const m = u.under, h = 0.08;
-    b.box(0.022, 0.012, 0.05, 0, m.y - 0.004, m.z, M.blued());                       // rail clamp
-    b.box(0.026, h, 0.03, 0, m.y - 0.01 - h / 2, m.z, M.poly(), 0.1);                // grip body
+  if (kind === 2) {                                       // holographic: tall box frame with a wide window and a ring + dot reticle
+    const cy = m.y + 0.03;
+    b.box(0.034, 0.012, 0.09, 0, m.y + 0.006, z, M.black());
+    b.box(0.036, 0.007, 0.074, 0, cy + 0.0245, z - 0.004, M.black());
+    b.box(0.005, 0.045, 0.09, 0.0155, cy + 0.0015, z, M.black()); b.box(0.005, 0.045, 0.09, -0.0155, cy + 0.0015, z, M.black());
+    b.box(0.026, 0.034, 0.002, 0, cy, z + 0.044, lens()); b.box(0.026, 0.034, 0.002, 0, cy, z - 0.04, lens());
+    ring(b, 0.0045, 0, cy, z + 0.043, dotRed(), 10); b.ball(0.0009, 0, cy, z + 0.043, dotRed());
+    u.sightY = cy; return;
+  }
+  // ACOG 4x: scope body on a mount, big front objective, fibre-optic strip on top
+  const cy = m.y + 0.034;
+  b.box(0.026, cy - 0.016 - m.y, 0.07, 0, m.y + (cy - 0.016 - m.y) / 2, z, M.blued());
+  b.tube(0.0165, 0.12, 0, cy, z, M.black());
+  b.tube(0.0215, 0.032, 0, cy, z - 0.058, M.black()); b.tube(0.0195, 0.002, 0, cy, z - 0.075, lens());
+  b.tube(0.0195, 0.026, 0, cy, z + 0.065, M.black()); b.tube(0.0145, 0.002, 0, cy, z + 0.079, lens());
+  b.box(0.007, 0.007, 0.08, 0, cy + 0.0205, z - 0.01, mat(0xe86a1a, 0.2, 0.4, { emissive: 0xe86a1a, emissiveIntensity: 0.8 }));
+  b.box(0.01, 0.012, 0.03, 0, cy + 0.0165, z + 0.03, M.black());
+  b.ball(0.0012, 0, cy, z + 0.03, dotRed());
+  u.sightY = cy;
+}
+
+function buildUnder(b, u, kind) {
+  const m = u.under;
+  if (kind === 1) {                                                                    // vertical grip
+    const h = 0.08;
+    b.box(0.022, 0.012, 0.05, 0, m.y - 0.004, m.z, M.blued());
+    b.box(0.026, h, 0.03, 0, m.y - 0.01 - h / 2, m.z, M.poly(), 0.1);
     for (let i = 0; i < 4; i++) b.box(0.028, 0.004, 0.032, 0, m.y - 0.026 - i * 0.015, m.z + 0.005, M.black(), 0.1);
-    b.box(0.026, 0.008, 0.032, 0, m.y - 0.01 - h, m.z + 0.008, M.blued());           // base cap
+    b.box(0.026, 0.008, 0.032, 0, m.y - 0.01 - h, m.z + 0.008, M.blued());
     u.fore = V(0, m.y - 0.01 - h / 2 + 0.045, m.z + 0.004);                          // support hand moves to the grip
+  } else if (kind === 2) {                                                             // angled grip: leans forward, smooth and wide
+    const th = 0.62, len = 0.075, cx = m.y - 0.008 - Math.cos(th) * len / 2, cz = m.z - Math.sin(th) * len / 2;
+    b.box(0.022, 0.012, 0.06, 0, m.y - 0.004, m.z + 0.008, M.blued());
+    b.box(0.028, len, 0.034, 0, cx, cz, M.poly(), th);
+    for (let i = 0; i < 3; i++) b.box(0.03, 0.004, 0.036, 0, cx + 0.018 - i * 0.017, cz - 0.0 - (i - 1) * 0.0 + 0.0, M.black(), th);
+    u.fore = V(0, cx + 0.012, cz - 0.004);
+  } else if (kind === 3) {                                                             // stubby grip: short fat post you cup with the whole hand
+    b.box(0.022, 0.012, 0.045, 0, m.y - 0.004, m.z, M.blued());
+    b.post(0.0155, 0.042, 0, m.y - 0.03, m.z, M.poly());
+    b.post(0.0175, 0.008, 0, m.y - 0.056, m.z, M.blued());
+    u.fore = V(0, m.y - 0.02, m.z + 0.002);
   }
-  if ((mask & 4) && u.pistol && u.under) {
+}
+
+function buildLaser(b, u, kind) {
+  const emit = kind === 2 ? dotGreen() : kind === 3 ? dotBlue() : dotRed(), body = kind === 2 ? M.silver() : kind === 3 ? M.blued() : M.black();
+  if (u.pistol && u.under) {
     const m = u.under, cy = m.y - 0.011;
-    b.box(0.022, 0.022, 0.05, 0, cy, m.z, M.black());
-    b.box(0.012, 0.012, 0.004, 0, cy, m.z - 0.027, dotRed());                       // emitter
+    b.box(0.022, 0.022, 0.05, 0, cy, m.z, body);
+    b.box(0.012, 0.012, 0.004, 0, cy, m.z - 0.027, emit);                            // emitter
     b.box(0.006, 0.006, 0.014, 0.0125, cy + 0.004, m.z + 0.01, M.steel());           // switch
     u.laser = V(0, cy, m.z - 0.029);
-  } else if ((mask & 4) && !u.pistol && u.side) {                                    // rifles: clamped to the right side of the handguard
+  } else if (!u.pistol && u.side) {                                                  // rifles: clamped to the right side of the handguard
     const m = u.side, x = m.x + 0.011;
-    b.box(0.006, 0.02, 0.04, m.x + 0.002, m.y, m.z, M.blued());                    // side rail clamp
-    b.box(0.02, 0.02, 0.056, x + 0.004, m.y, m.z, M.black());                       // body
-    b.box(0.012, 0.012, 0.004, x + 0.004, m.y, m.z - 0.03, dotRed());              // emitter
-    b.box(0.012, 0.006, 0.016, x + 0.004, m.y + 0.013, m.z + 0.01, M.steel());      // adjustment block
+    b.box(0.006, 0.02, 0.04, m.x + 0.002, m.y, m.z, M.blued());
+    b.box(0.02, 0.02, 0.056, x + 0.004, m.y, m.z, body);
+    b.box(0.012, 0.012, 0.004, x + 0.004, m.y, m.z - 0.03, emit);
+    b.box(0.012, 0.006, 0.016, x + 0.004, m.y + 0.013, m.z + 0.01, M.steel());
     u.laser = V(x + 0.004, m.y, m.z - 0.032);
   }
 }
 
-// Muzzle devices and the extended magazine
+function addAttachments(g, w) {
+  const u = g.userData, mask = w.attMask || 0, b = new B(); b.g = g;
+  const optic = getSlot(mask, 'optic'), under = getSlot(mask, 'under'), laser = getSlot(mask, 'laser');
+  if (optic && u.mount) buildOptic(b, u, g, optic);
+  if (under && !u.pistol && u.under) buildUnder(b, u, under);
+  if (laser) buildLaser(b, u, laser);
+}
+
+// barrel extensions, muzzle devices and magazines
 function addMuzzleAttachments(g, w) {
   const u = g.userData, mask = w.attMask || 0, b = new B(); b.g = g;
-  if (!u.muzzle) return;
-  const mz = u.muzzle.clone();
-  const tube = (r, len, m) => { b.tube(r, len, mz.x, mz.y, mz.z - len / 2 + 0.004, m); mz.z -= len - 0.004; };
-  if (mask & 64) tube(0.0085, 0.1, M.steel());                                       // long barrel extension
-  if (mask & 32) { tube(0.0135, 0.035, M.blued()); for (const s of [-1, 1]) b.box(0.003, 0.018, 0.02, s * 0.0135, mz.y, mz.z + 0.014, M.black()); }   // compensator with side ports
-  if (mask & 8) { tube(0.0165, 0.15, M.black()); b.tube(0.018, 0.012, mz.x, mz.y, mz.z + 0.075, M.steel()); }   // suppressor body + end cap
-  u.muzzle = mz;
-  if (mask & 16) g.traverse((o) => {
-    if (!o.userData || !o.userData.mag || !o.isMesh) return;
-    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-    const h = (o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y) * o.scale.y;
-    o.scale.y *= 1.4; o.position.y -= h * 0.2;
-  });
+  const barrel = getSlot(mask, 'barrel'), muz = getSlot(mask, 'muzzle'), mag = getSlot(mask, 'mag');
+  if (u.muzzle && (barrel || muz)) {
+    const mz = u.muzzle.clone();
+    const tube = (r, len, m) => { b.tube(r, len, mz.x, mz.y, mz.z - len / 2 + 0.004, m); mz.z -= len - 0.004; };
+    const ringAt = (r, zz) => b.tube(r, 0.004, mz.x, mz.y, zz, M.black());
+    if (barrel === 2) tube(0.0085, 0.1, M.steel());                                  // long barrel extension
+    if (barrel === 3) { const z0 = mz.z; tube(0.0105, 0.075, M.blued()); for (let i = 0; i < 4; i++) ringAt(0.0114, z0 - 0.012 - i * 0.015); }   // heavy barrel: thick, fluted
+    if (muz === 1) { const z0 = mz.z; tube(0.0115, 0.055, M.black()); for (let i = 0; i < 4; i++) { const a = (i / 4) * 6.283 + 0.785; b.box(0.005, 0.005, 0.026, mz.x + Math.cos(a) * 0.0115, mz.y + Math.sin(a) * 0.0115, z0 - 0.034, M.steel()); } }                              // birdcage flash hider
+    else if (muz === 2) { tube(0.0135, 0.035, M.blued()); for (const s of [-1, 1]) b.box(0.003, 0.018, 0.02, mz.x + s * 0.0135, mz.y, mz.z + 0.014, M.black()); }                                         // compensator with side ports
+    else if (muz === 3) { const z0 = mz.z; tube(0.0125, 0.05, M.black()); for (let i = 0; i < 3; i++) { b.box(0.034, 0.004, 0.008, mz.x, mz.y, z0 - 0.012 - i * 0.014, M.steel()); b.box(0.004, 0.034, 0.008, mz.x, mz.y, z0 - 0.012 - i * 0.014, M.steel()); } }   // muzzle brake with cross fins
+    else if (muz >= 4) {                                                             // suppressors: light / tactical / heavy
+      const [r, len] = muz === 4 ? [0.0145, 0.11] : muz === 5 ? [0.0165, 0.15] : [0.0195, 0.2], z0 = mz.z;
+      tube(r, len, muz === 6 ? M.blued() : M.black()); b.tube(r + 0.0015, 0.012, mz.x, mz.y, z0 - 0.004 - 0.008, M.steel());
+      if (muz === 6) for (let i = 0; i < 4; i++) b.tube(r + 0.0008, 0.004, mz.x, mz.y, z0 - 0.03 - i * 0.04, M.steel());
+      b.tube(r + 0.0015, 0.008, mz.x, mz.y, z0 - len + 0.004 + 0.004, M.steel());
+    }
+    u.muzzle = mz;
+  }
+  if (mag) {
+    const mags = []; g.traverse((o) => { if (o.userData && o.userData.mag && o.isMesh) mags.push(o); });
+    for (const o of mags) {
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      const bb = o.geometry.boundingBox, sy = o.scale.y, h = (bb.max.y - bb.min.y) * sy;
+      if (mag === 1) { o.scale.y *= 1.4; o.position.y -= h * 0.2; }                  // extended
+      else if (mag === 2) {                                                          // fast mag: bright pull tab on the base plate
+        const tab = new THREE.Mesh(bevelBox(0.02, 0.012, 0.012), mat(0xe86a1a, 0.1, 0.5)); tab.position.set((bb.max.x + bb.min.x) / 2, bb.min.y - 0.003, bb.min.z + (bb.max.z - bb.min.z) * 0.15); o.add(tab);
+      } else if (mag === 3) {                                                        // drum: hide the stick mag, hang a drum off the same spot (it still animates as the mag)
+        o.visible = false;
+        const R = 0.052, cx = (bb.max.x + bb.min.x) / 2, cz = (bb.max.z + bb.min.z) / 2, cy = bb.min.y * sy + R * 0.55;
+        const d = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.05, 22), M.black()); d.rotation.z = Math.PI / 2; d.position.set(o.position.x + cx * o.scale.x, o.position.y + cy, o.position.z + cz * o.scale.z); mark(d, 'mag'); g.add(d);
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.55, R * 0.55, 0.054, 16), M.steel()); cap.rotation.z = Math.PI / 2; cap.position.copy(d.position); mark(cap, 'mag'); g.add(cap);
+        for (let i = 0; i < 8; i++) { const a = (i / 8) * 6.283, rib = new THREE.Mesh(bevelBox(0.052, 0.012, 0.012), M.blued()); rib.position.set(d.position.x, d.position.y + Math.cos(a) * R, d.position.z + Math.sin(a) * R); rib.rotation.x = -a; mark(rib, 'mag'); g.add(rib); }
+        const stub = new THREE.Mesh(bevelBox(bb.max.x - bb.min.x || 0.026, 0.05, bb.max.z - bb.min.z || 0.034), M.black()); stub.position.set(d.position.x, o.position.y + bb.max.y * sy - 0.025, d.position.z); mark(stub, 'mag'); g.add(stub);
+      }
+    }
+  }
 }
 
 export function buildGun(w) {
   const data = w.asset && MODEL_DATA[w.asset.id];
   const g = data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || buildSmg)();
-  if (w.attMask) { addAttachments(g, w); addMuzzleAttachments(g, w); }
+  if (w.attMask) {
+    addAttachments(g, w); addMuzzleAttachments(g, w);
+    const c = camoOf(w.attMask);
+    if (c) { try { applyCamo(g, c); } catch (e) { /* headless test environment */ } }
+  }
   return g;
 }

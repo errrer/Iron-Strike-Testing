@@ -1,4 +1,5 @@
 // Player progression: XP, levels, ranks and weapon unlocks, saved in localStorage (per browser).
+import { CAMOS } from './weapons.js?v=0.15.0';
 const KEY = 'ironstrike.prog';
 export const MAX_LEVEL = 30;
 export const XP_REWARD = { kill: 100, headshot: 50, streak: 25, capture: 75, hold: 5, confirm: 60, deny: 40, plant: 150, defuse: 200, win: 300, played: 100 };
@@ -17,9 +18,10 @@ export function levelOf(xp) {
 export class Progress {
   constructor() {
     this.d = { xp: 0, kills: 0, deaths: 0, heads: 0, matches: 0, wins: 0 };
-    try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o && typeof o === 'object') for (const k of Object.keys(this.d)) if (isFinite(o[k])) this.d[k] = Math.max(0, +o[k]); } catch (e) { /* no storage */ }
+    this.w = {};                                                           // per gun: { kills, heads } (camos are earned with these)
+    try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o && typeof o === 'object') for (const k of Object.keys(this.d)) if (isFinite(o[k])) this.d[k] = Math.max(0, +o[k]); if (o && o.w && typeof o.w === 'object') for (const [id, v] of Object.entries(o.w)) if (v && isFinite(v.k) && isFinite(v.h)) this.w[id] = { k: Math.max(0, +v.k), h: Math.max(0, +v.h) }; } catch (e) { /* no storage */ }
   }
-  save() { try { localStorage.setItem(KEY, JSON.stringify(this.d)); } catch (e) { /* ignore */ } }
+  save() { try { localStorage.setItem(KEY, JSON.stringify({ ...this.d, w: this.w })); } catch (e) { /* ignore */ } }
   get info() { return levelOf(this.d.xp); }
   // returns the new level if this XP gained one, else 0
   add(n) {
@@ -28,6 +30,19 @@ export class Progress {
     return after > before ? after : 0;
   }
   stat(k, n = 1) { this.d[k] = (this.d[k] || 0) + n; this.save(); }
+  // a kill with this gun (head = was it a headshot); returns the camos that just unlocked for it
+  wstat(id, head) {
+    const w = this.w[id] || (this.w[id] = { k: 0, h: 0 }), before = new Set(this.camosFor(id));
+    w.k++; if (head) w.h++; this.save();
+    return this.camosFor(id).filter((c) => !before.has(c));
+  }
+  camoUnlocked(id, c) {
+    const def = CAMOS[c]; if (!def) return false;
+    const w = this.w[id] || { k: 0, h: 0 }, r = def.req;
+    return r.t === 'free' || (r.t === 'level' && this.info.level >= r.n) || (r.t === 'kills' && w.k >= r.n) || (r.t === 'heads' && w.h >= r.n);
+  }
+  camosFor(id) { return CAMOS.filter((c) => this.camoUnlocked(id, c.id)).map((c) => c.id); }
+  camoProgress(id, c) { const w = this.w[id] || { k: 0, h: 0 }, r = (CAMOS[c] || {}).req || {}; return r.t === 'kills' ? w.k : r.t === 'heads' ? w.h : r.t === 'level' ? this.info.level : 0; }
   unlocked(weaponId, all) { return !!all || this.info.level >= (UNLOCK[weaponId] || 1); }
-  reset() { for (const k of Object.keys(this.d)) this.d[k] = 0; this.save(); }
+  reset() { for (const k of Object.keys(this.d)) this.d[k] = 0; this.w = {}; this.save(); }
 }
