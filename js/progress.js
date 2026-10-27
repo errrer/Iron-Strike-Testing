@@ -1,5 +1,5 @@
 // Player progression: XP, levels, ranks and weapon unlocks, saved in localStorage (per browser).
-import { CAMOS } from './weapons.js?v=0.15.0';
+import { CAMOS } from './weapons.js?v=0.15.1';
 const KEY = 'ironstrike.prog';
 export const MAX_LEVEL = 30;
 export const XP_REWARD = { kill: 100, headshot: 50, streak: 25, capture: 75, hold: 5, confirm: 60, deny: 40, plant: 150, defuse: 200, win: 300, played: 100 };

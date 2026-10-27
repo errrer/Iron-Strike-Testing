@@ -21,4 +21,4 @@ with sync_playwright() as p:
     pg.route('**/cdn.jsdelivr.net/npm/three@**', lambda r: r.fulfill(body=stub, content_type='application/javascript'))
     pg.goto(f'http://127.0.0.1:{port}/index.html'); pg.wait_for_timeout(500)
     r = pg.evaluate(JS); print(r, errs[:2]); b.close()
-print('PASS' if not r['bad'] and not errs and r['n'] >= 17 and r["mag"] == 42 else 'FAIL')
+print('PASS' if not r['bad'] and not errs and r['n'] >= 17 and r["mag"] == 45 else 'FAIL')

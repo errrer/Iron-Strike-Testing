@@ -1,20 +1,20 @@
-import { Game, MODES, mpMode } from './game.js?v=0.15.0';
-import { Net, cleanCode, cleanName } from './net.js?v=0.15.0';
-import { watchForEgg } from './easter.js?v=0.15.0';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.15.0';
-import { Sound } from './audio.js?v=0.15.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.15.0';
-import { loadModels } from './gunmodels.js?v=0.15.0';
-import { loadProps } from './props.js?v=0.15.0';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.15.0';
-import { rankName, UNLOCK } from './progress.js?v=0.15.0';
-import { initMapMaker } from './mapmaker.js?v=0.15.0';
-import { RaceMode } from './race.js?v=0.15.0';
-import { initKeybinds } from './keybinds.js?v=0.15.0';
-import { Gunsmith } from './gunsmith.js?v=0.15.0';
-import { WeaponPreview } from './wpreview.js?v=0.15.0';
-import { initTouch, blockZoom } from './touch.js?v=0.15.0';
-import { initGamepad } from './gamepad.js?v=0.15.0';
+import { Game, MODES, mpMode } from './game.js?v=0.15.1';
+import { Net, cleanCode, cleanName } from './net.js?v=0.15.1';
+import { watchForEgg } from './easter.js?v=0.15.1';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.15.1';
+import { Sound } from './audio.js?v=0.15.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.15.1';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.15.1';
+import { loadProps } from './props.js?v=0.15.1';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.15.1';
+import { rankName, UNLOCK } from './progress.js?v=0.15.1';
+import { initMapMaker } from './mapmaker.js?v=0.15.1';
+import { RaceMode } from './race.js?v=0.15.1';
+import { initKeybinds } from './keybinds.js?v=0.15.1';
+import { Gunsmith } from './gunsmith.js?v=0.15.1';
+import { WeaponPreview } from './wpreview.js?v=0.15.1';
+import { initTouch, blockZoom } from './touch.js?v=0.15.1';
+import { initGamepad } from './gamepad.js?v=0.15.1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -421,6 +421,7 @@ let last = performance.now();
 function loop(now) {
   const dt = (now - last) / 1000; last = now;
   try { game.frame(dt); } catch (err) { console.error(err); }
+  tickCamos(Math.min(dt, 0.1));
   if (gsm && gsm.open) gsm.tick(Math.min(dt, 0.1));
   else if (wprev && !$('menu').classList.contains('hidden')) { try { wprev.tick(Math.min(dt, 0.1)); } catch (e) { wprev.ok = false; } }
   requestAnimationFrame(loop);

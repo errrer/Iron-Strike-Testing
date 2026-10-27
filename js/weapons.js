@@ -8,7 +8,7 @@ export const WEAPONS = {
     spread: 0.030, adsSpread: 0.006, recoil: 0.0045, recoilYaw: 0.0030, range: [10, 30], minMul: 0.5, pellets: 1,
     zoom: 1.3, scope: false, moveMul: 1.08, snd: { f: 3200, len: 0.09, thump: 0.5 },
     builder: 'smg', attach: ['dot', 'grip', 'laser'],
-    asset: { id: 'vmp', grip: 'handle', fore: 'grip', foreOffset: [0, -0.02, 0], gripOffset: [0, 0.0, 0], mount: [0, 0.066, -0.04], under: [0, -0.053, -0.1], side: [0.022, -0.02, -0.2], sights: { zr: 0.06, zf: -0.19, br: 0.0734, bf: 0.0734 } },
+    asset: { id: 'vmp', ownSights: true, grip: 'handle', fore: 'grip', foreOffset: [0, -0.02, 0], gripOffset: [0, 0.0, 0], mount: [0, 0.066, -0.04], under: [0, -0.053, -0.1], side: [0.022, -0.02, -0.2], sights: { zr: 0.06, zf: -0.19, br: 0.0734, bf: 0.0734 } },
   },
   super46: {
     id: 'super46', name: 'Super 46', slot: 'primary', cls: 'smg', desc: 'Kriss-style SMG with a ferocious rate of fire and low recoil. Drains a magazine in two seconds.',
@@ -22,7 +22,7 @@ export const WEAPONS = {
     dmg: 26, hs: 1.4, rpm: 660, auto: true, mag: 30, reserve: 180, reload: 2.2,
     spread: 0.028, adsSpread: 0.003, recoil: 0.0060, recoilYaw: 0.0030, range: [20, 50], minMul: 0.65, pellets: 1,
     zoom: 1.5, scope: false, moveMul: 1.0, snd: { f: 2600, len: 0.11, thump: 0.6 }, builder: 'ar', attach: ['dot', 'grip', 'laser'],
-    asset: { id: 'm4a1', grip: 'handle', fore: 'grip', foreOffset: [0, 0, 0], gripOffset: [0, 0, 0], mount: [0, 0.031, -0.12], under: [0, -0.032, -0.27], side: [0.02, 0.0, -0.3] },
+    asset: { id: 'm4a1', xmag: 'm4a1_xmag', grip: 'handle', fore: 'grip', foreOffset: [0, 0, 0], gripOffset: [0, 0, 0], mount: [0, 0.031, -0.12], under: [0, -0.032, -0.27], side: [0.02, 0.0, -0.3] },
   },
   ak47: {
     id: 'ak47', name: 'AK-47', slot: 'primary', cls: 'ar', desc: 'Hard-hitting rifle. Heavy recoil, big damage.',
@@ -156,41 +156,41 @@ const range = (o, a, b = a) => { o.range = [o.range[0] * a, o.range[1] * b]; };
 // id -> { slot, v (value inside the slot), name, desc, stats, mod(o) }; mod edits a copy of the weapon
 export const ATT = {
   // optics: aim better, pay for it in hip fire and handling (the bigger the scope, the bigger the price)
-  dot: { slot: 'optic', v: 1, name: 'Red Dot Sight', desc: 'Clear sight picture. Light and quick.', stats: 'ADS spread -12%, hip spread +4%', mod: (o) => { o.adsSpread *= 0.88; o.spread *= 1.04; } },
-  holo: { slot: 'optic', v: 2, name: 'Holographic Sight', desc: 'Wide window with a ring reticle and a touch of zoom.', stats: 'ADS spread -10%, zoom +10%, hip +6%, speed -1%', mod: (o) => { o.adsSpread *= 0.9; o.zoom *= 1.1; o.spread *= 1.06; o.moveMul *= 0.99; } },
-  hybrid: { slot: 'optic', v: 3, name: 'Hybrid 2x Scope', desc: 'Reflex sight on a 2x magnifier.', stats: 'ADS spread -8%, zoom x1.6, hip +8%, speed -2%', mod: (o) => { o.adsSpread *= 0.92; o.zoom *= 1.6; o.spread *= 1.08; o.moveMul *= 0.98; } },
-  acog: { slot: 'optic', v: 4, name: 'ACOG 4x Scope', desc: 'Fixed 4x combat scope for long lanes.', stats: 'ADS spread -6%, zoom x2.2, hip +12%, speed -3%', mod: (o) => { o.adsSpread *= 0.94; o.zoom *= 2.2; o.spread *= 1.12; o.moveMul *= 0.97; } },
+  dot: { slot: 'optic', v: 1, name: 'Red Dot Sight', desc: 'Clear sight picture. Light and quick.', stats: 'ADS spread -25%, hip spread +5%, speed -1%', mod: (o) => { o.adsSpread *= 0.75; o.spread *= 1.05; o.moveMul *= 0.99; } },
+  holo: { slot: 'optic', v: 2, name: 'Holographic Sight', desc: 'Wide window with a ring reticle and a touch of zoom.', stats: 'ADS spread -28%, zoom +15%, hip +10%, speed -2%', mod: (o) => { o.adsSpread *= 0.72; o.zoom *= 1.15; o.spread *= 1.1; o.moveMul *= 0.98; } },
+  hybrid: { slot: 'optic', v: 3, name: 'Hybrid 2x Scope', desc: 'Reflex sight on a 2x magnifier.', stats: 'ADS spread -30%, zoom x1.7, hip +15%, speed -3%', mod: (o) => { o.adsSpread *= 0.7; o.zoom *= 1.7; o.spread *= 1.15; o.moveMul *= 0.97; } },
+  acog: { slot: 'optic', v: 4, name: 'ACOG 4x Scope', desc: 'Fixed 4x combat scope for long lanes.', stats: 'ADS spread -34%, zoom x2.4, hip +25%, speed -5%', mod: (o) => { o.adsSpread *= 0.66; o.zoom *= 2.4; o.spread *= 1.25; o.moveMul *= 0.95; } },
   // muzzle
-  fh: { slot: 'muzzle', v: 1, name: 'Flash Hider', desc: 'Hides the muzzle flash and trims sideways kick.', stats: 'Flash -70%, sideways kick -8%, recoil +3%', mod: (o) => { o.flash = 0.3; o.recoilYaw *= 0.92; o.recoil *= 1.03; } },
-  comp: { slot: 'muzzle', v: 2, name: 'Compensator', desc: 'Vents the gas up and out to keep the muzzle down. Loud.', stats: 'Recoil -7%, sideways kick -15%, louder, range -3%', mod: (o) => { o.recoil *= 0.93; o.recoilYaw *= 0.85; o.loud = 1.1; range(o, 0.97); } },
-  brake: { slot: 'muzzle', v: 3, name: 'Muzzle Brake', desc: 'Big side ports soak up the sideways jolt. Very loud, a little wild when aimed.', stats: 'Sideways kick -30%, recoil -4%, louder, ADS spread +4%', mod: (o) => { o.recoilYaw *= 0.7; o.recoil *= 0.96; o.loud = 1.2; o.adsSpread *= 1.04; } },
-  supp1: { slot: 'muzzle', v: 4, name: 'Light Suppressor', desc: 'Compact can. Takes the edge off the report.', stats: 'Quieter, recoil -3%, damage -2%, range -5%', mod: (o) => { o.quiet = 0.55; o.flash = 0.5; o.recoil *= 0.97; o.dmg *= 0.98; range(o, 0.95); } },
-  supp2: { slot: 'muzzle', v: 5, name: 'Tactical Suppressor', desc: 'Standard length suppressor. Muffles the shot and calms the climb.', stats: 'Quiet, recoil -6%, damage -4%, range -10%, speed -1%', mod: (o) => { o.quiet = 0.3; o.flash = 0.3; o.recoil *= 0.94; o.dmg *= 0.96; range(o, 0.9); o.moveMul *= 0.99; } },
-  supp3: { slot: 'muzzle', v: 6, name: 'Heavy Suppressor', desc: 'Long, fat can. Nearly silent and steady, but it robs punch and range.', stats: 'Near silent, recoil -10%, damage -7%, range -15%, speed -2%', mod: (o) => { o.quiet = 0.15; o.flash = 0.1; o.recoil *= 0.9; o.dmg *= 0.93; range(o, 0.85); o.moveMul *= 0.98; } },
+  fh: { slot: 'muzzle', v: 1, name: 'Flash Hider', desc: 'Hides the muzzle flash and trims sideways kick.', stats: 'Recoil -12%, sideways kick -20%, flash -80%, range -6%', mod: (o) => { o.flash = 0.2; o.recoil *= 0.88; o.recoilYaw *= 0.8; range(o, 0.94); } },
+  comp: { slot: 'muzzle', v: 2, name: 'Compensator', desc: 'Vents the gas up and out to keep the muzzle down. Loud.', stats: 'Recoil -22%, sideways kick -30%, louder, range -10%, ADS spread +10%', mod: (o) => { o.recoil *= 0.78; o.recoilYaw *= 0.7; o.loud = 1.25; range(o, 0.9); o.adsSpread *= 1.1; } },
+  brake: { slot: 'muzzle', v: 3, name: 'Muzzle Brake', desc: 'Big side ports soak up the sideways jolt. Very loud, a little wild when aimed.', stats: 'Sideways kick -50%, recoil -15%, much louder, hip +15%, speed -2%', mod: (o) => { o.recoilYaw *= 0.5; o.recoil *= 0.85; o.loud = 1.4; o.spread *= 1.15; o.moveMul *= 0.98; } },
+  supp1: { slot: 'muzzle', v: 4, name: 'Light Suppressor', desc: 'Compact can. Takes the edge off the report.', stats: 'Quiet, recoil -8%, damage -6%, range -12%', mod: (o) => { o.quiet = 0.5; o.flash = 0.4; o.recoil *= 0.92; o.dmg *= 0.94; range(o, 0.88); } },
+  supp2: { slot: 'muzzle', v: 5, name: 'Tactical Suppressor', desc: 'Standard length suppressor. Muffles the shot and calms the climb.', stats: 'Very quiet, recoil -15%, damage -10%, range -20%, speed -2%', mod: (o) => { o.quiet = 0.3; o.flash = 0.25; o.recoil *= 0.85; o.dmg *= 0.9; range(o, 0.8); o.moveMul *= 0.98; } },
+  supp3: { slot: 'muzzle', v: 6, name: 'Heavy Suppressor', desc: 'Long, fat can. Nearly silent and steady, but it robs punch and range.', stats: 'Near silent, recoil -22%, damage -14%, range -28%, speed -5%', mod: (o) => { o.quiet = 0.12; o.flash = 0.1; o.recoil *= 0.78; o.dmg *= 0.86; range(o, 0.72); o.moveMul *= 0.95; } },
   // barrels
-  sbar: { slot: 'barrel', v: 1, name: 'Short Barrel', desc: 'Cut-down barrel: quick to swing, but short on reach and kicky.', stats: 'Speed +4%, hip spread -8%, range -15%, recoil +6%', mod: (o) => { o.moveMul *= 1.04; o.spread *= 0.92; range(o, 0.85); o.recoil *= 1.06; } },
-  lbar: { slot: 'barrel', v: 2, name: 'Long Barrel', desc: 'More range and a tighter aimed shot. Heavy to swing and sloppy from the hip.', stats: 'Range +15%, ADS spread -8%, speed -4%, hip +6%', mod: (o) => { range(o, 1.15); o.adsSpread *= 0.92; o.moveMul *= 0.96; o.spread *= 1.06; } },
-  hbar: { slot: 'barrel', v: 3, name: 'Heavy Barrel', desc: 'Thick barrel. Soaks recoil and carries further, but drags and wanders from the hip.', stats: 'Recoil -10%, range +8%, speed -6%, hip +5%', mod: (o) => { o.recoil *= 0.9; range(o, 1.08); o.moveMul *= 0.94; o.spread *= 1.05; } },
+  sbar: { slot: 'barrel', v: 1, name: 'Short Barrel', desc: 'Cut-down barrel: quick to swing, but short on reach and kicky.', stats: 'Speed +8%, hip spread -25%, range -28%, recoil +12%', mod: (o) => { o.moveMul *= 1.08; o.spread *= 0.75; range(o, 0.72); o.recoil *= 1.12; } },
+  lbar: { slot: 'barrel', v: 2, name: 'Long Barrel', desc: 'More range and a tighter aimed shot. Heavy to swing and sloppy from the hip.', stats: 'Range +30%, ADS spread -20%, recoil -6%, speed -8%, hip +15%', mod: (o) => { range(o, 1.3); o.adsSpread *= 0.8; o.recoil *= 0.94; o.moveMul *= 0.92; o.spread *= 1.15; } },
+  hbar: { slot: 'barrel', v: 3, name: 'Heavy Barrel', desc: 'Thick barrel. Soaks recoil and carries further, but drags and wanders from the hip.', stats: 'Recoil -25%, range +15%, speed -12%, hip +15%', mod: (o) => { o.recoil *= 0.75; range(o, 1.15); o.moveMul *= 0.88; o.spread *= 1.15; } },
   // underbarrel
-  grip: { slot: 'under', v: 1, name: 'Vertical Grip', desc: 'Steadies the weapon. Less recoil, a bit more weight to carry.', stats: 'Recoil -12%, sideways kick -15%, speed -2%', mod: (o) => { o.recoil *= 0.88; o.recoilYaw *= 0.85; o.moveMul *= 0.98; } },
-  agrip: { slot: 'under', v: 2, name: 'Angled Grip', desc: 'Low, forward-angled grip for snappy hip fire. Not great when aimed.', stats: 'Hip spread -14%, recoil -4%, ADS spread +5%', mod: (o) => { o.spread *= 0.86; o.recoil *= 0.96; o.adsSpread *= 1.05; } },
-  sgrip: { slot: 'under', v: 3, name: 'Stubby Grip', desc: 'Short grip that kills sideways drift and keeps the aimed shot tight.', stats: 'Sideways kick -25%, recoil -6%, ADS spread -4%, hip +5%, speed -1%', mod: (o) => { o.recoilYaw *= 0.75; o.recoil *= 0.94; o.adsSpread *= 0.96; o.spread *= 1.05; o.moveMul *= 0.99; } },
+  grip: { slot: 'under', v: 1, name: 'Vertical Grip', desc: 'Steadies the weapon. Less recoil, a bit more weight to carry.', stats: 'Recoil -28%, sideways kick -30%, hip +5%, speed -4%', mod: (o) => { o.recoil *= 0.72; o.recoilYaw *= 0.7; o.spread *= 1.05; o.moveMul *= 0.96; } },
+  agrip: { slot: 'under', v: 2, name: 'Angled Grip', desc: 'Low, forward-angled grip for snappy hip fire. Not great when aimed.', stats: 'Hip spread -30%, recoil -8%, ADS spread +12%, speed +2%', mod: (o) => { o.spread *= 0.7; o.recoil *= 0.92; o.adsSpread *= 1.12; o.moveMul *= 1.02; } },
+  sgrip: { slot: 'under', v: 3, name: 'Stubby Grip', desc: 'Short grip that kills sideways drift and keeps the aimed shot tight.', stats: 'Sideways kick -45%, recoil -15%, ADS spread -15%, hip +12%, speed -2%', mod: (o) => { o.recoilYaw *= 0.55; o.recoil *= 0.85; o.adsSpread *= 0.85; o.spread *= 1.12; o.moveMul *= 0.98; } },
   // lasers: hip fire only - they do nothing for (and slightly hurt) aimed shots
-  laser: { slot: 'laser', v: 1, name: 'Laser Sight', desc: 'Projects a red dot where you point. Good hip fire, a little weight.', stats: 'Hip spread -20%, ADS spread +3%, speed -1%', mod: (o) => { o.spread *= 0.8; o.adsSpread *= 1.03; o.moveMul *= 0.99; o.laser = 1; } },
-  tlaser: { slot: 'laser', v: 2, name: 'Tactical Laser', desc: 'Bright green beam. Tighter hip fire, but it is heavier.', stats: 'Hip spread -26%, ADS spread +5%, speed -2%', mod: (o) => { o.spread *= 0.74; o.adsSpread *= 1.05; o.moveMul *= 0.98; o.laser = 2; } },
-  wlaser: { slot: 'laser', v: 3, name: 'Compact Laser', desc: 'Light blue pointer. Smaller bonus, no weight penalty, but it kicks a little.', stats: 'Hip spread -12%, recoil +3%', mod: (o) => { o.spread *= 0.88; o.recoil *= 1.03; o.laser = 3; } },
+  laser: { slot: 'laser', v: 1, name: 'Laser Sight', desc: 'Projects a red dot where you point. Good hip fire, a little weight.', stats: 'Hip spread -35%, ADS spread +8%, speed -2%', mod: (o) => { o.spread *= 0.65; o.adsSpread *= 1.08; o.moveMul *= 0.98; o.laser = 1; } },
+  tlaser: { slot: 'laser', v: 2, name: 'Tactical Laser', desc: 'Bright green beam. Tighter hip fire, but it is heavier.', stats: 'Hip spread -45%, ADS spread +12%, speed -4%', mod: (o) => { o.spread *= 0.55; o.adsSpread *= 1.12; o.moveMul *= 0.96; o.laser = 2; } },
+  wlaser: { slot: 'laser', v: 3, name: 'Compact Laser', desc: 'Light blue pointer. Smaller bonus, no weight penalty, but it kicks a little.', stats: 'Hip spread -20%, recoil +5%', mod: (o) => { o.spread *= 0.8; o.recoil *= 1.05; o.laser = 3; } },
   // magazines
-  xmag: { slot: 'mag', v: 1, name: 'Extended Mag', desc: 'A longer magazine. More shots before you reload, slower to swap.', stats: 'Mag +40%, reload +15%, speed -1%', mod: (o) => { o.mag = Math.round(o.mag * 1.4); o.reload *= 1.15; o.moveMul *= 0.99; } },
-  fmag: { slot: 'mag', v: 2, name: 'Fast Mags', desc: 'Pull-tab magazines that drop and seat quickly, but hold fewer rounds.', stats: 'Reload -20%, mag -10%', mod: (o) => { o.reload *= 0.8; o.mag = Math.max(1, Math.round(o.mag * 0.9)); } },
-  drum: { slot: 'mag', v: 3, name: 'Drum Mag', desc: 'Huge drum. Nearly double the ammo, slow to reload and heavy to carry.', stats: 'Mag +80%, reload +30%, speed -4%, hip +5%', mod: (o) => { o.mag = Math.round(o.mag * 1.8); o.reload *= 1.3; o.moveMul *= 0.96; o.spread *= 1.05; } },
+  xmag: { slot: 'mag', v: 1, name: 'Extended Mag', desc: 'A longer magazine. More shots before you reload, slower to swap.', stats: 'Mag +50%, reload +25%, speed -3%', mod: (o) => { o.mag = Math.round(o.mag * 1.5); o.reload *= 1.25; o.moveMul *= 0.97; } },
+  fmag: { slot: 'mag', v: 2, name: 'Fast Mags', desc: 'Pull-tab magazines that drop and seat quickly, but hold fewer rounds.', stats: 'Reload -35%, mag -15%', mod: (o) => { o.reload *= 0.65; o.mag = Math.max(1, Math.round(o.mag * 0.85)); } },
+  drum: { slot: 'mag', v: 3, name: 'Drum Mag', desc: 'Huge drum. Nearly double the ammo, slow to reload and heavy to carry.', stats: 'Mag x2, reload +50%, speed -8%, hip +10%', mod: (o) => { o.mag = Math.round(o.mag * 2); o.reload *= 1.5; o.moveMul *= 0.92; o.spread *= 1.1; } },
   // stocks
-  lstock: { slot: 'stock', v: 1, name: 'Light Stock', desc: 'Stripped-down stock. Fast on your feet, kicks more and wobbles when aimed.', stats: 'Speed +3%, recoil +8%, ADS spread +4%', mod: (o) => { o.moveMul *= 1.03; o.recoil *= 1.08; o.adsSpread *= 1.04; } },
-  hstock: { slot: 'stock', v: 2, name: 'Heavy Stock', desc: 'Weighted stock that soaks the kick. Slower to move and to swing.', stats: 'Recoil -10%, speed -3%, hip +5%', mod: (o) => { o.recoil *= 0.9; o.moveMul *= 0.97; o.spread *= 1.05; } },
-  tstock: { slot: 'stock', v: 3, name: 'Tactical Stock', desc: 'Adjustable cheek-weld. Steadier hip aim and less drift, a touch more kick.', stats: 'Hip spread -10%, sideways kick -12%, recoil +3%, speed -1%', mod: (o) => { o.spread *= 0.9; o.recoilYaw *= 0.88; o.recoil *= 1.03; o.moveMul *= 0.99; } },
+  lstock: { slot: 'stock', v: 1, name: 'Light Stock', desc: 'Stripped-down stock. Fast on your feet, kicks more and wobbles when aimed.', stats: 'Speed +8%, recoil +18%, ADS spread +10%', mod: (o) => { o.moveMul *= 1.08; o.recoil *= 1.18; o.adsSpread *= 1.1; } },
+  hstock: { slot: 'stock', v: 2, name: 'Heavy Stock', desc: 'Weighted stock that soaks the kick. Slower to move and to swing.', stats: 'Recoil -22%, speed -7%, hip +12%', mod: (o) => { o.recoil *= 0.78; o.moveMul *= 0.93; o.spread *= 1.12; } },
+  tstock: { slot: 'stock', v: 3, name: 'Tactical Stock', desc: 'Adjustable cheek-weld. Steadier hip aim and less drift, a touch more kick.', stats: 'Hip spread -25%, sideways kick -25%, recoil +10%, speed -3%', mod: (o) => { o.spread *= 0.75; o.recoilYaw *= 0.75; o.recoil *= 1.1; o.moveMul *= 0.97; } },
   // ammunition
-  fmj: { slot: 'ammo', v: 1, name: 'FMJ Rounds', desc: 'Full metal jacket. Flies further but hits a little softer.', stats: 'Range +10%, damage -3%', mod: (o) => { range(o, 1.1); o.dmg *= 0.97; } },
-  hp: { slot: 'ammo', v: 2, name: 'Hollow Point', desc: 'Expanding rounds hit harder up close and fall off quickly.', stats: 'Damage +8%, range -12%, recoil +3%', mod: (o) => { o.dmg *= 1.08; range(o, 0.88); o.recoil *= 1.03; } },
-  ap: { slot: 'ammo', v: 3, name: 'Armour Piercing', desc: 'Hot-loaded rounds: more bite everywhere, more kick and a heavier load.', stats: 'Damage +4%, range +4%, recoil +6%, speed -1%', mod: (o) => { o.dmg *= 1.04; range(o, 1.04); o.recoil *= 1.06; o.moveMul *= 0.99; } },
+  fmj: { slot: 'ammo', v: 1, name: 'FMJ Rounds', desc: 'Full metal jacket. Flies further but hits a little softer.', stats: 'Range +25%, damage -6%', mod: (o) => { range(o, 1.25); o.dmg *= 0.94; } },
+  hp: { slot: 'ammo', v: 2, name: 'Hollow Point', desc: 'Expanding rounds hit harder up close and fall off quickly.', stats: 'Damage +15%, range -22%, recoil +8%', mod: (o) => { o.dmg *= 1.15; range(o, 0.78); o.recoil *= 1.08; } },
+  ap: { slot: 'ammo', v: 3, name: 'Armour Piercing', desc: 'Hot-loaded rounds: more bite everywhere, more kick and a heavier load.', stats: 'Damage +8%, range +10%, recoil +14%, speed -2%', mod: (o) => { o.dmg *= 1.08; range(o, 1.1); o.recoil *= 1.14; o.moveMul *= 0.98; } },
 };
 for (const [k, a] of Object.entries(ATT)) a.id = k;
 export const ATT_BY_SLOT = {}; for (const s of SLOTS) ATT_BY_SLOT[s.id] = Object.values(ATT).filter((a) => a.slot === s.id);
@@ -280,5 +280,11 @@ export const CAMOS = [
   { id: 9, name: 'Diamond', req: { t: 'heads', n: 100 } },
   { id: 10, name: 'Obsidian', req: { t: 'level', n: 30 } },
   { id: 11, name: 'Galaxy', req: { t: 'kills', n: 250 } },
+  { id: 12, name: 'Carbon Fibre', req: { t: 'level', n: 12 } },
+  { id: 13, name: 'Neon Grid', req: { t: 'kills', n: 150 } },
+  { id: 14, name: 'Toxic', req: { t: 'heads', n: 60 } },
+  { id: 15, name: 'Magma', req: { t: 'level', n: 20 } },
+  { id: 16, name: 'Holo Prism', req: { t: 'heads', n: 200 } },
+  { id: 17, name: 'Dragon Scale', req: { t: 'kills', n: 180 } },
 ];
 export const camoReqText = (c) => ({ free: 'Unlocked', level: `Reach level ${c.req.n}`, kills: `${c.req.n} kills with this gun`, heads: `${c.req.n} headshots with this gun` })[c.req.t];

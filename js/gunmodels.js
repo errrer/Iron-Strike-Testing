@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf } from './weapons.js?v=0.15.0';
+import { getSlot, camoOf } from './weapons.js?v=0.15.1';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,13 +11,13 @@ import { getSlot, camoOf } from './weapons.js?v=0.15.0';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.9.11';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.15.1';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
   for (const w of Object.values(weapons)) {
     if (!w.asset || MODEL_DATA[w.asset.id]) continue;
-    jobs.push(fetch(`assets/models/${w.asset.id}.json?v=${MODEL_VER}`).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.parts) MODEL_DATA[w.asset.id] = j; }).catch(() => {}));
+    for (const id of [w.asset.id, ...(w.asset.xmag ? [w.asset.xmag] : [])]) jobs.push(fetch(`assets/models/${id}.json?v=${MODEL_VER}`).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.parts) MODEL_DATA[id] = j; }).catch(() => {}));
   }
   await Promise.all(jobs);
   return Object.keys(MODEL_DATA);
@@ -575,11 +575,11 @@ function buildFromAsset(w, data) {
   const anc = data.anchors || {};
   const p = (name, off = [0, 0, 0]) => { const c = anc[name] || [0, -0.05, 0]; return V(c[0] + off[0], c[1] + off[1], c[2] + off[2]); };
   g.userData = {
-    muzzle: V(...data.muzzle), sightY: data.sights ? data.sightY : 0.092,
+    muzzle: V(...data.muzzle), sightY: (data.sights || a.ownSights) ? data.sightY : 0.092,
     grip: p(a.grip, a.gripOffset), fore: p(a.fore, a.foreOffset), pistol: false,
     mount: V(...(a.mount || [0, data.sightY - 0.008, 0])), under: V(...(a.under || [0, -0.05, -0.1])), side: V(...(a.side || [0.025, -0.02, -0.2])),
   };
-  if (!data.sights) { const bb = new B(); bb.g = g; const sg = a.sights || { zr: 0.11, zf: -0.2, br: 0.073, bf: 0.073 }; ironSights(bb, { y: 0.092, ...sg }); }   // the VMP model has no sights of its own; the Super 46 brings its own
+  if (!data.sights && !a.ownSights) { const bb = new B(); bb.g = g; const sg = a.sights || { zr: 0.11, zf: -0.2, br: 0.073, bf: 0.073 }; ironSights(bb, { y: 0.092, ...sg }); }   // the VMP model has no sights of its own; the Super 46 brings its own
   return g;
 }
 
@@ -651,7 +651,34 @@ const CAMO_PAINT = {
     for (const [col, n] of [['120,60,220', 7], ['40,90,230', 6], ['220,60,150', 5]]) for (let i = 0; i < n; i++) { const x = r() * CS, y = r() * CS, rad = 70 + r() * 110; wrapped(g, () => { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, `rgba(${col},0.55)`); rg.addColorStop(1, `rgba(${col},0)`); g.fillStyle = rg; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); }); wrapped(ge, () => { const rg = ge.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, `rgba(${col},0.22)`); rg.addColorStop(1, `rgba(${col},0)`); ge.fillStyle = rg; ge.fillRect(x - rad, y - rad, rad * 2, rad * 2); }); }
     for (let i = 0; i < 380; i++) { const x = r() * CS, y = r() * CS, s = r() < 0.07 ? 2.6 : 1.1, a = 0.4 + r() * 0.6; for (const q of [g, ge]) { q.fillStyle = `rgba(255,255,255,${a})`; q.fillRect(x, y, s, s); } } return [c, e]; },
 };
-const CAMO_LOOK = { 8: { m: 1.0, r: 0.24, env: 1.4 }, 9: { m: 0.85, r: 0.14, env: 1.5 }, 10: { m: 0.7, r: 0.1, env: 1.3, em: 1.6 }, 11: { m: 0.5, r: 0.26, env: 1.0, em: 1.3 } };
+CAMO_PAINT[12] = () => { const [c, g] = canvasOf(), r = seeded(121); g.fillStyle = '#0b0c0e'; g.fillRect(0, 0, CS, CS); const T = 16;      // carbon-fibre twill
+  for (let y = 0; y < CS / T; y++) for (let x = 0; x < CS / T; x++) { const up = ((x + y) >> 1) % 2 === 0, gr = g.createLinearGradient(x * T, y * T, (x + 1) * T, (y + 1) * T); gr.addColorStop(0, up ? '#3b3f46' : '#15171a'); gr.addColorStop(0.5, up ? '#1c1e22' : '#2e3238'); gr.addColorStop(1, up ? '#0d0e10' : '#111316'); g.fillStyle = gr; g.fillRect(x * T + 1, y * T + 1, T - 2, T - 2); }
+  for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(255,255,255,${r() * 0.06})`; g.fillRect(r() * CS, r() * CS, 1, 6); } return [c]; };
+CAMO_PAINT[13] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(); const bg = g.createLinearGradient(0, 0, 0, CS); bg.addColorStop(0, '#06051a'); bg.addColorStop(1, '#14052e'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // neon grid
+  for (const q of [g, ge]) for (let i = 0; i <= 8; i++) { const p = i * 64, hot = i % 4 === 0; q.strokeStyle = hot ? '#ff2fd0' : '#18e6ff'; q.lineWidth = hot ? 4 : 2; q.shadowColor = q.strokeStyle; q.shadowBlur = 10; q.beginPath(); q.moveTo(p, 0); q.lineTo(p, CS); q.moveTo(0, p); q.lineTo(CS, p); q.stroke(); }
+  for (const q of [g, ge]) { q.shadowBlur = 0; q.fillStyle = '#fff'; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j += 4) q.fillRect(i * 64 - 3, j * 64 - 3, 6, 6); } return [c, e]; };
+CAMO_PAINT[14] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(141); g.fillStyle = '#0c1a08'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // toxic acid
+  blobs(g, r, '#1d4a10', 12, 50, 100); blobs(g, r, '#4fc21a', 10, 34, 70); blobs(g, r, '#c6ff3a', 9, 14, 34);
+  for (let i = 0; i < 70; i++) { const x = r() * CS, y = r() * CS, rad = 3 + r() * 11; for (const [q, a] of [[g, 0.5], [ge, 0.7]]) wrapped(q, () => { q.strokeStyle = `rgba(190,255,70,${a})`; q.lineWidth = 2; q.fillStyle = 'rgba(120,255,40,0.18)'; q.beginPath(); q.arc(x, y, rad, 0, 6.28); q.fill(); q.stroke(); }); }
+  blobs(ge, r, 'rgba(120,255,30,0.35)', 10, 20, 50); return [c, e]; };
+CAMO_PAINT[15] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(151); g.fillStyle = '#120807'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // magma cracks
+  blobs(g, r, '#2a1411', 16, 40, 90); blobs(g, r, '#0a0505', 12, 30, 70);
+  veins(g, seeded(9), ['#ff5a0a', '#ffb02a', '#ff2a00'], 34); veins(ge, seeded(9), ['#ff5a0a', '#ffb02a', '#ff2a00'], 34);
+  veins(ge, seeded(19), ['#ff7a1a'], 20); return [c, e]; };
+CAMO_PAINT[16] = () => { const [c, g] = canvasOf(), r = seeded(161); const gr = g.createLinearGradient(0, 0, CS, CS); ['#ff3b6b', '#ffb02a', '#d8ff3a', '#2affb0', '#2ab4ff', '#9a4bff', '#ff3b6b'].forEach((col, i, a) => gr.addColorStop(i / (a.length - 1), col)); g.fillStyle = gr; g.fillRect(0, 0, CS, CS);   // holo prism (hue-shifts live)
+  for (let i = 0; i < 40; i++) { const x = r() * CS, w = 4 + r() * 22; g.fillStyle = r() > 0.5 ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)'; wrapped(g, () => { g.save(); g.translate(x, 0); g.rotate(0.6); g.fillRect(-w / 2, -CS, w, CS * 3); g.restore(); }); }
+  for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(255,255,255,${0.2 + r() * 0.6})`; g.fillRect(r() * CS, r() * CS, 2, 2); } return [c]; };
+CAMO_PAINT[17] = () => { const [c, g] = canvasOf(); const R = 32, H = 28; g.fillStyle = '#04140c'; g.fillRect(0, 0, CS, CS);                    // dragon scales
+  for (let row = -1; row < CS / H + 2; row++) for (let col = -1; col < CS / (R * 2) + 2; col++) { const x = col * R * 2 + (row % 2 ? R : 0), y = row * H, gr = g.createRadialGradient(x, y - R * 0.3, 2, x, y, R); gr.addColorStop(0, '#d9ff9a'); gr.addColorStop(0.35, '#2fbf5a'); gr.addColorStop(0.8, '#0b5a2e'); gr.addColorStop(1, '#03180d'); g.fillStyle = gr; g.strokeStyle = 'rgba(255,214,90,0.7)'; g.lineWidth = 1.5;
+    for (const dx of [-CS, 0, CS]) for (const dy of [-CS, 0, CS]) { g.beginPath(); g.arc(x + dx, y + dy, R - 1, 0, Math.PI); g.fill(); g.stroke(); } } return [c]; };
+// look per camo: metalness / roughness / env reflection / clearcoat; `em` glows, `pulse` breathes, `hue` shifts colour over time
+const CAMO_LOOK = {
+  1: { m: 0.12, r: 0.6, env: 0.8, cc: 0.35 }, 2: { m: 0.12, r: 0.6, env: 0.8, cc: 0.35 }, 3: { m: 0.12, r: 0.55, env: 0.9, cc: 0.4 }, 4: { m: 0.15, r: 0.5, env: 0.9, cc: 0.45 },
+  5: { m: 0.2, r: 0.4, env: 1.1, cc: 0.7 }, 6: { m: 0.2, r: 0.4, env: 1.1, cc: 0.7 }, 7: { m: 0.25, r: 0.38, env: 1.1, cc: 0.7 },
+  8: { m: 1.0, r: 0.2, env: 1.7, cc: 0.5 }, 9: { m: 0.9, r: 0.1, env: 1.8, cc: 1.0, flake: 1 }, 10: { m: 0.6, r: 0.12, env: 1.5, cc: 1.0, em: 1.9, pulse: 1 }, 11: { m: 0.5, r: 0.2, env: 1.2, cc: 1.0, em: 1.5, pulse: 1 },
+  12: { m: 0.35, r: 0.28, env: 1.3, cc: 1.0 }, 13: { m: 0.3, r: 0.3, env: 1.0, cc: 0.6, em: 2.2, pulse: 1 }, 14: { m: 0.3, r: 0.3, env: 1.0, cc: 0.9, em: 1.7, pulse: 1 }, 15: { m: 0.3, r: 0.45, env: 0.9, cc: 0.4, em: 2.4, pulse: 1 },
+  16: { m: 1.0, r: 0.14, env: 1.9, cc: 1.0, hue: 1 }, 17: { m: 0.55, r: 0.3, env: 1.4, cc: 0.9 },
+};
 const camoCache = new Map();
 function camoSet(id) {
   if (camoCache.has(id)) return camoCache.get(id);
@@ -670,23 +697,26 @@ export function camoSwatch(id, w = 72, h = 44) {                                
   const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); if (!g) return '';
   g.drawImage(set.canvas, 0, 0, CS * 0.45, CS * 0.45 * h / w, 0, 0, w, h); return c.toDataURL();
 }
-const camoMats = new Map();
+const camoMats = new Map(), camoTime = { value: 0 };
+export function tickCamos(dt) { camoTime.value += dt; }
 function camoMat(id) {
   if (camoMats.has(id)) return camoMats.get(id);
   const set = camoSet(id); if (!set) { camoMats.set(id, null); return null; }
   const look = CAMO_LOOK[id] || { m: 0.18, r: 0.55, env: 0.9 };
-  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: look.m, roughness: look.r, envMapIntensity: look.env });
+  const Phys = THREE.MeshPhysicalMaterial || THREE.MeshStandardMaterial;
+  const m = new Phys({ color: 0xffffff, metalness: look.m, roughness: look.r, envMapIntensity: look.env });
+  if (look.cc && 'clearcoat' in m) { m.clearcoat = look.cc; m.clearcoatRoughness = 0.08; }
   if (set.em) { m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = look.em || 1; }
   const hasEm = !!set.em;
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.camoMap = { value: set.map }; sh.uniforms.camoEm = { value: set.em || set.map }; sh.uniforms.camoScale = { value: 6.5 };
+    sh.uniforms.camoMap = { value: set.map }; sh.uniforms.camoEm = { value: set.em || set.map }; sh.uniforms.camoScale = { value: 6.5 }; sh.uniforms.camoT = camoTime;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 gpos;\nattribute vec3 gnrm;\nvarying vec3 vGp;\nvarying vec3 vGn;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvGp = gpos; vGn = gnrm;');
     const tri = 'vec3 camoTri(sampler2D t, vec3 p, vec3 n) { vec3 w = pow(abs(normalize(n)), vec3(4.0)); w /= (w.x + w.y + w.z); return texture2D(t, p.zy * camoScale).rgb * w.x + texture2D(t, p.xz * camoScale).rgb * w.y + texture2D(t, p.xy * camoScale).rgb * w.z; }';
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D camoMap;\nuniform sampler2D camoEm;\nuniform float camoScale;\nvarying vec3 vGp;\nvarying vec3 vGn;\n' + tri)
-      .replace('#include <map_fragment>', 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn);')
-      .replace('#include <emissivemap_fragment>', hasEm ? 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn);' : '');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D camoMap;\nuniform sampler2D camoEm;\nuniform float camoScale;\nuniform float camoT;\nvarying vec3 vGp;\nvarying vec3 vGn;\nvec3 hueRot(vec3 c, float a) { const vec3 k = vec3(0.57735); float ca = cos(a); return c * ca + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - ca); }\n' + tri)
+      .replace('#include <map_fragment>', look.hue ? 'diffuseColor.rgb *= hueRot(camoTri(camoMap, vGp, vGn), camoT * 0.9 + vGp.z * 3.0);' : look.flake ? 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn) * (0.85 + 0.35 * step(0.82, fract(sin(dot(floor(vGp * 420.0), vec3(12.9, 78.2, 37.7))) * 43758.5)) * (0.5 + 0.5 * sin(camoT * 3.0 + vGp.x * 60.0)));' : 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn);')
+      .replace('#include <emissivemap_fragment>', hasEm ? (look.pulse ? 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn) * (0.65 + 0.35 * sin(camoT * 2.2 + vGp.z * 14.0));' : 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn);') : '');
   };
-  m.customProgramCacheKey = () => 'camo' + (hasEm ? 'E' : 'P');
+  m.customProgramCacheKey = () => 'camo' + id;
   camoMats.set(id, m); return m;
 }
 function applyCamo(g, id) {
@@ -842,7 +872,17 @@ function addMuzzleAttachments(g, w) {
     for (const o of mags) {
       if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
       const bb = o.geometry.boundingBox, sy = o.scale.y, h = (bb.max.y - bb.min.y) * sy;
-      if (mag === 1) { o.scale.y *= 1.4; o.position.y -= h * 0.2; }                  // extended
+      if (mag === 1) {                                                               // extended
+        const xd = w.asset && w.asset.xmag && MODEL_DATA[w.asset.xmag];
+        if (xd) {                                                                    // a hand-made extended mag replaces the stock one
+          o.visible = false;
+          for (const part of xd.parts) {
+            const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(part.positions), 3)); geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(part.normals), 3)); geo.setIndex(part.indices);
+            try { boxUV(geo); } catch (e) { /* stub three */ }
+            const m2 = new THREE.Mesh(geo, bakedMat(parseInt(part.color.slice(1), 16), 'mag')); m2.userData.mag = true; g.add(m2);
+          }
+        } else { const top = o.position.y + sy * bb.max.y; o.scale.y *= 1.4; o.position.y = top - o.scale.y * bb.max.y; }   // stretch downwards, the top stays in the mag well
+      }
       else if (mag === 2) {                                                          // fast mag: bright pull tab on the base plate
         const tab = new THREE.Mesh(bevelBox(0.02, 0.012, 0.012), mat(0xe86a1a, 0.1, 0.5)); tab.position.set((bb.max.x + bb.min.x) / 2, bb.min.y - 0.003, bb.min.z + (bb.max.z - bb.min.z) * 0.15); o.add(tab);
       } else if (mag === 3) {                                                        // drum: hide the stick mag, hang a drum off the same spot (it still animates as the mag)
