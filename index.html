@@ -9,7 +9,8 @@
 <meta name="theme-color" content="#0b0f14">
 <title>IRON STRIKE - 3D Tactical Shooter</title>
 <meta name="description" content="A free browser-based 3D first-person shooter with 4 maps, Team Deathmatch, 1v1 and Free-For-All, and 8 weapons. Built with Three.js.">
-<link rel="stylesheet" href="css/style.css?v=0.15.1">
+<link rel="stylesheet" href="css/style.css?v=0.16.0">
+<div id="sm" class="sm hidden"><div class="sm-box"><h2>SUPERMOD</h2><p class="hint">Secret mod menu. Pick your mods, then choose how long they last.</p><div id="smList" class="sm-list"></div><button id="smMax" class="btn" type="button">MAX RANK NOW</button><p id="smNote" class="sm-note"></p><div class="sm-foot"><button id="smSession" class="btn primary" type="button">APPLY - UNTIL GAME CLOSES</button><button id="smPerm" class="btn primary" type="button">APPLY - PERMANENT</button></div><div class="sm-foot"><button id="smReset" class="btn" type="button">RESET ALL</button><button id="smClose" class="btn" type="button">CLOSE</button></div></div></div>
 <div id="kb" class="kb hidden"><div class="kb-box"><h2>KEYBINDS</h2><p class="hint">Click a key, then press the new one. Backspace = back to default, Esc = cancel. Mouse: LMB fire, RMB aim.</p><div id="kbList" class="kb-list"></div><div class="kb-foot"><button id="kbReset" class="btn" type="button">RESET ALL</button><button id="kbClose" class="btn primary" type="button">DONE</button></div></div></div>
 <div id="gs" class="gs hidden" tabindex="-1">
   <div class="gs-head"><h1 id="gsTitle">GUNSMITH</h1><div class="gs-eq"><span id="gsEquipped"></span><span id="gsDots" class="dots"></span></div><button id="gsClose" class="btn primary" type="button">DONE</button></div>
@@ -66,6 +67,7 @@
   <div class="panel small">
     <h2 id="pauseTitle">PAUSED</h2>
     <button id="btnResume" class="btn primary">Resume</button>
+    <div id="pauseClasses" class="classbar pc"></div>
     <button id="btnQuit" class="btn">Quit to menu</button>
     <div id="sbPanel" class="sbpanel hidden">
       <h3>Sandbox</h3>
@@ -91,7 +93,7 @@
       <h3>Crosshair</h3>
       <div id="xhPause" class="xhbox"></div>
     </div>
-    <p class="hint">WASD move - Shift sprint - C crouch (while sprinting: slide) - Space jump (at a ledge: mantle) - LMB fire - RMB or Q aim (Shift while scoped: hold breath) - R reload - 1/2/wheel switch - F inspect - B/N sandbox dummies - E plant/defuse - 4/5/6 killstreaks - V switch camera - Tab scoreboard</p>
+    <p class="hint">WASD move - Shift sprint - C crouch (while sprinting: slide) - Space jump (at a ledge: mantle) - LMB fire - RMB or Q aim (Shift while scoped: hold breath) - R reload - 1/2/wheel switch - F inspect - B/N sandbox dummies - E plant/defuse - 4/5/6 killstreaks - T switch camera (V melee, hold V knife) - Tab scoreboard</p>
   </div>
 </div>
 
@@ -204,6 +206,7 @@
 
     <section id="loadout">
       <h2>Loadout</h2>
+      <div id="classBar" class="classbar"></div>
       <div class="wp">
         <div class="wp-info">
           <div class="wp-tag"><span id="wpSlot">PRIMARY</span> &middot; <span id="wpCls">ASSAULT RIFLE</span></div>
@@ -226,6 +229,11 @@
         <div id="secondaries" class="cards weapons"></div>
         <div id="attS" class="att"></div>
       </div>
+    </section>
+
+    <section>
+      <h2>Melee &middot; Knife <small class="dim">(tap V = quick lunge, hold V = knife out)</small></h2>
+      <div id="knives" class="cards weapons"></div>
     </section>
 
     <section>
@@ -303,6 +311,6 @@
 </div>
 
 <div id="loaderr" class="hidden"></div>
-<script type="module" src="js/main.js?v=0.15.1"></script>
+<script type="module" src="js/main.js?v=0.16.0"></script>
 </body>
 </html>

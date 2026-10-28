@@ -114,8 +114,29 @@ export const WEAPONS = {
 // not a real weapon: what zombies "hold" (kill feed name / damage source in Zombies mode)
 WEAPONS.zclaw = { id: 'zclaw', name: 'Zombie', slot: 'none', cls: 'melee', desc: '', dmg: 50, hs: 1, rpm: 60, auto: false, mag: 1, reserve: 0, reload: 1, spread: 0, adsSpread: 0, recoil: 0, recoilYaw: 0, range: [1, 2], minMul: 1, pellets: 1, zoom: 1, scope: false, moveMul: 1, snd: { f: 1000, len: 0.05, thump: 0.2 }, builder: 'm1911', attach: [] };
 
-export const PRIMARIES = ['vmp', 'super46', 'mp5', 'p90', 'm4a1', 'ak47', 'scar', 'lmg', 'dmr', 'kar98k', 'm680', 'aa12'];
-export const SECONDARIES = ['g18', 'm1911', 'skorp', 'magnum', 'deagle'];
+// ---- more guns: tuned variants that reuse an existing model, recoloured (`tint`)
+const variant = (base, id, name, desc, slot, patch, tint) => { const b = WEAPONS[base]; WEAPONS[id] = { ...b, id, name, desc, slot, ...patch, tint, asset: undefined }; };
+variant('mp5', 'ump', 'UMP-45', 'Heavy .45 SMG. Slower than the 9mm guns but hits harder.', 'primary', { dmg: 31, rpm: 620, mag: 25, reserve: 150, reload: 2.1, recoil: 0.0050, range: [14, 36] }, 0x7a6a45);
+variant('ak47', 'm16', 'M16A4', 'Accurate rifle with a long reach and a calm, climbing recoil.', 'primary', { builder: 'ar', dmg: 34, rpm: 470, mag: 30, reserve: 150, reload: 2.3, recoil: 0.0078, recoilYaw: 0.0034, range: [28, 64], moveMul: 0.99 }, 0x55663f);
+variant('scar', 'fal', 'FAL', 'Hard-kicking battle rifle. Three shots to kill at any range.', 'primary', { dmg: 46, rpm: 380, mag: 20, reserve: 100, reload: 2.6, recoil: 0.0125, range: [30, 75] }, 0x8a6a40);
+variant('lmg', 'rpk', 'RPK', 'Box-fed light machine gun. Quicker than the M249, fewer rounds.', 'primary', { dmg: 35, rpm: 600, mag: 75, reserve: 225, reload: 4.2, moveMul: 0.98 }, 0x66664a);
+variant('dmr', 'sks', 'SKS', 'Semi-auto battle carbine with a long reach. Heavy punch, slow cycle.', 'primary', { dmg: 70, rpm: 240, mag: 10, reserve: 60, reload: 2.6, recoil: 0.02 }, 0x8a5a2a);
+variant('skorp', 'mac10', 'MAC-10', 'Tiny machine pistol that empties a mag in two seconds. Deadly up close.', 'secondary', { dmg: 15, rpm: 1150, mag: 32, reserve: 128, reload: 1.7, range: [6, 17], spread: 0.04 }, 0x6a3030);
+variant('magnum', 'revolver44', '.44 Revolver', 'Slower, harder hitting cousin of the Magnum.', 'secondary', { dmg: 62, rpm: 150, mag: 6, reserve: 36, reload: 2.8 }, 0x4a4a55);
+// the Gun Game finale: one bullet, one shot, one kill - then a very slow reload
+variant('deagle', 'goldgun', 'Golden Gun', 'One bullet. One shot. One kill. Then a very slow reload.', 'special', { builder: 'goldgun', dmg: 500, hs: 1, rpm: 40, auto: false, mag: 1, reserve: 999, reload: 6.5, spread: 0.012, adsSpread: 0.0004, recoil: 0.022, recoilYaw: 0.002, range: [250, 250], minMul: 1, moveMul: 0.96, snd: { f: 900, len: 0.24, thump: 1.4 }, attach: [] }, 0xffd24a);
+
+// ---- melee: five knives. `dmg` is the damage of a slash (knife equipped); a quick-melee lunge (tap V) always does 100 and one-shots.
+export const KNIVES = ['k_combat', 'k_karambit', 'k_balisong', 'k_machete', 'k_tomahawk'];
+const knife = (id, name, desc, o) => { WEAPONS[id] = { id, name, slot: 'melee', cls: 'melee', desc, dmg: o.dmg, hs: 1, rpm: Math.round(60 / o.cd), auto: false, mag: 1, reserve: 0, reload: 1, spread: 0, adsSpread: 0, recoil: 0, recoilYaw: 0, range: [o.reach, o.reach], minMul: 1, pellets: 1, zoom: 1, scope: false, moveMul: o.speed, maxD: o.reach, cd: o.cd, snd: { f: 900, len: 0.06, thump: 0.05 }, builder: id, attach: [], opts: {} }; };
+knife('k_combat', 'Combat Knife', 'Standard issue. Balanced reach and speed.', { dmg: 60, cd: 0.5, reach: 2.6, speed: 1.1 });
+knife('k_karambit', 'Karambit', 'Curved claw blade. The fastest slash, short reach.', { dmg: 50, cd: 0.34, reach: 2.3, speed: 1.14 });
+knife('k_balisong', 'Balisong', 'Butterfly knife. Quick flips, light and agile.', { dmg: 52, cd: 0.38, reach: 2.4, speed: 1.15 });
+knife('k_machete', 'Machete', 'Long heavy blade. Great reach, slower swings.', { dmg: 78, cd: 0.72, reach: 3.1, speed: 1.06 });
+knife('k_tomahawk', 'Tomahawk', 'Throwing axe. Hits hard, a bit slow.', { dmg: 72, cd: 0.62, reach: 2.8, speed: 1.08 });
+
+export const PRIMARIES = ['vmp', 'super46', 'mp5', 'ump', 'p90', 'm4a1', 'm16', 'ak47', 'scar', 'fal', 'lmg', 'rpk', 'dmr', 'sks', 'kar98k', 'm680', 'aa12'];
+export const SECONDARIES = ['g18', 'm1911', 'skorp', 'mac10', 'magnum', 'revolver44', 'deagle'];
 
 // Stats shown on the loadout / gunsmith screens: a 0..100 style number per row plus a 0..1 bar. `good` says which way is better.
 export function weaponStats(w) {
@@ -207,6 +228,7 @@ const CLASS_OPTS = {
 const OVERRIDE = {
   kar98k: { optic: [], under: [], mag: [], laser: ['laser', 'tlaser', 'wlaser'], barrel: ['lbar', 'hbar'] },   // the bolt-action already has its own scope
   m680: { mag: [], optic: ['dot', 'holo'] },
+  rpk: { optic: ['dot', 'holo', 'hybrid', 'acog'], mag: ['xmag', 'fmag'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'] },
   lmg: { optic: ['dot', 'holo', 'hybrid', 'acog'], mag: ['xmag', 'fmag'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'] },
   p90: { under: [], barrel: ['sbar', 'lbar'], mag: ['xmag', 'fmag'] },
   skorp: { optic: ['dot', 'holo'], muzzle: ['fh', 'comp', 'supp1', 'supp2'], barrel: ['lbar'], mag: ['xmag', 'fmag'], laser: ['laser', 'tlaser', 'wlaser'], ammo: ['fmj', 'hp', 'ap'] },
@@ -215,7 +237,7 @@ const OVERRIDE = {
 };
 const CLS_KEY = { smg: 'smg', ar: 'ar', pistol: 'pistol', shotgun: 'shotgun', sniper: 'sniper' };
 for (const w of Object.values(WEAPONS)) {
-  if (w.cls === 'melee' || !w.slot || w.slot === 'none') { w.opts = {}; w.attach = []; continue; }
+  if (w.cls === 'melee' || !w.slot || w.slot === 'none' || w.slot === 'special') { w.opts = {}; w.attach = []; continue; }
   const base = CLASS_OPTS[CLS_KEY[w.cls]] || CLASS_OPTS.ar, ov = OVERRIDE[w.id] || {};
   w.opts = {}; for (const s of SLOTS) { const l = (ov[s.id] || base[s.id] || []); if (l.length) w.opts[s.id] = l; }
   w.attach = Object.values(w.opts).flat();

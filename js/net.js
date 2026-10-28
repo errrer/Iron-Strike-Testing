@@ -7,14 +7,14 @@
 //
 // Hits are resolved by the host with lag compensation (targets are rewound to what the shooter saw).
 // Movement is client-trusted, so this is meant for playing with friends, not for ranked play.
-import { MODES, MAX_PLAYERS, mpMode } from './game.js?v=0.15.1';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.15.1';
-import { WEAPONS, PRIMARIES, SECONDARIES, cleanMask } from './weapons.js?v=0.15.1';
+import { MODES, MAX_PLAYERS, mpMode } from './game.js?v=0.16.0';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.16.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, cleanMask } from './weapons.js?v=0.16.0';
 
 const PEER_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
 const PREFIX = 'ironstrike-v1-';
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';           // 6-letter room codes (no I / O so they cannot be misread)
-const PROTOCOL = 2;
+const PROTOCOL = 3;
 
 export const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
 export const cleanName = (s) => (String(s || '').replace(/[<>&"'`]/g, '').trim().slice(0, 14)) || 'Player';
@@ -33,8 +33,9 @@ export function loadPeerLib() {
 // STUN for the usual NATs plus a public TURN relay as the fallback for strict / symmetric NATs (mobile data, school and office wifi)
 const ICE = {
   iceServers: [
-    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
-    { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302', 'stun:stun3.l.google.com:19302', 'stun:stun4.l.google.com:19302', 'stun:global.stun.twilio.com:3478', 'stun:stun.cloudflare.com:3478', 'stun:stun.services.mozilla.com:3478'] },
+    { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turns:openrelay.metered.ca:443?transport=tcp', 'turn:openrelay.metered.ca:80?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: ['turn:global.relay.metered.ca:80', 'turn:global.relay.metered.ca:443', 'turns:global.relay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
   ],
   iceCandidatePoolSize: 4,
 };
@@ -125,7 +126,7 @@ export class Net {
     if (!m || typeof m !== 'object') return;
     if (m.t === 'join') {
       if (c.pid != null) return;
-      if (m.v !== PROTOCOL) { this.sendTo(c, { t: 'deny', why: 'Version mismatch - refresh the page.' }); setTimeout(() => c.close(), 300); return; }
+      if (m.v !== PROTOCOL) { this.sendTo(c, { t: 'deny', why: 'Version mismatch - the host and you are on different versions. Both press Ctrl+Shift+R (hard refresh).' }); setTimeout(() => c.close(), 300); return; }
       const mode = mpMode(this.mode);
       if (this.players.size >= mode.max) { this.sendTo(c, { t: 'deny', why: this.mode === '1v1' ? 'Duel is full (2 players).' : 'Room is full.' }); setTimeout(() => c.close(), 300); return; }
       const id = this.nextId++;
@@ -155,7 +156,7 @@ export class Net {
       case 'ld': {
         const p = this.players.get(id); if (!p) break;
         if (!this.live()) { p.prim = m.prim; p.sec = m.sec; p.ap = m.ap; p.as = m.as; this.validate(p); this.pushLobby(); }
-        else if (MODES[this.mode].sandbox) {          // sandbox: loadouts can change mid-match; everybody gets the new gun
+        else if (!MODES[this.mode].zm) {              // loadouts / classes can change mid-match (not in zombies); everybody sees the new gun
           p.prim = m.prim; p.sec = m.sec; p.ap = m.ap; p.as = m.as; this.validate(p);
           g.applyLoadout(g.byId(id), p.prim, p.sec, p.ap, p.as); this.ev(['lo', id, p.prim, p.sec, p.ap, p.as]);
         }
@@ -212,7 +213,7 @@ export class Net {
 
   // ---- host UI actions ----
   setLoadout(prim, sec, ap, as) {
-    const g = this.game, sb = this.live() && !!g.mode && !!g.mode.sandbox;
+    const g = this.game, sb = this.live() && !!g.mode && !g.mode.zm;
     if (this.role === 'host') {
       const p = this.players.get(0); p.prim = prim; p.sec = sec; p.ap = ap; p.as = as; this.validate(p);
       if (sb) { g.applyLoadout(g.byId(0), p.prim, p.sec, p.ap, p.as); this.ev(['lo', 0, p.prim, p.sec, p.ap, p.as]); }
@@ -248,7 +249,20 @@ export class Net {
   evTo(id, e) { let a = this.evMap.get(id); if (!a) this.evMap.set(id, a = []); a.push(e); }
 
   // ================================================================== CLIENT
-  async join(code, name, loadout) {
+  async join(code, name, loadout) {                       // flaky networks: retry transient failures a couple of times before giving up
+    let last;
+    for (let i = 0; i < 3; i++) {
+      try { return await this.joinOnce(code, name, loadout); }
+      catch (e) {
+        last = e; const m = String((e && e.message) || '');
+        if (/No room|full|Version|Enter the|library/i.test(m)) throw e;      // permanent answers: don't retry
+        if (this.ui && this.ui.status) try { this.ui.status(`Connection problem, retrying (${i + 2}/3)...`); } catch (x) { /* ignore */ }
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    }
+    throw last;
+  }
+  async joinOnce(code, name, loadout) {
     code = cleanCode(code);
     if (code.length !== 6) throw new Error('Enter the 6-letter room code.');
     await loadPeerLib();

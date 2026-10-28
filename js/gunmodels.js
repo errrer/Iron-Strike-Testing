@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf } from './weapons.js?v=0.15.1';
+import { getSlot, camoOf } from './weapons.js?v=0.16.0';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +11,7 @@ import { getSlot, camoOf } from './weapons.js?v=0.15.1';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.15.1';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.16.0';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -533,8 +533,76 @@ function buildSkorp() {              // machine pistol
   return b.done({ muzzle: V(0, 0.016, -0.155), sightY: 0.0525, grip: V(0, -0.055, 0.065), fore: V(-0.014, -0.075, 0.055), pistol: true, mount: V(0, 0.0395, 0.03), under: V(0, -0.028, -0.06) });
 }
 
+
+// ------------------------------------------------------------------------------------------------
+// Knives: blade points along -Z, the hand grips the handle at `grip`
+// ------------------------------------------------------------------------------------------------
+const kdone = (b, grip, tip) => b.done({ muzzle: V(0, 0, tip), sightY: 0.07, grip, fore: V(0, -0.03, -0.05), pistol: true, mount: V(0, 0.03, 0), under: V(0, -0.03, 0), side: V(0.03, 0, 0) });
+function buildKCombat() {
+  const b = new B();
+  b.box(0.03, 0.036, 0.115, 0, -0.004, 0.0, M.black());                                  // ribbed handle
+  for (let i = 0; i < 5; i++) b.box(0.032, 0.038, 0.006, 0, -0.004, -0.04 + i * 0.02, M.blued());
+  b.ball(0.019, 0, -0.004, 0.062, M.steel());                                              // pommel
+  b.box(0.01, 0.062, 0.012, 0, 0.004, -0.064, M.blued());                                  // cross guard
+  b.box(0.007, 0.036, 0.18, 0, 0.008, -0.158, M.silver());                                 // blade
+  b.box(0.007, 0.022, 0.055, 0, 0.013, -0.275, M.silver(), 0.33);                          // clip point
+  b.box(0.0075, 0.008, 0.11, 0, 0.026, -0.17, M.steel());                                  // spine
+  for (let i = 0; i < 5; i++) b.box(0.0078, 0.006, 0.012, 0, 0.0225, -0.12 - i * 0.02, M.black());   // serrations
+  b.box(0.004, 0.006, 0.17, 0, -0.011, -0.158, mat(0xe8eef3, 1, 0.12));                    // edge bevel highlight
+  return kdone(b, V(0, -0.004, 0.0), -0.3);
+}
+function buildKKarambit() {
+  const b = new B(); const R = 0.105;
+  b.box(0.028, 0.034, 0.1, 0, -0.004, 0.0, M.poly());                                      // handle
+  for (let i = 0; i < 4; i++) b.box(0.03, 0.036, 0.006, 0, -0.004, -0.03 + i * 0.02, M.black());
+  b.box(0.0292, 0.012, 0.022, 0, 0.0155, 0.04, M.steel());
+  b._add(new THREE.TorusGeometry(0.022, 0.0055, 8, 18), M.steel(), 0, -0.004, 0.083, 0, Math.PI / 2, 0);   // finger ring
+  for (let i = 0; i < 9; i++) {                                                            // blade: a hooked arc that curls down and forward
+    const a = (i / 8) * 1.25, cz = -0.052 - R * Math.sin(a), cy = 0.012 - R * (1 - Math.cos(a)), tl = 0.034 * (1 - i * 0.075);
+    b.box(0.0065, 0.03 * (1 - i * 0.085), 0.03, 0, cy, cz, i % 2 ? M.silver() : M.steel(), a);
+  }
+  b.box(0.0066, 0.008, 0.02, 0, 0.028, -0.052, M.steel());
+  return kdone(b, V(0, -0.004, 0.0), -0.27);
+}
+function buildKBalisong() {
+  const b = new B();
+  for (const s of [-1, 1]) { b.box(0.011, 0.034, 0.118, s * 0.0105, -0.004, 0.02, M.blued()); b.box(0.004, 0.026, 0.1, s * 0.0165, -0.004, 0.02, M.black()); }   // two handle halves, flipped open
+  for (const z of [-0.036, 0.075]) b.rod(0.0075, 0.04, 0, -0.004, z, M.steel());           // pivot pins
+  b.box(0.012, 0.03, 0.018, 0, -0.004, -0.032, M.steel());                                 // bite handle latch
+  b.box(0.005, 0.034, 0.17, 0, 0.004, -0.133, M.silver());                                 // blade
+  b.box(0.0052, 0.02, 0.06, 0, 0.01, -0.245, M.silver(), 0.3);                             // drop point
+  b.box(0.0054, 0.008, 0.06, 0, 0.0225, -0.14, mat(0x252a30, 0.9, 0.35));                  // dark spine
+  b.box(0.0056, 0.01, 0.02, 0, -0.016, -0.05, M.steel());                                  // kicker
+  return kdone(b, V(0, -0.004, 0.02), -0.28);
+}
+function buildKMachete() {
+  const b = new B();
+  b.box(0.028, 0.036, 0.125, 0, -0.004, 0.0, M.wood());                                    // wooden scales
+  for (const z of [-0.035, 0.0, 0.035]) b.rod(0.0042, 0.034, 0, -0.004, z, M.steel());     // rivets
+  b.box(0.012, 0.04, 0.012, 0, 0.002, -0.07, M.steel());                                   // small guard
+  b.box(0.006, 0.055, 0.3, 0, 0.012, -0.22, M.silver());                                   // broad blade
+  b.box(0.006, 0.075, 0.12, 0, 0.0155, -0.4, M.silver());                                  // belly widens toward the tip
+  b.box(0.0062, 0.05, 0.05, 0, 0.032, -0.485, M.silver(), 0.55);                           // clipped tip
+  b.box(0.0068, 0.008, 0.38, 0, 0.044, -0.28, M.steel());                                  // spine
+  b.box(0.0045, 0.006, 0.34, 0, -0.016, -0.25, mat(0xe8eef3, 1, 0.12));                    // edge highlight
+  return kdone(b, V(0, -0.004, 0.0), -0.5);
+}
+function buildKTomahawk() {
+  const b = new B();
+  b.box(0.03, 0.034, 0.4, 0, -0.004, -0.05, M.wood());                                     // long shaft
+  b.box(0.034, 0.038, 0.1, 0, -0.004, 0.1, M.black());                                     // rubber grip wrap
+  for (let i = 0; i < 4; i++) b.box(0.036, 0.04, 0.005, 0, -0.004, 0.065 + i * 0.022, M.blued());
+  b.box(0.016, 0.05, 0.06, 0, 0.012, -0.235, M.steel());                                   // head socket
+  b.box(0.01, 0.12, 0.06, 0, 0.012, -0.27, M.silver());                                    // axe blade (bearded)
+  b.box(0.008, 0.07, 0.03, 0, 0.0, -0.31, M.silver(), 0.35);
+  b.box(0.012, 0.012, 0.07, 0, 0.012, -0.195, M.steel());                                  // hammer / spike on the back
+  b.box(0.007, 0.04, 0.014, 0, 0.082, -0.255, M.steel());
+  b.box(0.0048, 0.12, 0.006, 0, 0.012, -0.302, mat(0xe8eef3, 1, 0.12));                    // edge highlight
+  return kdone(b, V(0, -0.004, 0.065), -0.34);
+}
 const BUILDERS = { smg: buildSmg, ar: buildAR, ak: buildAK, bolt: buildBolt, pump: buildPump, glock: buildGlock, m1911: build1911, revolver: buildRevolver,
-  mp5: buildMp5, p90: buildP90, scar: buildScar, super46: buildSuper46, lmg: buildLmg, dmr: buildDmr, aa12: buildAa12, deagle: buildDeagle, skorp: buildSkorp };
+  mp5: buildMp5, p90: buildP90, scar: buildScar, super46: buildSuper46, lmg: buildLmg, dmr: buildDmr, aa12: buildAa12, deagle: buildDeagle, skorp: buildSkorp, k_combat: buildKCombat, k_karambit: buildKKarambit, k_balisong: buildKBalisong, k_machete: buildKMachete, k_tomahawk: buildKTomahawk,
+  goldgun: () => { const g = buildDeagle(), gold = mat(0xffd24a, 1, 0.16, { emissive: 0x3a2400, emissiveIntensity: 0.35 }); g.traverse((o) => { if (o.isMesh && !(o.userData && o.userData.iron)) o.material = gold; }); return g; } };
 
 // ------------------------------------------------------------------------------------------------
 // Baked model (FBX -> JSON)
@@ -820,19 +888,29 @@ function buildUnder(b, u, kind) {
   }
 }
 
+function rearOf(g) {                                                  // where the back end of the gun is (z) and how high its stock sits (y)
+  if (!g.updateMatrixWorld || !THREE.Matrix4) return { z: 0.3, y: -0.02 };
+  g.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), v = new THREE.Vector3(); let zmax = -1e9; const pts = [];
+  g.traverse((o) => { if (!o.isMesh || !o.geometry || !o.geometry.attributes.position || !o.visible) return; const rel = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld), p = o.geometry.attributes.position, step = Math.max(1, Math.floor(p.count / 400));
+    for (let i = 0; i < p.count; i += step) { v.fromBufferAttribute(p, i).applyMatrix4(rel); pts.push(v.y, v.z); if (v.z > zmax) zmax = v.z; } });
+  let sy = 0, n = 0; for (let i = 0; i < pts.length; i += 2) if (pts[i + 1] > zmax - 0.03) { sy += pts[i]; n++; }
+  return { z: zmax, y: n ? sy / n : -0.02 };
+}
 function buildLaser(b, u, kind) {
   const emit = kind === 2 ? dotGreen() : kind === 3 ? dotBlue() : dotRed(), body = kind === 2 ? M.silver() : kind === 3 ? M.blued() : M.black();
   if (u.pistol && u.under) {
     const m = u.under, cy = m.y - 0.011;
-    b.box(0.022, 0.022, 0.05, 0, cy, m.z, body);
-    b.box(0.012, 0.012, 0.004, 0, cy, m.z - 0.027, emit);                            // emitter
+    if (kind === 2) { b.tube(0.0115, 0.06, 0, cy, m.z, body); b.tube(0.008, 0.004, 0, cy, m.z - 0.031, emit); }                        // tactical: round barrel-style body
+    else if (kind === 3) { b.box(0.014, 0.014, 0.03, 0, cy + 0.002, m.z, body); b.box(0.007, 0.007, 0.004, 0, cy + 0.002, m.z - 0.017, emit); }   // compact: tiny cube
+    else { b.box(0.022, 0.022, 0.05, 0, cy, m.z, body); b.box(0.012, 0.012, 0.004, 0, cy, m.z - 0.027, emit); }              // standard box
     b.box(0.006, 0.006, 0.014, 0.0125, cy + 0.004, m.z + 0.01, M.steel());           // switch
     u.laser = V(0, cy, m.z - 0.029);
   } else if (!u.pistol && u.side) {                                                  // rifles: clamped to the right side of the handguard
     const m = u.side, x = m.x + 0.011;
     b.box(0.006, 0.02, 0.04, m.x + 0.002, m.y, m.z, M.blued());
-    b.box(0.02, 0.02, 0.056, x + 0.004, m.y, m.z, body);
-    b.box(0.012, 0.012, 0.004, x + 0.004, m.y, m.z - 0.03, emit);
+    if (kind === 2) { b.tube(0.011, 0.07, x + 0.004, m.y, m.z, body); b.tube(0.008, 0.004, x + 0.004, m.y, m.z - 0.036, emit); }
+    else if (kind === 3) { b.box(0.014, 0.014, 0.03, x + 0.002, m.y, m.z, body); b.box(0.007, 0.007, 0.004, x + 0.002, m.y, m.z - 0.017, emit); }
+    else { b.box(0.02, 0.02, 0.056, x + 0.004, m.y, m.z, body); b.box(0.012, 0.012, 0.004, x + 0.004, m.y, m.z - 0.03, emit); }
     b.box(0.012, 0.006, 0.016, x + 0.004, m.y + 0.013, m.z + 0.01, M.steel());
     u.laser = V(x + 0.004, m.y, m.z - 0.032);
   }
@@ -851,21 +929,29 @@ function addMuzzleAttachments(g, w) {
   const u = g.userData, mask = w.attMask || 0, b = new B(); b.g = g;
   const barrel = getSlot(mask, 'barrel'), muz = getSlot(mask, 'muzzle'), mag = getSlot(mask, 'mag');
   if (u.muzzle && (barrel || muz)) {
-    const mz = u.muzzle.clone();
-    const tube = (r, len, m) => { b.tube(r, len, mz.x, mz.y, mz.z - len / 2 + 0.004, m); mz.z -= len - 0.004; };
-    const ringAt = (r, zz) => b.tube(r, 0.004, mz.x, mz.y, zz, M.black());
-    if (barrel === 2) tube(0.0085, 0.1, M.steel());                                  // long barrel extension
-    if (barrel === 3) { const z0 = mz.z; tube(0.0105, 0.075, M.blued()); for (let i = 0; i < 4; i++) ringAt(0.0114, z0 - 0.012 - i * 0.015); }   // heavy barrel: thick, fluted
-    if (muz === 1) { const z0 = mz.z; tube(0.0115, 0.055, M.black()); for (let i = 0; i < 4; i++) { const a = (i / 4) * 6.283 + 0.785; b.box(0.005, 0.005, 0.026, mz.x + Math.cos(a) * 0.0115, mz.y + Math.sin(a) * 0.0115, z0 - 0.034, M.steel()); } }                              // birdcage flash hider
-    else if (muz === 2) { tube(0.0135, 0.035, M.blued()); for (const s of [-1, 1]) b.box(0.003, 0.018, 0.02, mz.x + s * 0.0135, mz.y, mz.z + 0.014, M.black()); }                                         // compensator with side ports
-    else if (muz === 3) { const z0 = mz.z; tube(0.0125, 0.05, M.black()); for (let i = 0; i < 3; i++) { b.box(0.034, 0.004, 0.008, mz.x, mz.y, z0 - 0.012 - i * 0.014, M.steel()); b.box(0.004, 0.034, 0.008, mz.x, mz.y, z0 - 0.012 - i * 0.014, M.steel()); } }   // muzzle brake with cross fins
-    else if (muz >= 4) {                                                             // suppressors: light / tactical / heavy
-      const [r, len] = muz === 4 ? [0.0145, 0.11] : muz === 5 ? [0.0165, 0.15] : [0.0195, 0.2], z0 = mz.z;
-      tube(r, len, muz === 6 ? M.blued() : M.black()); b.tube(r + 0.0015, 0.012, mz.x, mz.y, z0 - 0.004 - 0.008, M.steel());
-      if (muz === 6) for (let i = 0; i < 4; i++) b.tube(r + 0.0008, 0.004, mz.x, mz.y, z0 - 0.03 - i * 0.04, M.steel());
-      b.tube(r + 0.0015, 0.008, mz.x, mz.y, z0 - len + 0.004 + 0.004, M.steel());
-    }
+    const mz = u.muzzle.clone(), X = mz.x, Y = mz.y;
+    const tube = (r, len, m, r2) => { b.tube(r, len, X, Y, mz.z - len / 2 + 0.004, m, r2); mz.z -= len - 0.004; };
+    const ringAt = (r, zz, m) => b.tube(r, 0.004, X, Y, zz, m || M.black());
+    // barrels: short = a ported stub, long = slim rod with a collar, heavy = thick fluted barrel
+    if (barrel === 1) { const z0 = mz.z; tube(0.0105, 0.03, M.black()); for (let i = 0; i < 3; i++) b.box(0.003, 0.012, 0.004, X + (i - 1) * 0.0085, Y + 0.0, z0 - 0.012, M.steel()); }
+    if (barrel === 2) { const z0 = mz.z; tube(0.0085, 0.12, M.steel()); ringAt(0.0112, z0 - 0.03, M.blued()); ringAt(0.0112, z0 - 0.1, M.blued()); }
+    if (barrel === 3) { const z0 = mz.z; tube(0.0125, 0.075, M.blued()); for (let i = 0; i < 5; i++) { ringAt(0.0135, z0 - 0.008 - i * 0.014, M.black()); b.box(0.004, 0.004, 0.06, X + 0.0125, Y + (i % 2 ? 0.003 : -0.003), z0 - 0.04, M.black()); } }
+    // muzzle devices - each one has its own silhouette
+    if (muz === 1) { const z0 = mz.z; tube(0.0115, 0.055, M.black()); for (let i = 0; i < 6; i++) { const a = (i / 6) * 6.283; b.box(0.004, 0.006, 0.03, X + Math.cos(a) * 0.0118, Y + Math.sin(a) * 0.0118, z0 - 0.034, M.steel(), 0, 0, a); } ringAt(0.0122, z0 - 0.012, M.blued()); }                       // birdcage: 6 prongs
+    else if (muz === 2) { const z0 = mz.z; tube(0.0125, 0.034, M.blued()); b.box(0.028, 0.0045, 0.036, X, Y + 0.0128, z0 - 0.02, M.black()); for (let i = 0; i < 3; i++) b.box(0.02, 0.0055, 0.004, X, Y + 0.0128, z0 - 0.01 - i * 0.011, M.steel()); for (const sd of [-1, 1]) b.box(0.003, 0.012, 0.026, X + sd * 0.0138, Y, z0 - 0.02, M.black()); }   // compensator: slotted top plate + side vents
+    else if (muz === 3) { const z0 = mz.z; tube(0.0135, 0.052, M.black()); for (let i = 0; i < 3; i++) { b.tube(0.0185, 0.004, X, Y, z0 - 0.012 - i * 0.014, M.steel()); } b.tube(0.0095, 0.012, X, Y, z0 - 0.056, M.steel()); }   // brake: three wide disc baffles
+    else if (muz === 4) { const z0 = mz.z; tube(0.0128, 0.095, M.blued(), 0.0105); b.tube(0.0138, 0.008, X, Y, z0 - 0.004, M.steel()); b.tube(0.0095, 0.004, X, Y, z0 - 0.098, M.black()); mz.z -= 0.0; }   // light: slim tapered can, bluing
+    else if (muz === 5) { const z0 = mz.z; tube(0.0162, 0.15, M.black()); b.tube(0.0172, 0.012, X, Y, z0 - 0.004, M.steel()); for (let i = 0; i < 5; i++) b.tube(0.0168, 0.0035, X, Y, z0 - 0.03 - i * 0.026, M.steel()); b.tube(0.0172, 0.01, X, Y, z0 - 0.146, M.steel()); }   // tactical: ringed baffle can
+    else if (muz === 6) { const z0 = mz.z; tube(0.0205, 0.2, M.blued()); b.tube(0.0215, 0.016, X, Y, z0 - 0.006, M.steel()); b.tube(0.0165, 0.02, X, Y, z0 - 0.202, M.black(), 0.0125); for (let i = 0; i < 6; i++) b.box(0.007, 0.007, 0.15, X + Math.cos(i * 1.047) * 0.0208, Y + Math.sin(i * 1.047) * 0.0208, z0 - 0.1, M.steel()); b.box(0.01, 0.006, 0.05, X, Y + 0.0218, z0 - 0.05, mat(0xb03020, 0.2, 0.5)); }   // heavy: fat can with a ribbed heat shield + red band
     u.muzzle = mz;
+  }
+  // stocks: bolt-on parts at the back of the gun
+  const stock = getSlot(mask, 'stock');
+  if (stock) {
+    const r = rearOf(g), Z = r.z, Yc = r.y;
+    if (stock === 1) { for (const sd of [-1, 1]) b.box(0.006, 0.006, 0.07, sd * 0.012, Yc + 0.012, Z + 0.025, M.steel()); b.box(0.034, 0.05, 0.008, 0, Yc - 0.01, Z + 0.062, M.black()); b.box(0.034, 0.006, 0.07, 0, Yc - 0.036, Z + 0.025, M.steel()); }                              // light skeleton frame
+    if (stock === 2) { b.box(0.04, 0.115, 0.03, 0, Yc - 0.012, Z + 0.015, M.black()); b.box(0.036, 0.03, 0.1, 0, Yc + 0.047, Z - 0.03, M.poly()); for (let i = 0; i < 5; i++) b.box(0.042, 0.003, 0.032, 0, Yc - 0.05 + i * 0.022, Z + 0.015, M.blued()); }          // heavy rubber butt pad + cheek riser
+    if (stock === 3) { b.box(0.03, 0.012, 0.11, 0, Yc + 0.03, Z - 0.02, M.blued()); b.box(0.034, 0.024, 0.06, 0, Yc + 0.046, Z + 0.012, M.poly()); for (let i = 0; i < 4; i++) b.box(0.032, 0.004, 0.004, 0, Yc + 0.0375, Z - 0.05 + i * 0.026, M.steel()); b.box(0.038, 0.07, 0.016, 0, Yc - 0.002, Z + 0.062, M.black()); }                   // adjustable cheek rest + rail
   }
   if (mag) {
     const mags = []; g.traverse((o) => { if (o.userData && o.userData.mag && o.isMesh) mags.push(o); });
@@ -895,11 +981,22 @@ function addMuzzleAttachments(g, w) {
       }
     }
   }
+  const ammo = getSlot(mask, 'ammo');
+  if (ammo) {                                                                        // coloured band on every magazine: copper = FMJ, blue = hollow point, red = armour piercing
+    const col = [0, 0xb87333, 0x3aa0ff, 0xd8261c][ammo];
+    g.traverse((o) => { if (!(o.userData && o.userData.mag && o.isMesh && o.visible)) return; if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox;
+      const band = new THREE.Mesh(bevelBox((bb.max.x - bb.min.x) + 0.004, 0.011, (bb.max.z - bb.min.z) + 0.004), mat(col, 0.3, 0.45)); band.position.set((bb.max.x + bb.min.x) / 2, bb.min.y + 0.032, (bb.max.z + bb.min.z) / 2); o.add(band); });
+  }
 }
 
 export function buildGun(w) {
   const data = w.asset && MODEL_DATA[w.asset.id];
   const g = data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || buildSmg)();
+  if (w.tint && w.builder !== 'goldgun' && THREE.Color) g.traverse((o) => {                       // recoloured variants: tint the dark metal / polymer parts
+    if (!o.isMesh || !o.material || o.material.map || (o.userData && o.userData.iron) || !o.material.color) return;
+    const c = o.material.color; if ((c.r + c.g + c.b) / 3 > 0.45) return;
+    o.material = o.material.clone(); o.material.color.lerp(new THREE.Color(w.tint), 0.55);
+  });
   if (w.attMask) {
     addAttachments(g, w); addMuzzleAttachments(g, w);
     const c = camoOf(w.attMask);

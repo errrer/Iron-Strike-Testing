@@ -1,20 +1,21 @@
 import * as THREE from 'three';
-import { canon } from './keybinds.js?v=0.15.1';
-import { WEAPONS, PRIMARIES, SECONDARIES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.15.1';
-import { buildGun, makeEnv } from './gunmodels.js?v=0.15.1';
-import { buildMap } from './maps.js?v=0.15.1';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.15.1';
-import { buildWorld } from './world.js?v=0.15.1';
-import { Bot } from './bots.js?v=0.15.1';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.15.1';
-import { buildSoldier, SKIN } from './soldier.js?v=0.15.1';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.15.1';
-import { Zombies, PERKS } from './zombies.js?v=0.15.1';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.15.1';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.15.1';
-import { Objectives } from './objectives.js?v=0.15.1';
-import { Streaks, STREAKS } from './streaks.js?v=0.15.1';
-import { Gore } from './gore.js?v=0.15.1';
+import { MOD } from './supermod.js?v=0.16.0';
+import { canon } from './keybinds.js?v=0.16.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.16.0';
+import { buildGun, makeEnv } from './gunmodels.js?v=0.16.0';
+import { buildMap } from './maps.js?v=0.16.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.16.0';
+import { buildWorld } from './world.js?v=0.16.0';
+import { Bot } from './bots.js?v=0.16.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.16.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.16.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.16.0';
+import { Zombies, PERKS } from './zombies.js?v=0.16.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.16.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.16.0';
+import { Objectives } from './objectives.js?v=0.16.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.16.0';
+import { Gore } from './gore.js?v=0.16.0';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -30,15 +31,18 @@ export const MODES = {
   kc: { id: 'kc', name: 'Kill Confirmed', team: true, perSide: 5, scoreLimit: 40, time: 600, obj: 'kc', solo: true, blurb: 'Kills drop dog tags - grab red to confirm, blue to deny (offline)' },
   snd: { id: 'snd', name: 'Search & Destroy', team: true, perSide: 5, scoreLimit: 4, time: 1500, obj: 'snd', oneLife: true, solo: true, blurb: 'One life. Attack: plant at A or B (hold E). Defend: stop it. First to 4 rounds (offline)' },
   zm: { id: 'zm', name: 'Zombies', team: true, coop: true, zm: true, perSide: 0, scoreLimit: 0, time: 0, blurb: 'Survive endless rounds of zombies. Solo or 4-player co-op.' },
+  gg: { id: 'gg', name: 'Gun Game', team: false, count: 8, scoreLimit: 9999, time: 900, gg: true, blurb: 'Every kill upgrades your gun. A knife kill sets the victim back. Kill with the one-shot Golden Gun to win' },
   sandbox: { id: 'sandbox', name: 'Sandbox', team: false, count: 1, scoreLimit: 0, time: 0, sandbox: true, blurb: 'No score, no clock. Spawn dummies (B), swap your loadout any time (Esc)' },
 };
 export const MAX_DUMMIES = 20;
+export const GG_LADDER = ['g18', 'm1911', 'mac10', 'ump', 'mp5', 'p90', 'vmp', 'm16', 'm4a1', 'ak47', 'fal', 'm680', 'rpk', 'sks', 'kar98k', 'goldgun'];
 
 export const MAX_PLAYERS = 18;
 // online matches: same modes, scaled for bigger lobbies (every peer derives the same rules from the mode id)
 export const MP_OVERRIDES = {
   tdm: { scoreLimit: 50, time: 600, blurb: 'Two teams, auto-balanced - first team to 50' },
   '1v1': { blurb: 'Two players - first to 10 kills', max: 2 },
+  gg: { time: 900, blurb: 'Up to 18 players race up the gun ladder - first to kill with the Golden Gun wins' },
   ffa: { scoreLimit: 30, time: 600, blurb: 'Up to 18 players - first to 30' },
   zm: { max: 4, blurb: 'Co-op zombies for up to 4 players - board windows, buy guns, open doors, survive.' },
   sandbox: { blurb: 'Up to 18 players share one sandbox: dummies (B), live loadout swaps (Esc)' },
@@ -81,6 +85,7 @@ export class Game {
     this.actors = []; this.player = null; this.world = null; this.scene = null;
     this.tracers = []; this.particles = [];
     this.net = null; this.hist = []; this.richtofen = false;
+    this.knifeId = 'k_combat'; this.knifeOut = false; this.swing = null; this.vHeld = false; this.vHandled = false; this.vDownT = 0;
     this.vmS = { sprint: 0, strafe: 0, land: 0, slide: 0, cycle: 0, inspectT: 0, lastVy: 0, wasGround: true, rand: 0, shake: 0, slk: 0, mvk: 0 };
     this.vmCache = {};
     this.resize();
@@ -100,18 +105,18 @@ export class Game {
       const p = this.player;
       if (!p) return;
       if (e.code === 'KeyR') this.startReload(p);
-      if (e.code === 'Digit1') this.switchWeapon(p, 0);
-      if (e.code === 'Digit2') this.switchWeapon(p, 1);
+      if (e.code === 'Digit1' || e.code === 'Digit2') { if (this.knifeOut) this.stowKnife(); else this.switchWeapon(p, e.code === 'Digit1' ? 0 : 1); }
       if (e.code === 'KeyQ') this.adsKey = true;
       if (this.streaks && !this.net) { const s = STREAKS.find((x) => x.code === e.code); if (s) this.streaks.use(s.id); }
-      if (e.code === 'KeyV') this.toggleView();
+      if (e.code === 'KeyT') this.toggleView();
+      if (e.code === 'KeyV') { this.vHeld = true; this.vHandled = false; this.vDownT = performance.now(); }
       if (e.code === 'KeyB' && this.mode.sandbox) this.sandboxSpawn(e.shiftKey ? 5 : 1);
       if (e.code === 'KeyN' && this.mode.sandbox) this.sandboxClear();
       if (e.code === 'KeyF' && this.zm) this.zm.localUse(true);
       else if (e.code === 'KeyF' && p.alive && !p.reloading && !p.sprint && this.vmS.inspectT <= 0) this.vmS.inspectT = 2.8;
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
-    document.addEventListener('keyup', (ev) => { const e = { code: canon(ev.code), preventDefault: () => ev.preventDefault() }; this.keys[e.code] = false; if (e.code === 'KeyQ') this.adsKey = false; if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
+    document.addEventListener('keyup', (ev) => { const e = { code: canon(ev.code), preventDefault: () => ev.preventDefault() }; this.keys[e.code] = false; if (e.code === 'KeyV' && this.vHeld) { this.vHeld = false; if (!this.vHandled && this.state === 'playing') this.startSwing('quick'); } if (e.code === 'KeyQ') this.adsKey = false; if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
     this.canvas.addEventListener('mousedown', (e) => {
       if (this.state !== 'playing') return;
       if (e.button === 0) { this.fireHeld = true; this.fireEdge = true; }
@@ -131,7 +136,7 @@ export class Game {
       p.pitch = clamp(p.pitch - e.movementY * s, -1.5, 1.5);
       this.mouseDX += e.movementX; this.mouseDY = (this.mouseDY || 0) + e.movementY;
     });
-    document.addEventListener('wheel', (e) => { if (this.state === 'playing' && this.player) this.switchWeapon(this.player, 1 - this.player.cur); }, { passive: true });
+    document.addEventListener('wheel', (e) => { if (this.state === 'playing' && this.player) { if (this.knifeOut) this.stowKnife(); else this.switchWeapon(this.player, 1 - this.player.cur); } }, { passive: true });
     document.addEventListener('pointerlockchange', () => {
       const locked = document.pointerLockElement === this.canvas;
       if (!locked && this.state === 'playing') this.pause();
@@ -157,7 +162,7 @@ export class Game {
 
   lock() { if (this.touchMode) return; try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
 
-  pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; this.hud.showPause(true); if (this.onPause) this.onPause(); }
+  pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; this.hud.showPause(true); { const t = document.getElementById('pauseTitle'), c = document.getElementById('pauseClasses'); if (t) t.textContent = this.net ? 'MENU - MATCH KEEPS RUNNING' : 'PAUSED'; if (c) c.style.display = this.mode.gg ? 'none' : ''; } if (this.onPause) this.onPause(); }
   resume() { if (this.state !== 'paused') return; this.state = 'playing'; this.hud.showPause(false); this.lock(); }
 
   // ------------------------------------------------------------------ match setup
@@ -199,7 +204,7 @@ export class Game {
       }
     }
     this.teamScore = [0, 0];
-    this.timeLeft = mode.time; this.matchT = mode.sandbox ? 0 : -3.5; this.ended = false;
+    this.timeLeft = mode.time; this.matchT = mode.sandbox ? 0 : -3.5; this.ended = false; this.ggWin = null;
     this.killer = null; this.deathInfo = '';
     this.lastCountdown = mode.sandbox ? 0 : 99; this.nextDummyId = 1000;
     this.matchXp = 0; this.xpDone = false; this.hud.begin(this);
@@ -259,8 +264,10 @@ export class Game {
   makeActor(id, name, team, isPlayer, prim, sec, ap = 0, as = 0) {
     if (!prim) prim = BOT_PRIMARY_POOL[Math.floor(Math.random() * BOT_PRIMARY_POOL.length)];
     if (!sec) sec = SECONDARIES[Math.floor(Math.random() * SECONDARIES.length)];
-    const weapons = [withAtt(WEAPONS[prim], ap), withAtt(WEAPONS[sec], as)];
+    let weapons = [withAtt(WEAPONS[prim], ap), withAtt(WEAPONS[sec], as)];
+    if (this.mode && this.mode.gg) { const gw = WEAPONS[GG_LADDER[0]]; weapons = [gw, gw]; }
     return {
+      gg: 0,
       id, name, team, isPlayer, pos: new V3(), vel: new V3(), yaw: 0, pitch: 0, hw: 0.35, h: 1.8, eye: 1.65, onGround: true,
       hp: 100, alive: true, kills: 0, deaths: 0, streak: 0, weapons, weapon: weapons[0], cur: 0,
       ammo: weapons.map((w) => ({ mag: w.mag, res: w.reserve })), fireCd: 0, reloading: false, reloadT: 0, switchT: 0,
@@ -302,7 +309,7 @@ export class Game {
     a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99; a.recoilBias = 0;
     if (a.brain) a.brain.reset();
     if (a.mesh) { if (a.rag) { a.rag = null; Ragdoll.reset(a.mesh); } a.flinch = null; a.mesh.root.visible = !a.isPlayer; a.mesh.body.rotation.set(0, 0, 0); this.setActorGun(a); }
-    if (a.isPlayer) { this.setPlayerVm(); this.hud.onRespawn(); if (!first) this.sound.spawn(); }
+    if (a.isPlayer) { this.knifeOut = false; this.swing = null; this.vHeld = false; this.setPlayerVm(); this.hud.onRespawn(); if (!first) this.sound.spawn(); }
   }
 
 
@@ -367,7 +374,28 @@ export class Game {
   }
 
   // swap an actor's weapons and attachments on the spot (sandbox): fresh ammo, new gun in hand and on the body
+  // Gun Game: put the actor on the ladder rung `lv` (both slots hold the rung's gun)
+  ggSet(a, lv, announce) {
+    lv = clamp(lv, 0, GG_LADDER.length - 1); const up = lv > a.gg; a.gg = lv;
+    const w = WEAPONS[GG_LADDER[lv]];
+    a.weapons = [w, w]; a.cur = 0; a.weapon = w; a.reloading = false; a.reloadT = 0; a.switchT = 0.4; a.fireCd = 0.3; a.heat = 0; a.recoilDebt = 0;
+    a.ammo = a.weapons.map((x) => ({ mag: x.mag, res: x.reserve }));
+    if (a.mesh) this.setActorGun(a);
+    if (a.isPlayer) {
+      this.setPlayerVm();
+      if (announce) { this.hud.center(lv === GG_LADDER.length - 1 ? 'FINAL GUN - GOLDEN GUN' : `${up ? 'LEVEL UP' : 'DEMOTED'}: ${w.name.toUpperCase()} (${lv + 1}/${GG_LADDER.length})`, 1.4); this.sound.switchGun(); }
+    }
+  }
+  ggOnKill(k, v, w) {                                  // runs on every peer for every kill, so levels stay in sync
+    if (!this.mode.gg || k === v || !k || !v) return;
+    if (w.cls === 'melee' && v.gg > 0) this.ggSet(v, v.gg - 1, true);
+    if (w.id === 'goldgun') { this.ggWin = k; return; }
+    if (k.gg >= GG_LADDER.length - 1) return;
+    this.ggSet(k, k.gg + 1, true);
+  }
+
   applyLoadout(a, prim, sec, ap, as) {
+    if (this.mode.gg) return;
     if (!a || !WEAPONS[prim] || !WEAPONS[sec]) return;
     ap = cleanMask(WEAPONS[prim], ap | 0); as = cleanMask(WEAPONS[sec], as | 0);
     if (a.weapons[0].id === prim && a.weapons[1].id === sec && (a.weapons[0].attMask | 0) === ap && (a.weapons[1].attMask | 0) === as) return;
@@ -401,7 +429,7 @@ export class Game {
     for (const d of info.zomb || []) { const a = this.addNetActor({ id: d.id, name: 'Zombie', team: 1, prim: 'm1911', sec: 'm1911', zombie: 1 }, false, true); this.placeActor(a, d.x, d.z, d.yaw, true, 0); a.hp = d.hp || 100; }
     for (const d of info.dummies || []) { const a = this.addNetActor({ id: d.id, name: 'Dummy', team: d.id, prim: 'm4a1', sec: 'g18', dummy: 1 }, false, true); this.placeActor(a, d.x, d.z, d.yaw, true, d.y); }
     this.teamScore = info.ts ? info.ts.slice() : [0, 0];
-    this.timeLeft = this.mode.time; this.matchT = info.mt; this.ended = false;
+    this.timeLeft = this.mode.time; this.matchT = info.mt; this.ended = false; this.ggWin = null;
     this.killer = null; this.lastCountdown = this.mode.sandbox ? 0 : 99; this.clockOff = null; this.snapT = 0; this.stT = 0; this.nextDummyId = 1000;
     this.matchXp = 0; this.xpDone = false; this.hud.begin(this);
     for (const a of this.actors) { a.alive = false; a.mesh.root.visible = false; }
@@ -472,6 +500,16 @@ export class Game {
   // where everybody was on the shooter's screen (rt), which keeps hits fair under latency.
   remoteShot(a, m) {
     if (!a.alive || this.matchT < 0 || this.ended) return;
+    if (m.cur >= 2 && m.cur <= 11) {                                                         // a knife strike (2-6 quick lunge = 100 dmg, 7-11 slash)
+      const kw = WEAPONS[KNIVES[(m.cur - 2) % 5]]; if (!kw || a.fireCd > 0.05) return;
+      a.fireCd += kw.cd * 0.8; a.lastShot = this.time;
+      let ox = m.ox, oy = m.oy, oz = m.oz; if (Math.hypot(ox - a.pos.x, oz - a.pos.z) > 3.5 || Math.abs(oy - a.pos.y - 1.5) > 2) { ox = a.pos.x; oy = a.pos.y + 1.6; oz = a.pos.z; }
+      const d = new V3(m.d[0], m.d[1], m.d[2]); if (d.length() < 0.5) return; d.normalize();
+      const w = { ...kw, dmg: m.cur >= 7 ? kw.dmg : 100, range: [kw.maxD, kw.maxD], minMul: 1, hs: 1 };
+      this.hitscan(a, ox, oy, oz, d, w, 1, clamp(m.rt, this.time - 0.5, this.time));
+      if (this.net && this.net.role === 'host') this.net.ev(['s', a.id, +ox.toFixed(2), +oy.toFixed(2), +oz.toFixed(2), kw.id]);
+      return;
+    }
     if (m.cur === 0 || m.cur === 1) { if (m.cur !== a.cur) { a.cur = m.cur; a.weapon = a.weapons[m.cur]; this.setActorGun(a); } }
     const w = a.weapon;
     if (a.fireCd > 0.05) return;
@@ -589,11 +627,12 @@ export class Game {
     v.alive = false; v.hp = 0; v.deathT = 0; v.reloading = false; v.respawnT = 3.2; v.deaths++; if (k !== v) k.kills++;
     this.spawnGore(v, k, w, head); this.startRagdoll(v, k, w, head);
     this.killXp(k, v, head);
+    this.ggOnKill(k, v, w);
     if (!v.zombie) this.hud.feed(k, v, w, head, this);
     if (v.isPlayer) { this.killer = k; v.down = false; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
     if (k.isPlayer && k !== v) {
       this.sound.kill();
-      if (!v.zombie) for (let i = 0; i < 2; i++) { const am = k.ammo[i]; am.res = Math.min(k.weapons[i].reserve, am.res + Math.ceil(k.weapons[i].mag / 2)); }
+      if (!v.zombie && !this.mode.gg) for (let i = 0; i < 2; i++) { const am = k.ammo[i]; am.res = Math.min(k.weapons[i].reserve, am.res + Math.ceil(k.weapons[i].mag / 2)); }
     }
   }
 
@@ -667,7 +706,7 @@ export class Game {
   setPlayerVm() {
     const p = this.player; if (!p) return;
     for (const c of [...this.vmRoot.children]) this.vmRoot.remove(c);
-    const w = p.weapon;
+    const w = this.vmWeapon();
     const key = `${w.id}:${w.attMask || 0}`;
     if (!this.vmCache[key]) this.vmCache[key] = this.buildVm(w);
     this.vm = this.vmCache[key];
@@ -679,7 +718,7 @@ export class Game {
     const u = gun.userData, G = u.grip, F = u.fore;
     const glove = new THREE.MeshStandardMaterial({ color: 0x2a2f29, roughness: 0.9 });
     const sleeve = new THREE.MeshStandardMaterial({ color: 0x3b4a3a, roughness: 0.95 });
-    const lh = new THREE.Group(); gun.add(lh);                      // support hand: animated separately (reloads, pumping, inspecting)
+    const lh = new THREE.Group(); gun.add(lh); lh.visible = w.cls !== 'melee';                      // support hand: animated separately (reloads, pumping, inspecting)
     const add = (w_, h_, d_, mt, x, y, z, rx = 0, ry = 0, rz = 0, parent = gun) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w_, h_, d_), mt); me.position.set(x, y, z); me.rotation.set(rx, ry, rz); parent.add(me); };
     // trigger hand: the palm sits on the back of the grip, three fingers wrap round the front, the index finger rests on the
     // trigger, the thumb lies along the left side. The whole hand is raked to match the angle of the grip.
@@ -851,8 +890,8 @@ export class Game {
     const accel = a.onGround ? 11 : 2.2, k = Math.min(1, accel * dt);
     a.vel.x += (wx * speed - a.vel.x) * k;
     a.vel.z += (wz * speed - a.vel.z) * k;
-    a.vel.y -= GRAVITY * dt;
-    if (jump && a.onGround) { a.vel.y = 7.2; a.onGround = false; }
+    a.vel.y -= GRAVITY * dt * (a.isPlayer ? MOD.gravity : 1);
+    if (jump && a.onGround) { a.vel.y = 7.2 * (a.isPlayer ? MOD.jump : 1); a.onGround = false; }
     if (crouch) a.h = 1.25;
     else if (a.h < 1.8 && !this.col.overlaps(a.pos.x, a.pos.y, a.pos.z, a.hw, 1.8)) a.h = 1.8;
     this.col.move(a, dt);
@@ -938,10 +977,43 @@ export class Game {
 
   canFire(a) { return a.alive && this.matchT >= 0 && a.switchT <= 0 && !a.reloading && !a.mantle && a.fireCd <= 0 && a.ammo[a.cur].mag > 0; }
 
+  // ---- melee: tap V = quick lunge with your knife (one hit kills), hold V = take the knife out (LMB slashes), tap/1/2 to put it away
+  knifeW() { return WEAPONS[this.knifeId] || WEAPONS.k_combat; }
+  vmWeapon() { return (this.knifeOut || this.swing) ? this.knifeW() : this.player.weapon; }
+  toggleKnife() {
+    const p = this.player; if (!p || !p.alive || this.state !== 'playing') return;
+    this.knifeOut = !this.knifeOut; this.swing = null; p.reloading = false; this.adsKey = false; this.adsHeld = false; this.vmS.inspectT = 0; p.switchT = Math.max(p.switchT, 0.2);
+    this.setPlayerVm(); this.sound.switchGun();
+  }
+  stowKnife() { if (!this.knifeOut) return; this.knifeOut = false; this.swing = null; this.player.switchT = Math.max(this.player.switchT, 0.3); this.setPlayerVm(); this.sound.switchGun(); }
+  startSwing(kind) {
+    const p = this.player; if (!p || !p.alive || this.swing || this.matchT < 0 || p.mantle || this.ended) return;
+    const kw = this.knifeW(), quick = kind === 'quick';
+    this.swing = { t: 0, dur: quick ? Math.max(0.5, kw.cd * 1.1) : kw.cd, kind, hit: false };
+    p.reloading = false; this.adsKey = false; this.adsHeld = false; this.vmS.inspectT = 0;
+    this.setPlayerVm(); this.sound.swish();
+  }
+  updateMelee(dt) {
+    if (this.vHeld && !this.vHandled && performance.now() - this.vDownT > 350) { this.vHandled = true; this.toggleKnife(); }
+    const s = this.swing; if (!s) return;
+    s.t += dt;
+    if (!s.hit && s.t >= s.dur * 0.38) { s.hit = true; this.meleeStrike(this.player, s.kind === 'quick' ? 100 : this.knifeW().dmg, s.kind === 'quick'); }
+    if (s.t >= s.dur) { this.swing = null; if (!this.knifeOut) this.setPlayerVm(); }
+  }
+  meleeStrike(p, dmg, quick) {
+    const kw = this.knifeW(), d = this.dirFrom(p.yaw, p.pitch, new V3()), ox = p.pos.x, oy = p.pos.y + p.eye, oz = p.pos.z;
+    const w = { ...kw, dmg, range: [kw.maxD, kw.maxD], minMul: 1, hs: 1 };
+    const end = this.hitscan(p, ox, oy, oz, d, w, 1);
+    const idx = Math.max(0, KNIVES.indexOf(kw.id));
+    if (this.isClient) this.net.sendShot(ox, oy, oz, [+d.x.toFixed(4), +d.y.toFixed(4), +d.z.toFixed(4)], (quick ? 2 : 7) + idx, this.renderT || 0);
+    else if (this.isHost) { const f = (v) => +v.toFixed(2); this.net.ev(['s', p.id, f(ox), f(oy), f(oz), kw.id]); }
+  }
+
   startReload(a) {
+    if (a.isPlayer && (this.knifeOut || this.swing)) return;
     const am = a.ammo[a.cur], w = a.weapon;
     if (!a.alive || a.reloading || am.mag >= w.mag || (am.res <= 0 && !a.brain) || a.switchT > 0) return;
-    a.reloading = true; a.reloadT = w.reload * ((a.perks & 4) ? 0.5 : 1);
+    a.reloading = true; a.reloadT = w.reload * ((a.perks & 4) ? 0.5 : 1) * (a.isPlayer && MOD.fastReload ? 0.05 : 1);
     if (a.isPlayer) this.sound.reload(0);
   }
   finishReload(a) {
@@ -986,7 +1058,8 @@ export class Game {
 
   fireShot(a, dir, spread, dmgMul = 1) {
     const w = a.weapon, am = a.ammo[a.cur];
-    am.mag--; a.fireCd = 60 / w.rpm / ((a.perks & 8) ? 1.4 : 1); a.lastShot = this.time;
+    am.mag--; if (a.isPlayer && MOD.infAmmo) am.mag++;
+    a.fireCd = 60 / w.rpm / ((a.perks & 8) ? 1.4 : 1) / (a.isPlayer ? MOD.fireRate : 1); a.lastShot = this.time;
     const eyeH = a.isPlayer ? a.eye : 1.6;
     const ox = a.pos.x, oy = a.pos.y + eyeH, oz = a.pos.z;
     const rx = Math.cos(a.yaw), rz = -Math.sin(a.yaw);
@@ -1013,7 +1086,7 @@ export class Game {
   }
 
   hitscan(a, ox, oy, oz, d, w, mul, rew = 0) {
-    const MAXD = 160;
+    const MAXD = w.maxD || 160;
     let best = this.col.ray(ox, oy, oz, d.x, d.y, d.z, MAXD), victim = null, head = false;
     for (const e of this.actors) {
       if (!e.alive || e === a || e.team === a.team) continue;
@@ -1038,6 +1111,9 @@ export class Game {
 
   damage(v, attacker, amount, w, head) {
     if (!v.alive || v.protT > 0 || this.ended) return;
+    if (v.isPlayer && MOD.god) return;
+    if (MOD.dmgMul > 1 && attacker && attacker.isPlayer && v !== attacker) amount *= MOD.dmgMul;
+    if (MOD.oneHit && attacker && attacker.isPlayer && v !== attacker) amount = 1e5;
     if (this.zm) { if (v.down) return; amount = this.zm.adjust(v, attacker, amount); if (v.zombie) this.zm.onHit(attacker, v); }
     v.hp -= amount; v.lastHurt = this.time;
     if (v.isPlayer) { this.hud.damageFrom(attacker, this.player); this.sound.hurt(); }
@@ -1054,6 +1130,7 @@ export class Game {
     if (k !== v) { k.kills++; k.streak++; if (this.mode.team && !this.mode.obj && !this.mode.zm) this.teamScore[k.team]++; }
     v.streak = 0;
     if (this.obj) this.obj.onKill(v, k);
+    this.ggOnKill(k, v, w);
     if (this.streaks && k.isPlayer && k !== v && !v.dummy) this.streaks.earn(k.streak);
     this.killXp(k, v, head);
     if (!v.zombie) this.hud.feed(k, v, w, head, this);
@@ -1107,7 +1184,8 @@ export class Game {
     const m = this.mode;
     if (m.sandbox || m.zm) return;
     let over = false;
-    if (m.team) over = this.teamScore[0] >= m.scoreLimit || this.teamScore[1] >= m.scoreLimit;
+    if (m.gg && this.ggWin) over = true;
+    else if (m.team) over = this.teamScore[0] >= m.scoreLimit || this.teamScore[1] >= m.scoreLimit;
     else over = this.actors.some((a) => a.kills >= m.scoreLimit);
     if (this.timeLeft <= 0 && this.matchT >= 0) over = true;
     if (over) this.endMatch();
@@ -1120,6 +1198,8 @@ export class Game {
     let win;
     if (this.mode.zm) win = null;
     else if (this.mode.team) win = this.teamScore[0] === this.teamScore[1] ? null : (this.teamScore[0] > this.teamScore[1] ? 0 : 1);
+    else if (this.mode.gg && this.ggWin) win = this.ggWin.team;
+    else if (this.mode.gg) { const s = [...this.actors].sort((a, b) => b.gg - a.gg || b.kills - a.kills); win = s.length > 1 && s[0].gg === s[1].gg && s[0].kills === s[1].kills ? null : s[0].team; }
     else {
       const sorted = [...this.actors].sort((a, b) => b.kills - a.kills);
       win = sorted.length > 1 && sorted[0].kills === sorted[1].kills ? null : sorted[0].team;
@@ -1140,14 +1220,15 @@ export class Game {
     }
     p.protT = Math.max(0, p.protT - dt);
     const frozen = this.matchT < 0;
+    this.updateMelee(dt);
     const jm = Math.hypot(this.joy.x, this.joy.y), jOn = jm > 0.12;                                // analog stick (touch)
     const fwd = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0) + (jOn ? -this.joy.y : 0), str = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0) + (jOn ? this.joy.x : 0);
     const w = p.weapon;
     const wantCrouch = !!(k.KeyC || k.ControlLeft);
     const down = !!p.down;
-    const ads = (this.adsHeld || this.adsKey) && !frozen && p.switchT <= 0 && !p.reloading && !down;
+    const ads = (this.adsHeld || this.adsKey) && !frozen && p.switchT <= 0 && !p.reloading && !down && !this.knifeOut && !this.swing;
     const sprint = !!k.ShiftLeft && fwd > 0 && !ads && !wantCrouch && !this.fireHeld && !down;
-    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * w.moveMul * (ads ? 0.62 : 1) * ((p.perks & 16) ? 1.12 : 1);
+    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * (this.knifeOut ? this.knifeW().moveMul : w.moveMul) * (ads ? 0.62 : 1) * ((p.perks & 16) ? 1.12 : 1) * MOD.speed;
     if (jOn && !sprint) speed *= Math.max(0.5, Math.min(1, jm * 1.15));      // a light push walks, a full push runs
     if (down) speed = 1.5;
     const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
@@ -1195,7 +1276,8 @@ export class Game {
     // firing
     if (!frozen) {
       const want = w.auto ? this.fireHeld : this.fireEdge;
-      if (want && !sprint && (!down || w.cls === 'pistol')) {
+      if (this.knifeOut) { if ((this.fireHeld || this.fireEdge) && !this.swing && !sprint) this.startSwing('slash'); }
+      else if (want && !sprint && !this.swing && (!down || w.cls === 'pistol')) {
         if (p.ammo[p.cur].mag <= 0) { if (this.fireEdge) { this.sound.click(); } this.startReload(p); }
         else if (this.canFire(p)) this.playerShoot(p, ads);
       }
@@ -1214,7 +1296,7 @@ export class Game {
 
   playerShoot(p, ads) {
     const w = p.weapon;
-    const spread = this.currentSpread(p);
+    const spread = MOD.noSpread ? 0 : this.currentSpread(p);
     let dir = this.dirFrom(p.yaw + (this.swX || 0), p.pitch + (this.swY || 0), new V3());
     if (this.tp) {
       // third person: bullets leave the player's eye but must land where the (offset) camera crosshair points
@@ -1226,9 +1308,9 @@ export class Game {
     p.heat = Math.min(1, p.heat + 0.12);
     // every shot rolls its own recoil: random climb (sometimes a big jolt), and a horizontal drift that random-walks through a burst
     const big = Math.random() < 0.12 ? 1.5 : 1;
-    const kick = w.recoil * (0.5 + Math.random() * 1.0) * big * (1 - p.ads * 0.3);
+    const kick = MOD.noRecoil ? 0 : w.recoil * (0.5 + Math.random() * 1.0) * big * (1 - p.ads * 0.3);
     p.recoilBias = clamp(p.recoilBias + (Math.random() - 0.5) * 1.1, -1.3, 1.3);
-    const yawKick = ((Math.random() - 0.5) * 1.2 + p.recoilBias * 0.3) * w.recoilYaw * 0.45 * (1 - p.ads * 0.5);   // horizontal kick kept small: it moves the real aim
+    const yawKick = ((Math.random() - 0.5) * 1.2 + p.recoilBias * 0.3) * w.recoilYaw * 0.45 * (1 - p.ads * 0.5) * (MOD.noRecoil ? 0 : 1);   // horizontal kick kept small: it moves the real aim
     p.pitch = clamp(p.pitch + kick, -1.5, 1.5); p.recoilDebt += kick * 0.85;
     p.yaw += yawKick;
     const S = this.vmS; S.slide = 1; S.cycle = 1; S.rand = (Math.random() - 0.5) * 2 + p.recoilBias * 0.4;
@@ -1468,6 +1550,11 @@ export class Game {
       hand = Math.max(hand, 0); handDy -= 0.02 * insp;
     }
 
+    if (this.swing) {                                                                  // knife swings
+      const s = this.swing, u = clamp(s.t / s.dur, 0, 1), ph = Math.sin(Math.PI * u);
+      if (s.kind === 'quick') { z -= 0.3 * ph; y += 0.05 * ph; x -= 0.04 * ph; rx -= 0.55 * ph; ry += 0.25 * ph; }
+      else { x += 0.18 - 0.4 * u; y += 0.06 * ph; z -= 0.16 * ph; ry += 1.2 * (0.5 - u); rz += 1.1 * (0.5 - u); rx -= 0.25 * ph; }
+    }
     // --- apply ----------------------------------------------------------------------------------
     this.vmRoot.position.set(x, y, z); this.vmRoot.rotation.set(rx, ry, rz);
     vm.lh.position.set(vm.reach.x * hand, vm.reach.y * hand + handDy, vm.reach.z * hand + handDz + pumpBack * 0.08 * (vm.cls === 'shotgun' ? 1 : 0));

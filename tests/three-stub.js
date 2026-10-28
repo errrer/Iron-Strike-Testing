@@ -51,6 +51,7 @@ export class BufferGeometry { constructor() { this.attributes = {}; this.index =
 class Geo extends BufferGeometry { constructor() { super(); this.attributes.uv = new Attr(new Float32Array(48), 2); } }
 export class BoxGeometry extends Geo { constructor(w, h, d) { super(); this.kind = 'box'; this.p = [w, h, d]; } }
 export class CylinderGeometry extends Geo { constructor(rt, rb, h) { super(); this.kind = 'cyl'; this.p = [rt, rb, h]; } }
+export class TorusGeometry extends Geo { constructor(r, t) { super(); this.kind = 'torus'; this.p = [r, t]; } }
 export class ConeGeometry extends Geo { constructor(r, h) { super(); this.kind = 'cone'; this.p = [r, h]; } }
 export class PlaneGeometry extends Geo {}
 export class SphereGeometry extends Geo { constructor(r) { super(); this.kind = 'sphere'; this.p = [r]; } }

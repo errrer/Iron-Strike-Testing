@@ -1,7 +1,7 @@
 // Dirt Bike Race: a gun-free racing mode. Rendering, input and HUD live here; the simulation is in race-core.js.
 import * as THREE from 'three';
-import { RaceSim, HW, VMAX } from './race-core.js?v=0.15.1';
-import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.15.1';
+import { RaceSim, HW, VMAX } from './race-core.js?v=0.16.0';
+import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.16.0';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrap = (a) => { const T = Math.PI * 2; a %= T; if (a > Math.PI) a -= T; if (a < -Math.PI) a += T; return a; };

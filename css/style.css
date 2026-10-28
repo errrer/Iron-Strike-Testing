@@ -659,3 +659,22 @@ body.pad .overlay :focus { outline: 3px solid var(--accent2); outline-offset: 2p
 .kb-key:hover { border-color: #fff; } .kb-key.changed { border-color: var(--amber, #f2a93b); color: var(--amber2, #ffc462); } .kb-key.wait { background: var(--amber, #f2a93b); color: #15100a; border-color: var(--amber, #f2a93b); }
 .kb-foot { display: flex; justify-content: space-between; gap: 12px; }
 @media (max-width: 560px) { .kb-list { grid-template-columns: 1fr; } }
+
+/* ---- supermod (secret) ---- */
+.sm { position: fixed; inset: 0; z-index: 600; display: grid; place-items: center; background: rgba(0, 0, 0, 0.82); }
+.sm-box { width: min(560px, 94vw); max-height: 94vh; overflow-y: auto; background: #101216; border: 1px solid #ff3b3b; box-shadow: 0 0 30px rgba(255, 59, 59, 0.25); padding: 18px 22px; }
+.sm-box h2 { margin: 0 0 2px; letter-spacing: 6px; font-weight: 800; color: #ff5a4a; }
+.sm-list { display: grid; gap: 8px; margin: 10px 0 12px; }
+.sm-row { display: flex; align-items: center; gap: 12px; padding: 7px 10px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); cursor: pointer; }
+.sm-row b { display: block; font-size: 14px; } .sm-row small { display: block; color: #8d939a; font-size: 11px; }
+.sm-row.sl { display: grid; grid-template-columns: 150px 1fr; } .sm-row.sl span { display: flex; justify-content: space-between; gap: 8px; } .sm-row.sl output { color: #ffb35c; font-weight: 700; }
+.sm-note { min-height: 18px; margin: 8px 0; color: #6fe07a; font-size: 13px; }
+.sm-foot { display: flex; gap: 10px; margin-top: 8px; } .sm-foot .btn { flex: 1; }
+
+/* ---- classes ---- */
+.classbar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 4px 0 10px; }
+.classbar .cls { text-align: left; background: rgba(28, 30, 34, 0.85); border: 1px solid rgba(255, 255, 255, 0.14); color: #fff; padding: 7px 10px; cursor: pointer; font: inherit; min-width: 0; }
+.classbar .cls b { display: block; font-size: 12px; letter-spacing: 2px; } .classbar .cls span { display: block; font-size: 11px; color: #9ea4ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.classbar .cls:hover { border-color: #fff; } .classbar .cls.sel { background: rgba(242, 169, 59, 0.24); border-color: var(--amber, #f2a93b); }
+.classbar.pc { grid-template-columns: 1fr; margin: 10px 0; }
+@media (max-width: 700px) { .classbar { grid-template-columns: repeat(2, 1fr); } }

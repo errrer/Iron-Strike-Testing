@@ -43,7 +43,13 @@ export class Sound {
     o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.02);
   }
 
+  swish(vol = 0.6) {
+    if (!this.ctx) return; const t = this.ctx.currentTime, bus = this._bus(vol, 0);
+    this._noise(t, 0.16, 2600, 0.5, bus); this._tone(t, 900, 240, 0.1, 0.12, bus);
+  }
+
   shot(w, vol = 1, pan = 0) {
+    if (w && w.cls === 'melee') { this.swish(vol * 0.5); return; }
     if (w && w.quiet != null) vol *= w.quiet;                 // suppressed
     if (!this.ctx || vol < 0.04) return;
     const t = this.ctx.currentTime, s = w.snd, bus = this._bus(vol, pan);
