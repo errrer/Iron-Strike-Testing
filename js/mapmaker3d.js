@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { PROPS, PROP_NAMES, loadProps } from './props.js?v=0.16.1';
+import { PROPS, PROP_NAMES, loadProps } from './props.js?v=0.17.0';
 
 
 const PRIMS = { box: 'Box', cylinder: 'Cylinder', sphere: 'Sphere', plane: 'Floor plane', ramp: 'Ramp', cone: 'Cone', torus: 'Ring (torus)' };

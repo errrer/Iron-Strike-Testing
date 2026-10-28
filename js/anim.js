@@ -2,7 +2,7 @@
 // speed-scaled stride, pelvis bounce, torso lean, jump / landing poses, crouch, slide, head look, breathing, low-ready sprint carry,
 // recoil, reload and draw animations for the hands. Everything is driven by the actor's velocity / state, so it also
 // works for remote players (whose state arrives in snapshots).
-import { holdGun } from './soldier.js?v=0.16.1';
+import { holdGun } from './soldier.js?v=0.17.0';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const lerp = (a, b, t) => a + (b - a) * t;

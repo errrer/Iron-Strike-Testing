@@ -1,21 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.16.1';
-import { canon } from './keybinds.js?v=0.16.1';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.16.1';
-import { buildGun, makeEnv } from './gunmodels.js?v=0.16.1';
-import { buildMap } from './maps.js?v=0.16.1';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.16.1';
-import { buildWorld } from './world.js?v=0.16.1';
-import { Bot } from './bots.js?v=0.16.1';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.16.1';
-import { buildSoldier, SKIN } from './soldier.js?v=0.16.1';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.16.1';
-import { Zombies, PERKS } from './zombies.js?v=0.16.1';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.16.1';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.16.1';
-import { Objectives } from './objectives.js?v=0.16.1';
-import { Streaks, STREAKS } from './streaks.js?v=0.16.1';
-import { Gore } from './gore.js?v=0.16.1';
+import { MOD } from './supermod.js?v=0.17.0';
+import { canon } from './keybinds.js?v=0.17.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.17.0';
+import { buildGun, makeEnv } from './gunmodels.js?v=0.17.0';
+import { buildMap } from './maps.js?v=0.17.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.17.0';
+import { buildWorld } from './world.js?v=0.17.0';
+import { Bot } from './bots.js?v=0.17.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.17.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.17.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.17.0';
+import { Zombies, PERKS } from './zombies.js?v=0.17.0';
+import { inspectFor, inspectPose } from './inspect.js?v=0.17.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.17.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.17.0';
+import { Objectives } from './objectives.js?v=0.17.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.17.0';
+import { Gore } from './gore.js?v=0.17.0';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -113,7 +114,7 @@ export class Game {
       if (e.code === 'KeyB' && this.mode.sandbox) this.sandboxSpawn(e.shiftKey ? 5 : 1);
       if (e.code === 'KeyN' && this.mode.sandbox) this.sandboxClear();
       if (e.code === 'KeyF' && this.zm) this.zm.localUse(true);
-      else if (e.code === 'KeyF' && p.alive && !p.reloading && !p.sprint && this.vmS.inspectT <= 0) this.vmS.inspectT = 2.8;
+      else if (e.code === 'KeyF') this.startInspect();
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
     document.addEventListener('keyup', (ev) => { const e = { code: canon(ev.code), preventDefault: () => ev.preventDefault() }; this.keys[e.code] = false; if (e.code === 'KeyV' && this.vHeld) { this.vHeld = false; if (!this.vHandled && this.state === 'playing') this.startSwing('quick'); } if (e.code === 'KeyQ') this.adsKey = false; if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
@@ -994,6 +995,10 @@ export class Game {
 
   // ---- melee: tap V = quick lunge with your knife (one hit kills), hold V = take the knife out (LMB slashes), tap/1/2 to put it away
   knifeW() { return WEAPONS[this.knifeId] || WEAPONS.k_combat; }
+  startInspect() {                                    // F: this weapon's own inspect sequence (see inspect.js)
+    const p = this.player, S = this.vmS; if (!p || !this.vm || !p.alive || p.reloading || p.sprint || S.inspectT > 0 || p.switchT > 0) return;
+    S.inspectT = S.inspectDur = inspectFor(this.vm.id).dur;
+  }
   vmWeapon() { return (this.knifeOut || this.swing) ? this.knifeW() : this.player.weapon; }
   toggleKnife() {
     const p = this.player; if (!p || !p.alive || this.state !== 'playing') return;
@@ -1556,14 +1561,14 @@ export class Game {
     // sliding: gun canted and low; mantling: gun pushed down and out of the way while you climb
     if (S.slk > 0.01) { const f = S.slk * (1 - a * 0.8); x -= 0.035 * f; y -= 0.03 * f; rz += 0.3 * f; ry += 0.12 * f; rx += 0.05 * f; }
     if (S.mvk > 0.01) { y -= 0.1 * S.mvk; z += 0.03 * S.mvk; rx -= 0.35 * S.mvk; rz += 0.15 * S.mvk; }
-    // melee-free "inspect": gun turned over in front of you (F)
-    let insp = 0;
+    // inspect (F): each weapon plays its own sequence from inspect.js
     if (S.inspectT > 0) {
-      const u2 = 1 - S.inspectT / 2.8; insp = Math.sin(Math.PI * u2);
-      x -= 0.09 * insp; y += 0.03 * insp; z += 0.06 * insp;
-      ry -= (0.9 * insp + Math.sin(u2 * Math.PI * 2) * 0.35); rz += Math.sin(u2 * Math.PI * 2) * 0.7 * insp; rx += 0.12 * insp * Math.sin(u2 * Math.PI * 3);
-      hand = Math.max(hand, 0); handDy -= 0.02 * insp;
-    }
+      S.inspWas = true;
+      const ip = inspectPose(inspectFor(vm.id), clamp(1 - S.inspectT / (S.inspectDur || 2.8), 0, 1)), fr = 1 - a;
+      x += ip.x * fr; y += ip.y * fr; z += ip.z * fr; rx += ip.rx * fr; ry += ip.ry * fr; rz += ip.rz * fr;
+      hand = Math.max(hand, ip.hand); handDy += ip.hdy; slideT = Math.max(slideT, ip.slide); boltOpen = Math.max(boltOpen, ip.bolt); pumpBack = Math.max(pumpBack, ip.pump);
+      for (const e of vm.mags) { e.m.visible = true; e.m.position.y = e.p.y - ip.mag * 0.075; e.m.position.z = e.p.z + ip.mag * 0.03; }
+    } else if (S.inspWas) { S.inspWas = false; for (const e of vm.mags) { e.m.visible = true; e.m.position.copy(e.p); } }
 
     if (this.swing) {                                                                  // knife swings
       const s = this.swing, u = clamp(s.t / s.dur, 0, 1), ph = Math.sin(Math.PI * u);
