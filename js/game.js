@@ -1,21 +1,21 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.16.0';
-import { canon } from './keybinds.js?v=0.16.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.16.0';
-import { buildGun, makeEnv } from './gunmodels.js?v=0.16.0';
-import { buildMap } from './maps.js?v=0.16.0';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.16.0';
-import { buildWorld } from './world.js?v=0.16.0';
-import { Bot } from './bots.js?v=0.16.0';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.16.0';
-import { buildSoldier, SKIN } from './soldier.js?v=0.16.0';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.16.0';
-import { Zombies, PERKS } from './zombies.js?v=0.16.0';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.16.0';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.16.0';
-import { Objectives } from './objectives.js?v=0.16.0';
-import { Streaks, STREAKS } from './streaks.js?v=0.16.0';
-import { Gore } from './gore.js?v=0.16.0';
+import { MOD } from './supermod.js?v=0.16.1';
+import { canon } from './keybinds.js?v=0.16.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.16.1';
+import { buildGun, makeEnv } from './gunmodels.js?v=0.16.1';
+import { buildMap } from './maps.js?v=0.16.1';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.16.1';
+import { buildWorld } from './world.js?v=0.16.1';
+import { Bot } from './bots.js?v=0.16.1';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.16.1';
+import { buildSoldier, SKIN } from './soldier.js?v=0.16.1';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.16.1';
+import { Zombies, PERKS } from './zombies.js?v=0.16.1';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.16.1';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.16.1';
+import { Objectives } from './objectives.js?v=0.16.1';
+import { Streaks, STREAKS } from './streaks.js?v=0.16.1';
+import { Gore } from './gore.js?v=0.16.1';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -144,6 +144,21 @@ export class Game {
     document.addEventListener('pointerlockerror', () => { if (this.state === 'playing') this.pause(); });
   }
 
+  // graphics presets: render scale, shadows (see the Graphics setting)
+  static GFX = { low: { pr: 0.6, shadow: 0, anim: false }, medium: { pr: 1, shadow: 1024, anim: true }, high: { pr: 1.5, shadow: 2048, anim: true } };
+  applyGfx() {
+    const q = Game.GFX[this.settings.gfx] || Game.GFX.high;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr)); this.resize();
+    if (!this.scene) return;
+    this.scene.traverse((o) => {
+      if (!o.isDirectionalLight || !o.shadow) return;
+      if (o.userData.hadShadow === undefined) o.userData.hadShadow = !!o.castShadow;
+      const on = o.userData.hadShadow && q.shadow > 0;
+      if (on && o.shadow.mapSize.x !== q.shadow) { o.shadow.mapSize.set(q.shadow, q.shadow); if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; } }
+      o.castShadow = on;
+    });
+  }
+
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
     this.renderer.setSize(w, h, false);
@@ -174,7 +189,7 @@ export class Game {
     this.col = new Colliders(this.map.boxes);
     this.nav = this.makeNav();
     this.world = buildWorld(this.map);
-    this.scene = this.world.scene;
+    this.scene = this.world.scene; this.applyGfx();
     this.fxGroup = new THREE.Group(); this.scene.add(this.fxGroup);
     this.initFx();
 
@@ -420,7 +435,7 @@ export class Game {
     this.col = new Colliders(this.map.boxes);
     this.nav = net.role === 'host' ? this.makeNav() : null;
     this.world = buildWorld(this.map);
-    this.scene = this.world.scene;
+    this.scene = this.world.scene; this.applyGfx();
     this.fxGroup = new THREE.Group(); this.scene.add(this.fxGroup);
     this.initFx();
     this.actors = []; this.player = null; this.hist = [];

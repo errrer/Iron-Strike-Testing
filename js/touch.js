@@ -1,6 +1,6 @@
 // Touch controls for phones and tablets: floating move stick (left), look pad (right), fire / aim / jump / crouch / reload / swap buttons,
 // use (zombies), killstreaks, scoreboard and pause. It drives the same state the keyboard and mouse do (game.keys, game.joy, game.fireHeld ...).
-import { STREAKS } from './streaks.js?v=0.16.0';
+import { STREAKS } from './streaks.js?v=0.16.1';
 
 export function wantsTouch() {
   const q = new URLSearchParams(location.search);

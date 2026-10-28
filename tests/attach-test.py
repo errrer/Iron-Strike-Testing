@@ -7,7 +7,7 @@ class Q(http.server.SimpleHTTPRequestHandler):
 srv = socketserver.TCPServer(('127.0.0.1', 0), Q); port = srv.server_address[1]
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 stub = open('tests/three-stub.js').read(); errs = []
-JS = """async () => { const W = await import('/js/weapons.js'), G = await import('/js/gunmodels.js'); const g = window.__game, out = {bad: [], n: 0};
+JS = """async () => { const W = await import('/js/weapons.js'), G = await import('/js/gunmodels.js'); const g = window.__game, out = {bad: [], n: 0}; await G.loadModels(W.WEAPONS);
   for (const id of [...W.PRIMARIES, ...W.SECONDARIES]) {
     const w = W.withAtt(W.WEAPONS[id], 4272 | 1 | (2 << 10));
     try { const m = G.buildGun(w); out.n++; if (!m.userData.muzzle || ![m.userData.muzzle.x, m.userData.muzzle.y, m.userData.muzzle.z].every(Number.isFinite)) out.bad.push(id + ' muzzle'); } catch (e) { out.bad.push(id + ': ' + e.message); }

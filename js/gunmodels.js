@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf } from './weapons.js?v=0.16.0';
+import { getSlot, camoOf } from './weapons.js?v=0.16.1';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +11,7 @@ import { getSlot, camoOf } from './weapons.js?v=0.16.0';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.16.0';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.16.1';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -174,32 +174,6 @@ function triggerGroup(b, x, y, z, len = 0.055) {
 // ------------------------------------------------------------------------------------------------
 // ASSEMBLY LINE RIFLES
 // ------------------------------------------------------------------------------------------------
-function buildAR() {                 // M4A1
-  const b = new B();
-  b.box(0.046, 0.052, 0.3, 0, 0.026, -0.02, M.blued());                         // upper receiver
-  b.box(0.044, 0.05, 0.22, 0, -0.026, 0.035, M.blued());                        // lower receiver
-  b.box(0.04, 0.045, 0.07, 0, -0.04, -0.075, M.blued());                        // magwell
-  mark(b.box(0.034, 0.07, 0.056, 0, -0.1, -0.075, M.black(), 0.06), 'mag');     // mag (curved: two segments)
-  mark(b.box(0.034, 0.06, 0.056, 0, -0.158, -0.082, M.black(), 0.16), 'mag');
-  mark(b.box(0.036, 0.008, 0.06, 0, -0.19, -0.088, M.steel(), 0.16), 'mag');
-  b.box(0.03, 0.1, 0.045, 0, -0.1, 0.115, M.poly(), -0.38);                     // pistol grip
-  triggerGroup(b, 0, -0.04, 0.0);
-  b.box(0.054, 0.056, 0.22, 0, 0.022, -0.26, M.poly());                         // handguard
-  for (let i = 0; i < 5; i++) { b.box(0.058, 0.012, 0.016, 0, 0.022, -0.19 - i * 0.034, M.black()); b.box(0.02, 0.058, 0.016, 0, 0.022, -0.19 - i * 0.034, M.black()); }
-  b.box(0.021, 0.009, 0.54, 0, 0.0575, -0.15, M.blued());                       // top rail
-  railTeeth(b, 0.1, -0.42, 0.0635, 0.021);
-  b.tube(0.0085, 0.13, 0, 0.022, -0.43, M.steel());                             // barrel
-  b.box(0.022, 0.026, 0.03, 0, 0.034, -0.385, M.steel());                       // gas block
-  ironSights(b, { y: 0.092, zr: 0.085, zf: -0.385, br: 0.0635, bf: 0.047 });
-  b.tube(0.0135, 0.06, 0, 0.022, -0.485, M.blued());                            // flash hider
-  for (let i = 0; i < 3; i++) b.box(0.03, 0.004, 0.012, 0, 0.022, -0.47 - i * 0.015, M.black());
-  b.box(0.032, 0.014, 0.034, 0, 0.056, 0.13, M.black());                        // charging handle
-  b.box(0.002, 0.022, 0.045, 0.0235, 0.03, 0.01, M.black());                    // ejection port
-  b.tube(0.016, 0.2, 0, 0.002, 0.23, M.blued());                                // buffer tube
-  b.box(0.04, 0.08, 0.13, 0, -0.012, 0.31, M.poly(), 0.05);                     // stock
-  b.box(0.042, 0.09, 0.014, 0, -0.016, 0.38, M.rubber(), 0.05);                 // butt pad
-  return b.done({ muzzle: V(0, 0.022, -0.515), sightY: 0.092, grip: V(0, -0.105, 0.11), fore: V(0, -0.015, -0.26), pistol: false, side: V(0.027, 0.022, -0.3), mount: V(0, 0.0645, 0.02), under: V(0, -0.006, -0.26) });
-}
 
 function buildAK() {                 // AK-47
   const b = new B();
@@ -333,19 +307,6 @@ function buildRevolver() {           // .357 Magnum
 // ------------------------------------------------------------------------------------------------
 // Generic fallback (used for the VMP if assets/models/vmp.json can't be loaded)
 // ------------------------------------------------------------------------------------------------
-function buildSmg() {
-  const b = new B();
-  b.box(0.046, 0.07, 0.34, 0, 0.0, 0, M.blued());
-  b.box(0.05, 0.06, 0.16, 0, -0.005, -0.2, M.poly());
-  b.tube(0.012, 0.14, 0, 0.008, -0.27, M.steel());
-  b.box(0.03, 0.1, 0.04, 0, -0.085, 0.09, M.poly(), -0.3);
-  mark(b.box(0.036, 0.17, 0.036, 0, -0.12, -0.03, M.black(), 0.08), 'mag');
-  b.box(0.04, 0.07, 0.17, 0, -0.01, 0.255, M.poly());
-  b.box(0.03, 0.03, 0.04, 0, 0.05, -0.02, M.black());
-  triggerGroup(b, 0, -0.035, 0.0);
-  ironSights(b, { y: 0.066, zr: 0.1, zf: -0.26, br: 0.035, bf: 0.035 });
-  return b.done({ muzzle: V(0, 0.008, -0.34), sightY: 0.066, grip: V(0, -0.085, 0.09), fore: V(0, -0.04, -0.2), pistol: false, side: V(0.03, -0.005, -0.22), mount: V(0, 0.035, 0.0), under: V(0, -0.035, -0.2) });
-}
 
 
 // ------------------------------------------------------------------------------------------------
@@ -600,7 +561,7 @@ function buildKTomahawk() {
   b.box(0.0048, 0.12, 0.006, 0, 0.012, -0.302, mat(0xe8eef3, 1, 0.12));                    // edge highlight
   return kdone(b, V(0, -0.004, 0.065), -0.34);
 }
-const BUILDERS = { smg: buildSmg, ar: buildAR, ak: buildAK, bolt: buildBolt, pump: buildPump, glock: buildGlock, m1911: build1911, revolver: buildRevolver,
+const BUILDERS = { ak: buildAK, bolt: buildBolt, pump: buildPump, glock: buildGlock, m1911: build1911, revolver: buildRevolver,
   mp5: buildMp5, p90: buildP90, scar: buildScar, super46: buildSuper46, lmg: buildLmg, dmr: buildDmr, aa12: buildAa12, deagle: buildDeagle, skorp: buildSkorp, k_combat: buildKCombat, k_karambit: buildKKarambit, k_balisong: buildKBalisong, k_machete: buildKMachete, k_tomahawk: buildKTomahawk,
   goldgun: () => { const g = buildDeagle(), gold = mat(0xffd24a, 1, 0.16, { emissive: 0x3a2400, emissiveIntensity: 0.35 }); g.traverse((o) => { if (o.isMesh && !(o.userData && o.userData.iron)) o.material = gold; }); return g; } };
 
@@ -743,9 +704,9 @@ CAMO_PAINT[17] = () => { const [c, g] = canvasOf(); const R = 32, H = 28; g.fill
 const CAMO_LOOK = {
   1: { m: 0.12, r: 0.6, env: 0.8, cc: 0.35 }, 2: { m: 0.12, r: 0.6, env: 0.8, cc: 0.35 }, 3: { m: 0.12, r: 0.55, env: 0.9, cc: 0.4 }, 4: { m: 0.15, r: 0.5, env: 0.9, cc: 0.45 },
   5: { m: 0.2, r: 0.4, env: 1.1, cc: 0.7 }, 6: { m: 0.2, r: 0.4, env: 1.1, cc: 0.7 }, 7: { m: 0.25, r: 0.38, env: 1.1, cc: 0.7 },
-  8: { m: 1.0, r: 0.2, env: 1.7, cc: 0.5 }, 9: { m: 0.9, r: 0.1, env: 1.8, cc: 1.0, flake: 1 }, 10: { m: 0.6, r: 0.12, env: 1.5, cc: 1.0, em: 1.9, pulse: 1 }, 11: { m: 0.5, r: 0.2, env: 1.2, cc: 1.0, em: 1.5, pulse: 1 },
-  12: { m: 0.35, r: 0.28, env: 1.3, cc: 1.0 }, 13: { m: 0.3, r: 0.3, env: 1.0, cc: 0.6, em: 2.2, pulse: 1 }, 14: { m: 0.3, r: 0.3, env: 1.0, cc: 0.9, em: 1.7, pulse: 1 }, 15: { m: 0.3, r: 0.45, env: 0.9, cc: 0.4, em: 2.4, pulse: 1 },
-  16: { m: 1.0, r: 0.14, env: 1.9, cc: 1.0, hue: 1 }, 17: { m: 0.55, r: 0.3, env: 1.4, cc: 0.9 },
+  8: { m: 1.0, r: 0.2, env: 1.7, cc: 0.5, deep: 0.35, sweep: 1, rim: [1, 0.8, 0.3] }, 9: { m: 0.9, r: 0.1, env: 1.8, cc: 1.0, flake: 1, deep: 0.6, sweep: 1, rim: [0.6, 0.9, 1] }, 10: { m: 0.6, r: 0.12, env: 1.5, cc: 1.0, em: 1.9, pulse: 1, deep: 0.7, rim: [0.5, 0.2, 1], flow: [0.0, 0.02, 0.04] }, 11: { m: 0.5, r: 0.2, env: 1.2, cc: 1.0, em: 1.5, pulse: 1, deep: 1.0, rim: [0.4, 0.6, 1], flow: [0.02, 0.0, 0.03] },
+  12: { m: 0.35, r: 0.28, env: 1.3, cc: 1.0 }, 13: { m: 0.3, r: 0.3, env: 1.0, cc: 0.6, em: 2.2, pulse: 1, deep: 0.8, rim: [0.1, 1, 0.9], flow: [0.0, 0.0, 0.08] }, 14: { m: 0.3, r: 0.3, env: 1.0, cc: 0.9, em: 1.7, pulse: 1 }, 15: { m: 0.3, r: 0.45, env: 0.9, cc: 0.4, em: 2.4, pulse: 1, deep: 0.9, rim: [1, 0.35, 0.05], flow: [0.0, -0.06, 0.02] },
+  16: { m: 1.0, r: 0.14, env: 1.9, cc: 1.0, hue: 1, deep: 0.6, sweep: 1, rim: [0.8, 0.5, 1] }, 17: { m: 0.55, r: 0.3, env: 1.4, cc: 0.9, deep: 0.55, sweep: 1, rim: [0.4, 1, 0.5] },
 };
 const camoCache = new Map();
 function camoSet(id) {
@@ -776,13 +737,27 @@ function camoMat(id) {
   if (look.cc && 'clearcoat' in m) { m.clearcoat = look.cc; m.clearcoatRoughness = 0.08; }
   if (set.em) { m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = look.em || 1; }
   const hasEm = !!set.em;
+  const fl = look.flow || [0.01, 0.03, 0.05], rim = look.rim || [1, 1, 1], f = (x) => (+x).toFixed(4);
+  // depth: three layers of the pattern at different scales, parallax-shifted by the view direction and drifting, plus a rim glow - reads as paint with a volume under it
+  const deepFrag = look.deep ? `vec3 vdir = normalize(vVp); vec3 flw = vec3(${f(fl[0])}, ${f(fl[1])}, ${f(fl[2])}) * camoT;
+    vec3 cA = camoTri(camoMap, vGp, vGn);
+    vec3 cB = camoTri(camoMap, vGp * 0.6 + vdir * 0.05 + flw, vGn);
+    vec3 cC = camoTri(camoMap, vGp * 0.33 + vdir * 0.11 - flw * 1.7, vGn);
+    float tw = 0.55 + 0.45 * sin(camoT * 1.4 + dot(vGp, vec3(31.0, 17.0, 23.0)));
+    vec3 deepCol = cA * (1.0 - ${f(look.deep * 0.35)}) + (cB * 0.55 + cC * 0.4 * tw) * ${f(look.deep)};
+    ${look.hue ? 'deepCol = hueRot(deepCol, camoT * 0.9 + vGp.z * 3.0);' : ''}
+    ${look.sweep ? 'deepCol *= 1.0 + 0.55 * smoothstep(0.86, 1.0, sin(vGp.z * 14.0 + vGp.y * 9.0 - camoT * 2.2));' : ''}
+    float fres = pow(1.0 - abs(dot(normalize(vNormal), -vdir)), 2.4);
+    deepCol += vec3(${f(rim[0])}, ${f(rim[1])}, ${f(rim[2])}) * fres * ${f(0.25 + look.deep * 0.35)} * (0.7 + 0.3 * sin(camoT * 2.0));
+    diffuseColor.rgb *= deepCol;` : '';
+  const deepEm = `totalEmissiveRadiance *= mix(camoTri(camoEm, vGp, vGn), camoTri(camoEm, vGp * 0.7 + vVp * 0.04 + vec3(${f(fl[0])}, ${f(fl[1])}, ${f(fl[2])}) * camoT * 2.0, vGn), 0.6) * (0.65 + 0.35 * sin(camoT * 2.2 + vGp.z * 14.0));`;
   m.onBeforeCompile = (sh) => {
     sh.uniforms.camoMap = { value: set.map }; sh.uniforms.camoEm = { value: set.em || set.map }; sh.uniforms.camoScale = { value: 6.5 }; sh.uniforms.camoT = camoTime;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 gpos;\nattribute vec3 gnrm;\nvarying vec3 vGp;\nvarying vec3 vGn;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvGp = gpos; vGn = gnrm;');
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 gpos;\nattribute vec3 gnrm;\nvarying vec3 vGp;\nvarying vec3 vGn;\nvarying vec3 vVp;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvGp = gpos; vGn = gnrm; vVp = (modelViewMatrix * vec4(position, 1.0)).xyz;');
     const tri = 'vec3 camoTri(sampler2D t, vec3 p, vec3 n) { vec3 w = pow(abs(normalize(n)), vec3(4.0)); w /= (w.x + w.y + w.z); return texture2D(t, p.zy * camoScale).rgb * w.x + texture2D(t, p.xz * camoScale).rgb * w.y + texture2D(t, p.xy * camoScale).rgb * w.z; }';
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D camoMap;\nuniform sampler2D camoEm;\nuniform float camoScale;\nuniform float camoT;\nvarying vec3 vGp;\nvarying vec3 vGn;\nvec3 hueRot(vec3 c, float a) { const vec3 k = vec3(0.57735); float ca = cos(a); return c * ca + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - ca); }\n' + tri)
-      .replace('#include <map_fragment>', look.hue ? 'diffuseColor.rgb *= hueRot(camoTri(camoMap, vGp, vGn), camoT * 0.9 + vGp.z * 3.0);' : look.flake ? 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn) * (0.85 + 0.35 * step(0.82, fract(sin(dot(floor(vGp * 420.0), vec3(12.9, 78.2, 37.7))) * 43758.5)) * (0.5 + 0.5 * sin(camoT * 3.0 + vGp.x * 60.0)));' : 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn);')
-      .replace('#include <emissivemap_fragment>', hasEm ? (look.pulse ? 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn) * (0.65 + 0.35 * sin(camoT * 2.2 + vGp.z * 14.0));' : 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn);') : '');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D camoMap;\nuniform sampler2D camoEm;\nuniform float camoScale;\nuniform float camoT;\nvarying vec3 vGp;\nvarying vec3 vGn;\nvarying vec3 vVp;\nvec3 hueRot(vec3 c, float a) { const vec3 k = vec3(0.57735); float ca = cos(a); return c * ca + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - ca); }\n' + tri)
+      .replace('#include <map_fragment>', look.deep ? deepFrag : look.hue ? 'diffuseColor.rgb *= hueRot(camoTri(camoMap, vGp, vGn), camoT * 0.9 + vGp.z * 3.0);' : look.flake ? 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn) * (0.85 + 0.35 * step(0.82, fract(sin(dot(floor(vGp * 420.0), vec3(12.9, 78.2, 37.7))) * 43758.5)) * (0.5 + 0.5 * sin(camoT * 3.0 + vGp.x * 60.0)));' : 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn);')
+      .replace('#include <emissivemap_fragment>', hasEm ? (look.deep ? deepEm : look.pulse ? 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn) * (0.65 + 0.35 * sin(camoT * 2.2 + vGp.z * 14.0));' : 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn);') : '');
   };
   m.customProgramCacheKey = () => 'camo' + id;
   camoMats.set(id, m); return m;
@@ -815,9 +790,57 @@ const dotBlue = () => mat(0x3aa0ff, 0, 1, { emissive: 0x3aa0ff, emissiveIntensit
 const lens = () => mat(0x7fb6d8, 0.1, 0.05, { transparent: true, opacity: 0.16 });
 const ring = (b, r, x, y, z, m, n = 10) => { for (let i = 0; i < n; i++) { const a = (i / n) * 6.283; b.ball(0.0008, x + Math.cos(a) * r, y + Math.sin(a) * r, z, m); } };
 
+// the player's own reticle image (Custom Decal Sight): one shared canvas texture, so every sight updates the moment a new image is picked
+const DECAL_KEY = 'ironstrike_decal';
+export const decal = (() => {
+  const S = 128; let cv = null, tex = null, img = null, keyDark = true;
+  const store = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* ignore */ } };
+  const read = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const draw = () => {
+    if (!cv) return; const g = cv.getContext('2d'); g.clearRect(0, 0, S, S);
+    if (img) {
+      const r = Math.min(S / img.width, S / img.height), w = img.width * r, h = img.height * r; g.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+      if (keyDark) { const d = g.getImageData(0, 0, S, S), p = d.data; for (let i = 0; i < p.length; i += 4) { const l = (p[i] + p[i + 1] + p[i + 2]) / 3; if (l < 60) p[i + 3] = Math.min(p[i + 3], Math.max(0, (l - 25) * 7)); } g.putImageData(d, 0, 0); }
+    } else {                                                                                         // default reticle: ring, dot and ticks
+      g.strokeStyle = g.fillStyle = '#ff2a1a'; g.lineWidth = 5; g.beginPath(); g.arc(S / 2, S / 2, 40, 0, 6.283); g.stroke(); g.beginPath(); g.arc(S / 2, S / 2, 5, 0, 6.283); g.fill();
+      for (const [x, y, w, h] of [[S / 2 - 2, 4, 4, 18], [S / 2 - 2, S - 22, 4, 18], [4, S / 2 - 2, 18, 4], [S - 22, S / 2 - 2, 18, 4]]) g.fillRect(x, y, w, h);
+    }
+    if (tex) tex.needsUpdate = true;
+  };
+  const api = {
+    get hasImage() { return !!img; }, get keyDark() { return keyDark; },
+    texture() {
+      if (tex) return tex;
+      if (typeof document === 'undefined' || !THREE.CanvasTexture) return null;
+      cv = document.createElement('canvas'); cv.width = cv.height = S; tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; draw(); return tex;
+    },
+    setKeyDark(v) { keyDark = !!v; store(DECAL_KEY + '_key', keyDark ? '1' : '0'); draw(); },
+    load(url, save = true) {
+      return new Promise((res) => { const i = new Image(); i.onload = () => { img = i; if (save) { try { const c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'), r = Math.min(S / i.width, S / i.height); g.drawImage(i, (S - i.width * r) / 2, (S - i.height * r) / 2, i.width * r, i.height * r); store(DECAL_KEY, c.toDataURL('image/png')); } catch (e) { /* ignore */ } } draw(); res(true); }; i.onerror = () => res(false); i.src = url; });
+    },
+    clear() { img = null; store(DECAL_KEY, null); draw(); },
+  };
+  keyDark = read(DECAL_KEY + '_key') !== '0';
+  const saved = read(DECAL_KEY); if (saved && typeof Image !== 'undefined') api.load(saved, false);
+  return api;
+})();
+
 function buildOptic(b, u, g, kind) {
   const m = u.mount, z = m.z;
   g.traverse((o) => { if (o.userData && o.userData.iron) o.visible = false; });
+  if (kind === 5) {                                       // custom decal sight: open reflex frame with the player's image floating in the window
+    const pistol = !!u.pistol, cy = m.y + (pistol ? 0.014 : 0.026), zz = z, S = pistol ? ((o) => mark(o, 'slide')) : ((o) => o), w = pistol ? 0.024 : 0.03, len = pistol ? 0.042 : 0.07;
+    const h0 = cy - 0.018 - m.y; if (!pistol && h0 > 0.002) b.box(0.026, h0, 0.06, 0, m.y + h0 / 2, zz, M.blued());
+    S(b.box(w, 0.005, len, 0, cy - (pistol ? 0.0115 : 0.015), zz, M.black())); S(b.box(w, 0.006, len, 0, cy + (pistol ? 0.0115 : 0.0145), zz, M.black()));
+    S(b.box(0.004, pistol ? 0.024 : 0.034, len, w / 2 - 0.0015, cy, zz, M.black())); S(b.box(0.004, pistol ? 0.024 : 0.034, len, -(w / 2 - 0.0015), cy, zz, M.black()));
+    S(b.box(w - 0.007, pistol ? 0.018 : 0.021, 0.002, 0, cy, zz + len / 2 - 0.004, lens()));
+    const tx = decal.texture();
+    if (tx && THREE.PlaneGeometry && THREE.MeshBasicMaterial) {
+      const pm = new THREE.MeshBasicMaterial({ map: tx, transparent: true, depthWrite: false, toneMapped: false }), sz = pistol ? 0.014 : 0.02;
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), pm); p.position.set(0, cy, zz + len / 2 - 0.006); p.renderOrder = 5; p.userData.decal = true; b.g ? b.g.add(p) : g.add(p); S(p);
+    } else b.ball(0.0015, 0, cy, zz, dotRed());
+    u.sightY = cy; return;
+  }
   if (u.pistol) {                                         // compact slide-mounted reflex sight (the holographic one gets a ring reticle)
     const cy = m.y + 0.014, S = (o) => mark(o, 'slide');           // the sight rides on the slide
     S(b.box(0.024, 0.004, 0.042, 0, m.y + 0.002, z, M.black()));
@@ -982,16 +1005,11 @@ function addMuzzleAttachments(g, w) {
     }
   }
   const ammo = getSlot(mask, 'ammo');
-  if (ammo) {                                                                        // coloured band on every magazine: copper = FMJ, blue = hollow point, red = armour piercing
-    const col = [0, 0xb87333, 0x3aa0ff, 0xd8261c][ammo];
-    g.traverse((o) => { if (!(o.userData && o.userData.mag && o.isMesh && o.visible)) return; if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox;
-      const band = new THREE.Mesh(bevelBox((bb.max.x - bb.min.x) + 0.004, 0.011, (bb.max.z - bb.min.z) + 0.004), mat(col, 0.3, 0.45)); band.position.set((bb.max.x + bb.min.x) / 2, bb.min.y + 0.032, (bb.max.z + bb.min.z) / 2); o.add(band); });
-  }
 }
 
 export function buildGun(w) {
   const data = w.asset && MODEL_DATA[w.asset.id];
-  const g = data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || buildSmg)();
+  const g = data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || (() => new THREE.Group()))();
   if (w.tint && w.builder !== 'goldgun' && THREE.Color) g.traverse((o) => {                       // recoloured variants: tint the dark metal / polymer parts
     if (!o.isMesh || !o.material || o.material.map || (o.userData && o.userData.iron) || !o.material.color) return;
     const c = o.material.color; if ((c.r + c.g + c.b) / 3 > 0.45) return;

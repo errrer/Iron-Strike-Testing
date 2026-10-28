@@ -35,7 +35,7 @@ export class Points extends Obj { constructor(g, m) { super(); this.geometry = g
 export class PerspectiveCamera extends Obj { constructor(fov, aspect) { super(); this.fov = fov; this.aspect = aspect; } }
 class Light extends Obj { constructor() { super(); this.shadow = { mapSize: { set() {} }, camera: { updateProjectionMatrix() {} } }; this.intensity = 1; } }
 export class HemisphereLight extends Light {}
-export class DirectionalLight extends Light {}
+export class DirectionalLight extends Light { constructor() { super(); this.isDirectionalLight = true; this.shadow.mapSize = { x: 0, y: 0, set(a, b) { this.x = a; this.y = b; } }; } }
 export class PointLight extends Light {}
 export class Fog { constructor(c, n, f) { this.color = c; } }
 

@@ -1,21 +1,21 @@
-import { Game, MODES, mpMode } from './game.js?v=0.16.0';
-import { Net, cleanCode, cleanName } from './net.js?v=0.16.0';
-import { watchForEgg } from './easter.js?v=0.16.0';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.16.0';
-import { Sound } from './audio.js?v=0.16.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.16.0';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.16.0';
-import { loadProps } from './props.js?v=0.16.0';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.16.0';
-import { rankName, UNLOCK } from './progress.js?v=0.16.0';
-import { initMapMaker } from './mapmaker.js?v=0.16.0';
-import { RaceMode } from './race.js?v=0.16.0';
-import { initSupermod, MOD } from './supermod.js?v=0.16.0';
-import { initKeybinds } from './keybinds.js?v=0.16.0';
-import { Gunsmith } from './gunsmith.js?v=0.16.0';
-import { WeaponPreview } from './wpreview.js?v=0.16.0';
-import { initTouch, blockZoom } from './touch.js?v=0.16.0';
-import { initGamepad } from './gamepad.js?v=0.16.0';
+import { Game, MODES, mpMode } from './game.js?v=0.16.1';
+import { Net, cleanCode, cleanName } from './net.js?v=0.16.1';
+import { watchForEgg } from './easter.js?v=0.16.1';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.16.1';
+import { Sound } from './audio.js?v=0.16.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.16.1';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.16.1';
+import { loadProps } from './props.js?v=0.16.1';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.16.1';
+import { rankName, UNLOCK } from './progress.js?v=0.16.1';
+import { initMapMaker } from './mapmaker.js?v=0.16.1';
+import { RaceMode } from './race.js?v=0.16.1';
+import { initSupermod, MOD } from './supermod.js?v=0.16.1';
+import { initKeybinds } from './keybinds.js?v=0.16.1';
+import { Gunsmith } from './gunsmith.js?v=0.16.1';
+import { WeaponPreview } from './wpreview.js?v=0.16.1';
+import { initTouch, blockZoom } from './touch.js?v=0.16.1';
+import { initGamepad } from './gamepad.js?v=0.16.1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -48,7 +48,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll !== false };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gfx: ['low', 'medium', 'high'].includes(cfg.gfx) ? cfg.gfx : 'high', gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll !== false };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -243,6 +243,23 @@ function buildXh(box) {
 }
 buildXh($('xhMenu')); buildXh($('xhPause')); applyXh();
 
+// graphics preset + FPS counter (main menu + pause menu)
+const gfxBtns = [];
+for (const seg of document.querySelectorAll('.gfxseg')) {
+  for (const v of ['low', 'medium', 'high']) {
+    const b = document.createElement('button'); b.textContent = v; b.dataset.gfx = v;
+    b.addEventListener('click', () => { cfg.gfx = v; game.settings.gfx = v; showGfx(); game.applyGfx(); save(); });
+    seg.appendChild(b); gfxBtns.push(b);
+  }
+}
+function showGfx() { for (const b of gfxBtns) b.classList.toggle('sel', b.dataset.gfx === game.settings.gfx); }
+showGfx(); game.applyGfx();
+for (const id of ['fps', 'fps2']) {
+  const el = $(id); if (!el) continue; el.checked = !!cfg.fps;
+  el.addEventListener('change', () => { cfg.fps = el.checked; for (const o of ['fps', 'fps2']) if ($(o)) $(o).checked = el.checked; $('fpsBox').classList.toggle('hidden', !el.checked); save(); });
+}
+$('fpsBox').classList.toggle('hidden', !cfg.fps);
+let fpsAcc = 0, fpsN = 0;
 // camera view toggle (main menu + pause menu + V key in game)
 const viewBtns = [];
 for (const seg of document.querySelectorAll('.viewseg')) {
@@ -463,7 +480,8 @@ let last = performance.now();
 function loop(now) {
   const dt = (now - last) / 1000; last = now;
   try { game.frame(dt); } catch (err) { console.error(err); }
-  tickCamos(Math.min(dt, 0.1));
+  if ((game.settings.gfx || 'high') !== 'low') tickCamos(Math.min(dt, 0.1));
+  if (cfg.fps) { fpsAcc += dt; fpsN++; if (fpsAcc >= 0.5) { $('fpsBox').textContent = Math.round(fpsN / fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; } }
   if (gsm && gsm.open) gsm.tick(Math.min(dt, 0.1));
   else if (wprev && !$('menu').classList.contains('hidden')) { try { wprev.tick(Math.min(dt, 0.1)); } catch (e) { wprev.ok = false; } }
   requestAnimationFrame(loop);

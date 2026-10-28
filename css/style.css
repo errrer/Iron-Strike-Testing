@@ -678,3 +678,8 @@ body.pad .overlay :focus { outline: 3px solid var(--accent2); outline-offset: 2p
 .classbar .cls:hover { border-color: #fff; } .classbar .cls.sel { background: rgba(242, 169, 59, 0.24); border-color: var(--amber, #f2a93b); }
 .classbar.pc { grid-template-columns: 1fr; margin: 10px 0; }
 @media (max-width: 700px) { .classbar { grid-template-columns: repeat(2, 1fr); } }
+
+.gs-decal { margin-top: 10px; padding: 10px 11px; border: 1px dashed rgba(255,255,255,0.3); background: rgba(255,255,255,0.03); }
+.gs-decal p { margin: 4px 0 8px; font-size: 12px; opacity: 0.75; }
+.gs-decal-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.gs-decal .chk { font-size: 12px; }

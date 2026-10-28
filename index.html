@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b0f14">
 <title>IRON STRIKE - 3D Tactical Shooter</title>
 <meta name="description" content="A free browser-based 3D first-person shooter with 4 maps, Team Deathmatch, 1v1 and Free-For-All, and 8 weapons. Built with Three.js.">
-<link rel="stylesheet" href="css/style.css?v=0.16.0">
+<link rel="stylesheet" href="css/style.css?v=0.16.1">
 <div id="sm" class="sm hidden"><div class="sm-box"><h2>SUPERMOD</h2><p class="hint">Secret mod menu. Pick your mods, then choose how long they last.</p><div id="smList" class="sm-list"></div><button id="smMax" class="btn" type="button">MAX RANK NOW</button><p id="smNote" class="sm-note"></p><div class="sm-foot"><button id="smSession" class="btn primary" type="button">APPLY - UNTIL GAME CLOSES</button><button id="smPerm" class="btn primary" type="button">APPLY - PERMANENT</button></div><div class="sm-foot"><button id="smReset" class="btn" type="button">RESET ALL</button><button id="smClose" class="btn" type="button">CLOSE</button></div></div></div>
 <div id="kb" class="kb hidden"><div class="kb-box"><h2>KEYBINDS</h2><p class="hint">Click a key, then press the new one. Backspace = back to default, Esc = cancel. Mouse: LMB fire, RMB aim.</p><div id="kbList" class="kb-list"></div><div class="kb-foot"><button id="kbReset" class="btn" type="button">RESET ALL</button><button id="kbClose" class="btn primary" type="button">DONE</button></div></div></div>
 <div id="gs" class="gs hidden" tabindex="-1">
@@ -84,6 +84,8 @@
     <div class="settings">
       <h3>Settings</h3>
       <div class="viewrow"><span>Camera view</span><div class="seg viewseg"></div></div>
+      <div class="viewrow"><span>Graphics</span><div class="seg gfxseg"></div></div>
+      <label class="chk"><input id="fps2" type="checkbox"> Show FPS</label>
       <label>Mouse sensitivity <input id="sens2" type="range" min="0.2" max="3" step="0.05" value="1"><output id="sensOut2">1.0</output></label>
       <label>Field of view <input id="fov2" type="range" min="60" max="110" step="1" value="80"><output id="fovOut2">80</output></label>
       <label>Volume <input id="vol2" type="range" min="0" max="1" step="0.05" value="0.55"><output id="volOut2">0.55</output></label>
@@ -248,6 +250,8 @@
       </div>
       <div class="sliders">
         <div class="viewrow"><span>Camera view</span><div class="seg viewseg"></div></div>
+        <div class="viewrow"><span>Graphics</span><div class="seg gfxseg"></div></div>
+        <label class="chk"><input id="fps" type="checkbox"> Show FPS</label>
         <label>Mouse sensitivity <input id="sens" type="range" min="0.2" max="3" step="0.05" value="1"><output id="sensOut">1.0</output></label>
         <label>Field of view <input id="fov" type="range" min="60" max="110" step="1" value="80"><output id="fovOut">80</output></label>
         <label class="chk"><input id="gore" type="checkbox" checked> Gore (body parts and blood)</label>
@@ -311,6 +315,7 @@
 </div>
 
 <div id="loaderr" class="hidden"></div>
-<script type="module" src="js/main.js?v=0.16.0"></script>
+<script type="module" src="js/main.js?v=0.16.1"></script>
+<div id="fpsBox" class="hidden" style="position:fixed;top:6px;right:8px;z-index:60;font:12px monospace;color:#9f9;background:#0008;padding:2px 6px;pointer-events:none"></div>
 </body>
 </html>

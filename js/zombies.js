@@ -6,8 +6,8 @@
 //  - the match ends when every player is down or dead
 // The host (or the offline player) runs everything; clients mirror the state from 'zs' snapshots and 'z*' events.
 import * as THREE from 'three';
-import { WEAPONS, withAtt } from './weapons.js?v=0.16.0';
-import { buildWindow, setBoards, buildDoor, buildBuy, buildMachine, buildBox, buildPap, gunDisplay, buildPowerup, label, setLabel, POWERUPS } from './zmworld.js?v=0.16.0';
+import { WEAPONS, withAtt } from './weapons.js?v=0.16.1';
+import { buildWindow, setBoards, buildDoor, buildBuy, buildMachine, buildBox, buildPap, gunDisplay, buildPowerup, label, setLabel, POWERUPS } from './zmworld.js?v=0.16.1';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);

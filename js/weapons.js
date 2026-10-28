@@ -115,9 +115,9 @@ export const WEAPONS = {
 WEAPONS.zclaw = { id: 'zclaw', name: 'Zombie', slot: 'none', cls: 'melee', desc: '', dmg: 50, hs: 1, rpm: 60, auto: false, mag: 1, reserve: 0, reload: 1, spread: 0, adsSpread: 0, recoil: 0, recoilYaw: 0, range: [1, 2], minMul: 1, pellets: 1, zoom: 1, scope: false, moveMul: 1, snd: { f: 1000, len: 0.05, thump: 0.2 }, builder: 'm1911', attach: [] };
 
 // ---- more guns: tuned variants that reuse an existing model, recoloured (`tint`)
-const variant = (base, id, name, desc, slot, patch, tint) => { const b = WEAPONS[base]; WEAPONS[id] = { ...b, id, name, desc, slot, ...patch, tint, asset: undefined }; };
+const variant = (base, id, name, desc, slot, patch, tint) => { const b = WEAPONS[base]; WEAPONS[id] = { ...b, id, name, desc, slot, ...patch, tint, asset: patch.asset }; };
 variant('mp5', 'ump', 'UMP-45', 'Heavy .45 SMG. Slower than the 9mm guns but hits harder.', 'primary', { dmg: 31, rpm: 620, mag: 25, reserve: 150, reload: 2.1, recoil: 0.0050, range: [14, 36] }, 0x7a6a45);
-variant('ak47', 'm16', 'M16A4', 'Accurate rifle with a long reach and a calm, climbing recoil.', 'primary', { builder: 'ar', dmg: 34, rpm: 470, mag: 30, reserve: 150, reload: 2.3, recoil: 0.0078, recoilYaw: 0.0034, range: [28, 64], moveMul: 0.99 }, 0x55663f);
+variant('ak47', 'm16', 'M16A4', 'Accurate rifle with a long reach and a calm, climbing recoil.', 'primary', { asset: WEAPONS.m4a1.asset, dmg: 34, rpm: 470, mag: 30, reserve: 150, reload: 2.3, recoil: 0.0078, recoilYaw: 0.0034, range: [28, 64], moveMul: 0.99 }, 0x55663f);
 variant('scar', 'fal', 'FAL', 'Hard-kicking battle rifle. Three shots to kill at any range.', 'primary', { dmg: 46, rpm: 380, mag: 20, reserve: 100, reload: 2.6, recoil: 0.0125, range: [30, 75] }, 0x8a6a40);
 variant('lmg', 'rpk', 'RPK', 'Box-fed light machine gun. Quicker than the M249, fewer rounds.', 'primary', { dmg: 35, rpm: 600, mag: 75, reserve: 225, reload: 4.2, moveMul: 0.98 }, 0x66664a);
 variant('dmr', 'sks', 'SKS', 'Semi-auto battle carbine with a long reach. Heavy punch, slow cycle.', 'primary', { dmg: 70, rpm: 240, mag: 10, reserve: 60, reload: 2.6, recoil: 0.02 }, 0x8a5a2a);
@@ -181,6 +181,7 @@ export const ATT = {
   holo: { slot: 'optic', v: 2, name: 'Holographic Sight', desc: 'Wide window with a ring reticle and a touch of zoom.', stats: 'ADS spread -28%, zoom +15%, hip +10%, speed -2%', mod: (o) => { o.adsSpread *= 0.72; o.zoom *= 1.15; o.spread *= 1.1; o.moveMul *= 0.98; } },
   hybrid: { slot: 'optic', v: 3, name: 'Hybrid 2x Scope', desc: 'Reflex sight on a 2x magnifier.', stats: 'ADS spread -30%, zoom x1.7, hip +15%, speed -3%', mod: (o) => { o.adsSpread *= 0.7; o.zoom *= 1.7; o.spread *= 1.15; o.moveMul *= 0.97; } },
   acog: { slot: 'optic', v: 4, name: 'ACOG 4x Scope', desc: 'Fixed 4x combat scope for long lanes.', stats: 'ADS spread -34%, zoom x2.4, hip +25%, speed -5%', mod: (o) => { o.adsSpread *= 0.66; o.zoom *= 2.4; o.spread *= 1.25; o.moveMul *= 0.95; } },
+  decal: { slot: 'optic', v: 5, name: 'Custom Decal Sight', desc: 'A reflex sight that projects YOUR image as the reticle. Pick the image in the Gunsmith; it is saved on this device.', stats: 'ADS spread -22%, zoom +8%, hip +8%, speed -2%', mod: (o) => { o.adsSpread *= 0.78; o.zoom *= 1.08; o.spread *= 1.08; o.moveMul *= 0.98; } },
   // muzzle
   fh: { slot: 'muzzle', v: 1, name: 'Flash Hider', desc: 'Hides the muzzle flash and trims sideways kick.', stats: 'Recoil -12%, sideways kick -20%, flash -80%, range -6%', mod: (o) => { o.flash = 0.2; o.recoil *= 0.88; o.recoilYaw *= 0.8; range(o, 0.94); } },
   comp: { slot: 'muzzle', v: 2, name: 'Compensator', desc: 'Vents the gas up and out to keep the muzzle down. Loud.', stats: 'Recoil -22%, sideways kick -30%, louder, range -10%, ADS spread +10%', mod: (o) => { o.recoil *= 0.78; o.recoilYaw *= 0.7; o.loud = 1.25; range(o, 0.9); o.adsSpread *= 1.1; } },
@@ -202,7 +203,6 @@ export const ATT = {
   wlaser: { slot: 'laser', v: 3, name: 'Compact Laser', desc: 'Light blue pointer. Smaller bonus, no weight penalty, but it kicks a little.', stats: 'Hip spread -20%, recoil +5%', mod: (o) => { o.spread *= 0.8; o.recoil *= 1.05; o.laser = 3; } },
   // magazines
   xmag: { slot: 'mag', v: 1, name: 'Extended Mag', desc: 'A longer magazine. More shots before you reload, slower to swap.', stats: 'Mag +50%, reload +25%, speed -3%', mod: (o) => { o.mag = Math.round(o.mag * 1.5); o.reload *= 1.25; o.moveMul *= 0.97; } },
-  fmag: { slot: 'mag', v: 2, name: 'Fast Mags', desc: 'Pull-tab magazines that drop and seat quickly, but hold fewer rounds.', stats: 'Reload -35%, mag -15%', mod: (o) => { o.reload *= 0.65; o.mag = Math.max(1, Math.round(o.mag * 0.85)); } },
   drum: { slot: 'mag', v: 3, name: 'Drum Mag', desc: 'Huge drum. Nearly double the ammo, slow to reload and heavy to carry.', stats: 'Mag x2, reload +50%, speed -8%, hip +10%', mod: (o) => { o.mag = Math.round(o.mag * 2); o.reload *= 1.5; o.moveMul *= 0.92; o.spread *= 1.1; } },
   // stocks
   lstock: { slot: 'stock', v: 1, name: 'Light Stock', desc: 'Stripped-down stock. Fast on your feet, kicks more and wobbles when aimed.', stats: 'Speed +8%, recoil +18%, ADS spread +10%', mod: (o) => { o.moveMul *= 1.08; o.recoil *= 1.18; o.adsSpread *= 1.1; } },
@@ -217,21 +217,21 @@ for (const [k, a] of Object.entries(ATT)) a.id = k;
 export const ATT_BY_SLOT = {}; for (const s of SLOTS) ATT_BY_SLOT[s.id] = Object.values(ATT).filter((a) => a.slot === s.id);
 
 // what each class of gun can take (a few guns have exceptions below)
-const ALL = { optic: ['dot', 'holo', 'hybrid', 'acog'], muzzle: ['fh', 'comp', 'brake', 'supp1', 'supp2', 'supp3'], barrel: ['sbar', 'lbar', 'hbar'], under: ['grip', 'agrip', 'sgrip'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag', 'fmag', 'drum'], stock: ['lstock', 'hstock', 'tstock'], ammo: ['fmj', 'hp', 'ap'] };
+const ALL = { optic: ['dot', 'holo', 'hybrid', 'acog'], muzzle: ['fh', 'comp', 'brake', 'supp1', 'supp2', 'supp3'], barrel: ['sbar', 'lbar', 'hbar'], under: ['grip', 'agrip', 'sgrip'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag', 'drum'], stock: ['lstock', 'hstock', 'tstock'], ammo: ['fmj', 'hp', 'ap'] };
 const CLASS_OPTS = {
   smg: { ...ALL, optic: ['dot', 'holo', 'hybrid'] },
   ar: { ...ALL },
-  pistol: { optic: ['dot', 'holo'], muzzle: ['fh', 'comp', 'supp1', 'supp2'], barrel: ['lbar'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag', 'fmag'], ammo: ['fmj', 'hp', 'ap'] },
+  pistol: { optic: ['dot', 'holo'], muzzle: ['fh', 'comp', 'supp1', 'supp2'], barrel: ['lbar'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag'], ammo: ['fmj', 'hp', 'ap'] },
   shotgun: { optic: ['dot', 'holo'], muzzle: ['comp', 'brake'], barrel: ['sbar', 'lbar'], under: ['grip', 'agrip', 'sgrip'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag', 'drum'], stock: ['lstock', 'hstock', 'tstock'] },
-  sniper: { optic: ['dot', 'holo', 'hybrid', 'acog'], muzzle: ['fh', 'comp', 'brake', 'supp1', 'supp2', 'supp3'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag', 'fmag'], stock: ['lstock', 'hstock', 'tstock'], ammo: ['fmj', 'hp', 'ap'] },
+  sniper: { optic: ['dot', 'holo', 'hybrid', 'acog'], muzzle: ['fh', 'comp', 'brake', 'supp1', 'supp2', 'supp3'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'], laser: ['laser', 'tlaser', 'wlaser'], mag: ['xmag'], stock: ['lstock', 'hstock', 'tstock'], ammo: ['fmj', 'hp', 'ap'] },
 };
 const OVERRIDE = {
   kar98k: { optic: [], under: [], mag: [], laser: ['laser', 'tlaser', 'wlaser'], barrel: ['lbar', 'hbar'] },   // the bolt-action already has its own scope
   m680: { mag: [], optic: ['dot', 'holo'] },
-  rpk: { optic: ['dot', 'holo', 'hybrid', 'acog'], mag: ['xmag', 'fmag'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'] },
-  lmg: { optic: ['dot', 'holo', 'hybrid', 'acog'], mag: ['xmag', 'fmag'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'] },
-  p90: { under: [], barrel: ['sbar', 'lbar'], mag: ['xmag', 'fmag'] },
-  skorp: { optic: ['dot', 'holo'], muzzle: ['fh', 'comp', 'supp1', 'supp2'], barrel: ['lbar'], mag: ['xmag', 'fmag'], laser: ['laser', 'tlaser', 'wlaser'], ammo: ['fmj', 'hp', 'ap'] },
+  rpk: { optic: ['dot', 'holo', 'hybrid', 'acog'], mag: ['xmag'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'] },
+  lmg: { optic: ['dot', 'holo', 'hybrid', 'acog'], mag: ['xmag'], barrel: ['lbar', 'hbar'], under: ['grip', 'sgrip'] },
+  p90: { under: [], barrel: ['sbar', 'lbar'], mag: ['xmag'] },
+  skorp: { optic: ['dot', 'holo'], muzzle: ['fh', 'comp', 'supp1', 'supp2'], barrel: ['lbar'], mag: ['xmag'], laser: ['laser', 'tlaser', 'wlaser'], ammo: ['fmj', 'hp', 'ap'] },
   magnum: { mag: [], optic: ['dot', 'holo'], barrel: ['lbar'] },
   deagle: { optic: ['dot', 'holo'], barrel: ['lbar'] },
 };
@@ -239,7 +239,7 @@ const CLS_KEY = { smg: 'smg', ar: 'ar', pistol: 'pistol', shotgun: 'shotgun', sn
 for (const w of Object.values(WEAPONS)) {
   if (w.cls === 'melee' || !w.slot || w.slot === 'none' || w.slot === 'special') { w.opts = {}; w.attach = []; continue; }
   const base = CLASS_OPTS[CLS_KEY[w.cls]] || CLASS_OPTS.ar, ov = OVERRIDE[w.id] || {};
-  w.opts = {}; for (const s of SLOTS) { const l = (ov[s.id] || base[s.id] || []); if (l.length) w.opts[s.id] = l; }
+  w.opts = {}; for (const s of SLOTS) { const l = (ov[s.id] || base[s.id] || []); if (l.length) w.opts[s.id] = s.id === 'optic' && !l.includes('decal') ? [...l, 'decal'] : l; }
   w.attach = Object.values(w.opts).flat();
 }
 

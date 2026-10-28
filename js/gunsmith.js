@@ -1,8 +1,8 @@
 // COD-style Gunsmith: a full-screen overlay with the gun in the middle, one box per attachment slot around it, a pick list with the
 // trade-offs of every option, and the weapon stats (with numbers) updating live as you swap parts.
-import { WEAPONS, SLOTS, ATT, CAMOS, camoReqText, withAtt, weaponStats, cleanMask, getSlot, setSlot, setCamo, camoOf, attList } from './weapons.js?v=0.16.0';
-import { WeaponPreview } from './wpreview.js?v=0.16.0';
-import { camoSwatch } from './gunmodels.js?v=0.16.0';
+import { WEAPONS, SLOTS, ATT, CAMOS, camoReqText, withAtt, weaponStats, cleanMask, getSlot, setSlot, setCamo, camoOf, attList } from './weapons.js?v=0.16.1';
+import { WeaponPreview } from './wpreview.js?v=0.16.1';
+import { camoSwatch, decal } from './gunmodels.js?v=0.16.1';
 
 const $ = (id) => document.getElementById(id);
 const mk = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
@@ -67,6 +67,7 @@ export class Gunsmith {
       mkRow('None', 'Stock part.', getSlot(mask, this.sel) === 0, statDeltas(base, wsStats).length && getSlot(mask, this.sel) ? statDeltas(base, wsStats) : [], () => this.apply(setSlot(mask, this.sel, 0)));
       for (const key of opts) { const a = ATT[key]; mkRow(a.name, a.desc, getSlot(mask, this.sel) === a.v, statDeltas(wsStats, weaponStats(withAtt(w, setSlot(mask, this.sel, a.v)))), () => this.apply(setSlot(mask, this.sel, a.v))); }
     }
+    if (this.sel === 'optic' && getSlot(mask, 'optic') === ATT.decal.v) this.renderDecal(pick);
     // stats panel (numbers + bars + change vs. stock gun)
     const stock = weaponStats(w), now = weaponStats(cur), box = $('gsStats'); box.textContent = '';
     now.forEach((r, i) => {
@@ -78,6 +79,23 @@ export class Gunsmith {
       box.appendChild(row);
     });
     if (this.prev && this.prev.ok) { try { this.prev.show({ ...w, attMask: mask }); } catch (e) { this.prev.ok = false; } }
+  }
+
+  // Custom Decal Sight: choose / clear your own reticle image (saved on this device)
+  renderDecal(pick) {
+    const box = mk('div', 'gs-decal'); box.appendChild(mk('b', null, 'Your reticle image'));
+    box.appendChild(mk('p', null, decal.hasImage ? 'Custom image loaded. Pick another to replace it.' : 'Using the default ring reticle. Pick any picture (PNG with a transparent background works best).'));
+    const file = mk('input'); file.type = 'file'; file.accept = 'image/*'; file.style.display = 'none';
+    file.addEventListener('change', async () => {
+      const f = file.files && file.files[0]; if (!f) return;
+      const rd = new FileReader(); rd.onload = async () => { await decal.load(rd.result, true); this.render(true); }; rd.readAsDataURL(f);
+    });
+    const pickBtn = mk('button', 'btn', 'Choose image...'); pickBtn.type = 'button'; pickBtn.addEventListener('click', () => file.click());
+    const clr = mk('button', 'btn', 'Reset'); clr.type = 'button'; clr.addEventListener('click', () => { decal.clear(); this.render(true); });
+    const row = mk('div', 'gs-decal-row'); row.appendChild(pickBtn); row.appendChild(clr); row.appendChild(file); box.appendChild(row);
+    const lab = mk('label', 'chk'), cb = mk('input'); cb.type = 'checkbox'; cb.checked = decal.keyDark; cb.addEventListener('change', () => decal.setKeyDark(cb.checked));
+    lab.appendChild(cb); lab.appendChild(document.createTextNode(' Hide dark background')); box.appendChild(lab);
+    pick.appendChild(box);
   }
 
   renderCamos(pick, mask) {
