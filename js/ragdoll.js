@@ -1,7 +1,7 @@
 // Euphoria-style active ragdoll. A dying soldier is a Verlet particle skeleton that is still "conscious" for a moment:
 // it staggers (stumble steps), clutches the wound, flails the free arm, braces for the fall with its hands, and only then
 // goes limp. The Verlet skeleton is mapped back onto the jointed soldier mesh (js/soldier.js) every frame.
-import { ARM, aim, inv, norm } from './soldier.js?v=0.17.0';
+import { ARM, aim, inv, norm } from './soldier.js?v=0.17.1';
 
 const H = 1 / 60, G = 20;
 // particle ids

@@ -3,7 +3,7 @@
 // beats add up. Every beat returns to neutral by its end, so the weapon always lands back in the normal hold.
 const TAU = Math.PI * 2;
 const sm = (u) => u * u * (3 - 2 * u);
-const env = (u) => Math.sin(Math.PI * u);
+const env = (u) => sm(Math.min(1, u / 0.32)) * sm(Math.min(1, (1 - u) / 0.32));       // ease in, hold the pose, ease out - no sudden starts
 
 // pose channels: x y z (metres), rx ry rz (radians), hand (support hand on the gun), hdy, mag (0 seated .. 1 out), slide, bolt, pump
 const BEATS = {
@@ -15,17 +15,17 @@ const BEATS = {
   spin:   (u, a) => ({ ry: (a.dir || 1) * TAU * (a.n || 1) * sm(u), x: -0.1 * env(u), z: 0.05 * env(u), y: 0.02 * env(u) }),                                          // pirouette
   toss:   (u, a) => ({ y: (a.h || 0.12) * Math.sin(Math.PI * u), z: 0.07 * env(u), x: -0.05 * env(u), rx: (a.dir || 1) * TAU * (a.n || 1) * sm(u) }),                // throw up, flip, catch
   twirl:  (u, a) => ({ rx: (a.dir || 1) * TAU * (a.n || 1) * sm(u), z: 0.04 * env(u), y: 0.02 * env(u), x: -0.06 * env(u) }),                                         // end over end
-  nod:    (u, a) => ({ rx: (a.k || 0.1) * Math.sin(TAU * u) * env(u), y: 0.01 * env(u) }),
-  wobble: (u, a) => ({ rz: (a.k || 0.12) * Math.sin(TAU * (a.n || 2) * u) * env(u), ry: -(a.k || 0.12) * 0.6 * Math.sin(TAU * (a.n || 2) * u + 1) * env(u) }),
+  nod:    (u, a) => ({ rx: -(a.k || 0.1) * 0.8 * env(u) }),                                                                                              // one slow look-down
+  wobble: (u, a) => ({ rz: (a.k || 0.12) * 0.7 * env(u), ry: -(a.k || 0.12) * 0.4 * env(u) }),                                                   // one gentle tilt
   magOut: (u, a) => ({ hand: env(u), hdy: -0.025 * env(u), mag: Math.min(1, env(u) * 1.35), rz: 0.28 * env(u), x: -0.05 * env(u), y: 0.02 * env(u) }),               // support hand pulls the mag, looks, seats it
   charge: (u, a) => ({ hand: sm(Math.min(1, u * 3)) * (1 - sm(Math.max(0, u * 3 - 2))), hdy: -0.01, bolt: env(Math.min(1, Math.max(0, (u - 0.25) / 0.5))), slide: env(Math.min(1, Math.max(0, (u - 0.25) / 0.5))), rz: 0.2 * env(u), x: -0.03 * env(u) }),
   pump:   (u, a) => ({ hand: sm(Math.min(1, u * 4)) * (1 - sm(Math.max(0, u * 4 - 3))), pump: env(Math.min(1, Math.max(0, (u - 0.3) / 0.45))), rz: 0.1 * env(u) }),
   slidePull: (u, a) => ({ hand: env(u), slide: Math.min(1, env(u) * 1.5), rz: 0.35 * env(u), y: 0.03 * env(u), x: -0.04 * env(u), rx: 0.15 * env(u) }),
-  twist:  (u, a) => ({ ry: (a.k || 0.5) * Math.sin(TAU * u) * env(u), rz: (a.k || 0.5) * 0.6 * Math.sin(TAU * u + 1) * env(u), x: -0.04 * env(u) }),
-  shake:  (u, a) => ({ y: 0.012 * Math.sin(TAU * 4 * u) * env(u), z: 0.01 * Math.sin(TAU * 3 * u) * env(u) }),
+  twist:  (u, a) => ({ ry: (a.k || 0.5) * 0.7 * env(u), rz: (a.k || 0.5) * 0.3 * env(u), x: -0.04 * env(u) }),
+  shake:  (u, a) => ({ y: -0.008 * env(u), rx: 0.04 * env(u) }),                                                                                   // a small settle
 };
 
-const A = (dur, ...beats) => ({ dur, beats: beats.map(([b, t0, t1, a]) => ({ b, t0, t1, a: a || {} })) });
+const A = (dur, ...beats) => ({ dur: dur * 1.25, beats: beats.map(([b, t0, t1, a]) => ({ b, t0, t1, a: a || {} })) });
 
 export const INSPECTS = {
   // --- SMGs
@@ -56,12 +56,12 @@ export const INSPECTS = {
   mac10:    A(2.6, ['twist', 0.0, 0.3, { k: 0.5 }], ['slidePull', 0.3, 0.62], ['spin', 0.62, 0.95, { n: 1, dir: -1 }]),
   skorp:    A(2.8, ['tilt', 0.0, 0.28, { k: 0.9 }], ['slidePull', 0.28, 0.6], ['toss', 0.6, 0.92, { h: 0.08, n: 1 }]),
   magnum:   A(3.0, ['raise', 0.0, 0.25, { k: 1 }], ['roll', 0.25, 0.58, { dir: -1 }], ['show', 0.58, 0.9, { side: -1 }]),
-  revolver44: A(3.4, ['show', 0.0, 0.28, { side: 1 }], ['wobble', 0.28, 0.5, { k: 0.2, n: 3 }], ['roll', 0.5, 0.82, { dir: 1, n: 2 }], ['nod', 0.82, 1]),
+  revolver44: A(3.4, ['show', 0.0, 0.28, { side: 1 }], ['wobble', 0.28, 0.5, { k: 0.12 }], ['roll', 0.5, 0.82, { dir: 1, n: 1 }], ['nod', 0.82, 1]),
   deagle:   A(3.2, ['raise', 0.0, 0.3, { k: 1 }], ['slidePull', 0.3, 0.6], ['twist', 0.6, 0.94, { k: 0.6 }]),
-  goldgun:  A(4.4, ['raise', 0.0, 0.3, { k: 1 }], ['spin', 0.3, 0.8, { n: 2, dir: 1 }], ['shake', 0.8, 0.9], ['nod', 0.9, 1, { k: 0.15 }]),
+  goldgun:  A(4.4, ['raise', 0.0, 0.3, { k: 1 }], ['spin', 0.3, 0.8, { n: 1, dir: 1 }], ['shake', 0.8, 0.9], ['nod', 0.9, 1, { k: 0.15 }]),
   // --- knives
   k_combat:   A(2.8, ['raise', 0.0, 0.25, { k: 0.6 }], ['twirl', 0.25, 0.6, { n: 1, dir: -1 }], ['roll', 0.6, 0.9, { dir: 1 }]),
-  k_karambit: A(3.0, ['tilt', 0.0, 0.2, { k: 0.5 }], ['roll', 0.2, 0.6, { n: 3, dir: 1 }], ['twirl', 0.6, 0.9, { n: 1, dir: 1 }]),
+  k_karambit: A(3.0, ['tilt', 0.0, 0.2, { k: 0.5 }], ['roll', 0.2, 0.6, { n: 2, dir: 1 }], ['twirl', 0.6, 0.9, { n: 1, dir: 1 }]),
   k_balisong: A(3.4, ['raise', 0.0, 0.2, { k: 0.5 }], ['twirl', 0.2, 0.4, { n: 1, dir: 1 }], ['roll', 0.4, 0.62, { n: 1, dir: -1 }], ['twirl', 0.62, 0.84, { n: 1, dir: -1 }], ['shake', 0.84, 1]),
   k_machete:  A(3.2, ['raise', 0.0, 0.28, { k: 0.9 }], ['show', 0.28, 0.6, { side: -1 }], ['twist', 0.6, 0.92, { k: 0.5 }]),
   k_tomahawk: A(3.0, ['raise', 0.0, 0.18, { k: 0.5 }], ['toss', 0.18, 0.62, { h: 0.16, n: 1, dir: 1 }], ['wobble', 0.62, 0.9, { k: 0.1 }]),

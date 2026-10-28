@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf } from './weapons.js?v=0.17.0';
+import { getSlot, camoOf } from './weapons.js?v=0.17.1';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +11,7 @@ import { getSlot, camoOf } from './weapons.js?v=0.17.0';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.17.0';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.17.1';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -499,66 +499,74 @@ function buildSkorp() {              // machine pistol
 // Knives: blade points along -Z, the hand grips the handle at `grip`
 // ------------------------------------------------------------------------------------------------
 const kdone = (b, grip, tip) => b.done({ muzzle: V(0, 0, tip), sightY: 0.07, grip, fore: V(0, -0.03, -0.05), pistol: true, mount: V(0, 0.03, 0), under: V(0, -0.03, 0), side: V(0.03, 0, 0) });
-function buildKCombat() {
+// a blade is a real outline (pairs of [z, y] in gun space, -z = toward the tip) extruded thin with a chamfered edge; falls back to a plain slab if shapes are unavailable
+function blade(b, pts, th, m, x = 0) {
+  if (!THREE.Shape || !THREE.ExtrudeGeometry) { const zs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]), z0 = Math.min(...zs), z1 = Math.max(...zs), y0 = Math.min(...ys), y1 = Math.max(...ys); return b.box(th, y1 - y0, z1 - z0, x, (y0 + y1) / 2, (z0 + z1) / 2, m); }
+  const s = new THREE.Shape(); pts.forEach((p, k) => { if (k) s.lineTo(-p[0], p[1]); else s.moveTo(-p[0], p[1]); });
+  const bv = Math.min(0.0014, th * 0.3), geo = new THREE.ExtrudeGeometry(s, { depth: Math.max(0.0008, th - bv * 2), bevelEnabled: true, bevelThickness: bv, bevelSize: bv * 0.9, bevelSegments: 1, curveSegments: 4 });
+  geo.translate(0, 0, -(th - bv * 2) / 2);
+  return b._add(geo, m, x, 0, 0, 0, Math.PI / 2, 0);
+}
+const arc = (cz, cy, r, a0, a1, n) => Array.from({ length: n + 1 }, (_, k) => { const a = a0 + (a1 - a0) * k / n; return [cz - r * Math.sin(a), cy - r * (1 - Math.cos(a))]; });
+const fuller = (b, z0, z1, y, x = 0.0035, th = 0.0012) => { b.box(th, 0.005, z1 - z0, x, y, (z0 + z1) / 2, mat(0x5a626b, 0.9, 0.3)); b.box(th, 0.005, z1 - z0, -x, y, (z0 + z1) / 2, mat(0x5a626b, 0.9, 0.3)); };
+
+function buildKCombat() {                                      // tactical drop-point fighting knife
   const b = new B();
-  b.box(0.03, 0.036, 0.115, 0, -0.004, 0.0, M.black());                                  // ribbed handle
-  for (let i = 0; i < 5; i++) b.box(0.032, 0.038, 0.006, 0, -0.004, -0.04 + i * 0.02, M.blued());
-  b.ball(0.019, 0, -0.004, 0.062, M.steel());                                              // pommel
-  b.box(0.01, 0.062, 0.012, 0, 0.004, -0.064, M.blued());                                  // cross guard
-  b.box(0.007, 0.036, 0.18, 0, 0.008, -0.158, M.silver());                                 // blade
-  b.box(0.007, 0.022, 0.055, 0, 0.013, -0.275, M.silver(), 0.33);                          // clip point
-  b.box(0.0075, 0.008, 0.11, 0, 0.026, -0.17, M.steel());                                  // spine
-  for (let i = 0; i < 5; i++) b.box(0.0078, 0.006, 0.012, 0, 0.0225, -0.12 - i * 0.02, M.black());   // serrations
-  b.box(0.004, 0.006, 0.17, 0, -0.011, -0.158, mat(0xe8eef3, 1, 0.12));                    // edge bevel highlight
+  b.box(0.028, 0.034, 0.118, 0, -0.006, 0.004, M.black());                                  // contoured handle
+  for (let i = 0; i < 4; i++) b.box(0.03, 0.012, 0.014, 0, -0.026, -0.036 + i * 0.026, M.blued());   // finger grooves
+  b.box(0.026, 0.006, 0.12, 0, 0.0155, 0.004, M.blued());                                   // spine plate
+  b.ball(0.0185, 0, -0.006, 0.066, M.steel());                                              // pommel
+  b.box(0.012, 0.064, 0.012, 0, 0.0, -0.066, M.steel());                                    // cross guard
+  blade(b, [[-0.07, 0.022], [-0.2, 0.027], [-0.262, 0.016], [-0.298, -0.002], [-0.262, -0.014], [-0.2, -0.026], [-0.07, -0.022]], 0.0068, M.silver());
+  fuller(b, -0.09, -0.21, 0.012);
+  for (let i = 0; i < 6; i++) b.box(0.0075, 0.005, 0.01, 0, -0.019, -0.1 - i * 0.017, M.black());   // choil teeth
   return kdone(b, V(0, -0.004, 0.0), -0.3);
 }
-function buildKKarambit() {
-  const b = new B(); const R = 0.105;
-  b.box(0.028, 0.034, 0.1, 0, -0.004, 0.0, M.poly());                                      // handle
-  for (let i = 0; i < 4; i++) b.box(0.03, 0.036, 0.006, 0, -0.004, -0.03 + i * 0.02, M.black());
-  b.box(0.0292, 0.012, 0.022, 0, 0.0155, 0.04, M.steel());
-  b._add(new THREE.TorusGeometry(0.022, 0.0055, 8, 18), M.steel(), 0, -0.004, 0.083, 0, Math.PI / 2, 0);   // finger ring
-  for (let i = 0; i < 9; i++) {                                                            // blade: a hooked arc that curls down and forward
-    const a = (i / 8) * 1.25, cz = -0.052 - R * Math.sin(a), cy = 0.012 - R * (1 - Math.cos(a)), tl = 0.034 * (1 - i * 0.075);
-    b.box(0.0065, 0.03 * (1 - i * 0.085), 0.03, 0, cy, cz, i % 2 ? M.silver() : M.steel(), a);
-  }
-  b.box(0.0066, 0.008, 0.02, 0, 0.028, -0.052, M.steel());
-  return kdone(b, V(0, -0.004, 0.0), -0.27);
-}
-function buildKBalisong() {
+function buildKKarambit() {                                    // hooked claw with a finger ring
   const b = new B();
-  for (const s of [-1, 1]) { b.box(0.011, 0.034, 0.118, s * 0.0105, -0.004, 0.02, M.blued()); b.box(0.004, 0.026, 0.1, s * 0.0165, -0.004, 0.02, M.black()); }   // two handle halves, flipped open
-  for (const z of [-0.036, 0.075]) b.rod(0.0075, 0.04, 0, -0.004, z, M.steel());           // pivot pins
-  b.box(0.012, 0.03, 0.018, 0, -0.004, -0.032, M.steel());                                 // bite handle latch
-  b.box(0.005, 0.034, 0.17, 0, 0.004, -0.133, M.silver());                                 // blade
-  b.box(0.0052, 0.02, 0.06, 0, 0.01, -0.245, M.silver(), 0.3);                             // drop point
-  b.box(0.0054, 0.008, 0.06, 0, 0.0225, -0.14, mat(0x252a30, 0.9, 0.35));                  // dark spine
-  b.box(0.0056, 0.01, 0.02, 0, -0.016, -0.05, M.steel());                                  // kicker
-  return kdone(b, V(0, -0.004, 0.02), -0.28);
+  b.box(0.026, 0.034, 0.1, 0, -0.006, 0.0, M.poly());                                       // handle
+  for (let i = 0; i < 4; i++) b.box(0.028, 0.036, 0.006, 0, -0.006, -0.03 + i * 0.02, M.black());
+  b.box(0.0285, 0.01, 0.02, 0, 0.014, 0.043, M.steel());
+  b._add(new THREE.TorusGeometry(0.023, 0.0058, 8, 22), M.steel(), 0, -0.006, 0.086, 0, Math.PI / 2, 0);   // finger ring
+  const R = 0.12, inner = arc(-0.052, 0.012, R, 0.0, 1.32, 14), outer = arc(-0.052, 0.012 + 0.042, R + 0.0, 0.0, 1.32, 14).map((p, k, a) => [p[0], p[1] - 0.042 * (k / (a.length - 1)) * 0.92]);
+  blade(b, [...outer, ...inner.reverse()], 0.0066, M.silver());                              // crescent blade
+  fuller(b, -0.07, -0.13, 0.026, 0.0034);
+  b.box(0.0068, 0.012, 0.024, 0, 0.026, -0.05, M.steel());                                   // blade root
+  return kdone(b, V(0, -0.006, 0.0), -0.27);
 }
-function buildKMachete() {
+function buildKBalisong() {                                    // butterfly knife with the blade flipped out
   const b = new B();
-  b.box(0.028, 0.036, 0.125, 0, -0.004, 0.0, M.wood());                                    // wooden scales
-  for (const z of [-0.035, 0.0, 0.035]) b.rod(0.0042, 0.034, 0, -0.004, z, M.steel());     // rivets
-  b.box(0.012, 0.04, 0.012, 0, 0.002, -0.07, M.steel());                                   // small guard
-  b.box(0.006, 0.055, 0.3, 0, 0.012, -0.22, M.silver());                                   // broad blade
-  b.box(0.006, 0.075, 0.12, 0, 0.0155, -0.4, M.silver());                                  // belly widens toward the tip
-  b.box(0.0062, 0.05, 0.05, 0, 0.032, -0.485, M.silver(), 0.55);                           // clipped tip
-  b.box(0.0068, 0.008, 0.38, 0, 0.044, -0.28, M.steel());                                  // spine
-  b.box(0.0045, 0.006, 0.34, 0, -0.016, -0.25, mat(0xe8eef3, 1, 0.12));                    // edge highlight
+  for (const s of [-1, 1]) { b.box(0.011, 0.036, 0.126, s * 0.0108, -0.004, 0.02, M.blued()); b.box(0.004, 0.028, 0.104, s * 0.0168, -0.004, 0.02, M.black());
+    for (let i = 0; i < 4; i++) b.box(0.0046, 0.012, 0.008, s * 0.0168, -0.004, -0.016 + i * 0.024, M.steel()); }          // two handle halves with grip inserts
+  for (const z of [-0.04, 0.078]) b.rod(0.0082, 0.044, 0, -0.004, z, M.steel());             // pivot pins
+  b.box(0.014, 0.03, 0.018, 0, -0.004, -0.036, M.steel());                                    // latch
+  blade(b, [[-0.046, 0.016], [-0.18, 0.02], [-0.25, 0.013], [-0.292, -0.002], [-0.24, -0.015], [-0.18, -0.018], [-0.046, -0.016]], 0.0052, M.silver());
+  fuller(b, -0.07, -0.16, 0.002, 0.0028);
+  b.box(0.0056, 0.008, 0.07, 0, 0.018, -0.12, mat(0x252a30, 0.9, 0.35));                     // dark spine
+  b.box(0.006, 0.01, 0.02, 0, -0.016, -0.052, M.steel());                                     // kicker
+  return kdone(b, V(0, -0.004, 0.02), -0.29);
+}
+function buildKMachete() {                                     // long cleaver-belly machete
+  const b = new B();
+  b.box(0.028, 0.036, 0.128, 0, -0.004, 0.0, M.wood());                                       // wooden scales
+  for (const z of [-0.04, 0.0, 0.04]) b.rod(0.0044, 0.036, 0, -0.004, z, M.steel());          // rivets
+  b.box(0.012, 0.044, 0.012, 0, 0.004, -0.07, M.steel());                                      // guard
+  b.box(0.006, 0.01, 0.028, 0, -0.024, 0.075, M.steel());                                      // lanyard hole boss
+  blade(b, [[-0.074, 0.02], [-0.2, 0.03], [-0.36, 0.042], [-0.46, 0.046], [-0.5, 0.034], [-0.5, 0.012], [-0.44, -0.03], [-0.32, -0.052], [-0.2, -0.05], [-0.074, -0.02]], 0.0062, M.silver());
+  fuller(b, -0.1, -0.4, 0.016, 0.0034);
+  b.box(0.0068, 0.007, 0.4, 0, 0.0445, -0.28, M.steel());                                      // spine
   return kdone(b, V(0, -0.004, 0.0), -0.5);
 }
-function buildKTomahawk() {
+function buildKTomahawk() {                                    // tactical axe: bearded bit up front, spike on the back
   const b = new B();
-  b.box(0.03, 0.034, 0.4, 0, -0.004, -0.05, M.wood());                                     // long shaft
-  b.box(0.034, 0.038, 0.1, 0, -0.004, 0.1, M.black());                                     // rubber grip wrap
-  for (let i = 0; i < 4; i++) b.box(0.036, 0.04, 0.005, 0, -0.004, 0.065 + i * 0.022, M.blued());
-  b.box(0.016, 0.05, 0.06, 0, 0.012, -0.235, M.steel());                                   // head socket
-  b.box(0.01, 0.12, 0.06, 0, 0.012, -0.27, M.silver());                                    // axe blade (bearded)
-  b.box(0.008, 0.07, 0.03, 0, 0.0, -0.31, M.silver(), 0.35);
-  b.box(0.012, 0.012, 0.07, 0, 0.012, -0.195, M.steel());                                  // hammer / spike on the back
-  b.box(0.007, 0.04, 0.014, 0, 0.082, -0.255, M.steel());
-  b.box(0.0048, 0.12, 0.006, 0, 0.012, -0.302, mat(0xe8eef3, 1, 0.12));                    // edge highlight
+  b.box(0.028, 0.032, 0.42, 0, -0.004, -0.04, M.wood());                                      // shaft
+  b.box(0.032, 0.036, 0.11, 0, -0.004, 0.1, M.black());                                       // grip wrap
+  for (let i = 0; i < 5; i++) b.box(0.034, 0.038, 0.005, 0, -0.004, 0.058 + i * 0.022, M.blued());
+  b.box(0.034, 0.016, 0.03, 0, -0.004, 0.158, M.blued());                                     // butt flare
+  b.box(0.02, 0.05, 0.07, 0, 0.012, -0.235, M.steel());                                       // eye / socket
+  blade(b, [[-0.215, 0.036], [-0.25, 0.06], [-0.285, 0.088], [-0.31, 0.064], [-0.3, 0.02], [-0.31, -0.04], [-0.285, -0.074], [-0.25, -0.052], [-0.215, -0.018]], 0.011, M.silver());
+  blade(b, [[-0.215, 0.026], [-0.15, 0.0], [-0.215, -0.004]], 0.011, M.steel());              // back spike
+  fuller(b, -0.25, -0.3, 0.016, 0.0058, 0.0014);
   return kdone(b, V(0, -0.004, 0.065), -0.34);
 }
 const BUILDERS = { ak: buildAK, bolt: buildBolt, pump: buildPump, glock: buildGlock, m1911: build1911, revolver: buildRevolver,
@@ -728,15 +736,17 @@ export function camoSwatch(id, w = 72, h = 44) {                                
 }
 const camoMats = new Map(), camoTime = { value: 0 };
 export function tickCamos(dt) { camoTime.value += dt; }
+export const camoQ = { low: false };                                  // Graphics: Low draws camos as plain painted metal (no clearcoat, animation or depth layers)
 function camoMat(id) {
-  if (camoMats.has(id)) return camoMats.get(id);
-  const set = camoSet(id); if (!set) { camoMats.set(id, null); return null; }
-  const look = CAMO_LOOK[id] || { m: 0.18, r: 0.55, env: 0.9 };
+  const ck = id + (camoQ.low ? 'L' : '');
+  if (camoMats.has(ck)) return camoMats.get(ck);
+  const set = camoSet(id); if (!set) { camoMats.set(ck, null); return null; }
+  const full = CAMO_LOOK[id] || { m: 0.18, r: 0.55, env: 0.9 }, look = camoQ.low ? { m: full.m, r: Math.max(0.35, full.r), env: 0.8 } : full;
   const Phys = THREE.MeshPhysicalMaterial || THREE.MeshStandardMaterial;
   const m = new Phys({ color: 0xffffff, metalness: look.m, roughness: look.r, envMapIntensity: look.env });
   if (look.cc && 'clearcoat' in m) { m.clearcoat = look.cc; m.clearcoatRoughness = 0.08; }
-  if (set.em) { m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = look.em || 1; }
-  const hasEm = !!set.em;
+  if (set.em && !camoQ.low) { m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = look.em || 1; }
+  const hasEm = !!set.em && !camoQ.low;
   const fl = look.flow || [0.01, 0.03, 0.05], rim = look.rim || [1, 1, 1], f = (x) => (+x).toFixed(4);
   // depth: three layers of the pattern at different scales, parallax-shifted by the view direction and drifting, plus a rim glow - reads as paint with a volume under it
   const deepFrag = look.deep ? `vec3 vdir = normalize(vVp); vec3 flw = vec3(${f(fl[0])}, ${f(fl[1])}, ${f(fl[2])}) * camoT;
@@ -759,8 +769,8 @@ function camoMat(id) {
       .replace('#include <map_fragment>', look.deep ? deepFrag : look.hue ? 'diffuseColor.rgb *= hueRot(camoTri(camoMap, vGp, vGn), camoT * 0.9 + vGp.z * 3.0);' : look.flake ? 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn) * (0.85 + 0.35 * step(0.82, fract(sin(dot(floor(vGp * 420.0), vec3(12.9, 78.2, 37.7))) * 43758.5)) * (0.5 + 0.5 * sin(camoT * 3.0 + vGp.x * 60.0)));' : 'diffuseColor.rgb *= camoTri(camoMap, vGp, vGn);')
       .replace('#include <emissivemap_fragment>', hasEm ? (look.deep ? deepEm : look.pulse ? 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn) * (0.65 + 0.35 * sin(camoT * 2.2 + vGp.z * 14.0));' : 'totalEmissiveRadiance *= camoTri(camoEm, vGp, vGn);') : '');
   };
-  m.customProgramCacheKey = () => 'camo' + id;
-  camoMats.set(id, m); return m;
+  m.customProgramCacheKey = () => 'camo' + ck;
+  camoMats.set(ck, m); return m;
 }
 function applyCamo(g, id) {
   if (!id || !THREE.BufferAttribute || !THREE.Matrix4 || !THREE.Matrix3) return;

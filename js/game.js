@@ -1,28 +1,33 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.17.0';
-import { canon } from './keybinds.js?v=0.17.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.17.0';
-import { buildGun, makeEnv } from './gunmodels.js?v=0.17.0';
-import { buildMap } from './maps.js?v=0.17.0';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.17.0';
-import { buildWorld } from './world.js?v=0.17.0';
-import { Bot } from './bots.js?v=0.17.0';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.17.0';
-import { buildSoldier, SKIN } from './soldier.js?v=0.17.0';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.17.0';
-import { Zombies, PERKS } from './zombies.js?v=0.17.0';
-import { inspectFor, inspectPose } from './inspect.js?v=0.17.0';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.17.0';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.17.0';
-import { Objectives } from './objectives.js?v=0.17.0';
-import { Streaks, STREAKS } from './streaks.js?v=0.17.0';
-import { Gore } from './gore.js?v=0.17.0';
+import { MOD } from './supermod.js?v=0.17.1';
+import { canon } from './keybinds.js?v=0.17.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.17.1';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.17.1';
+import { buildMap } from './maps.js?v=0.17.1';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.17.1';
+import { buildWorld } from './world.js?v=0.17.1';
+import { Bot } from './bots.js?v=0.17.1';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.17.1';
+import { buildSoldier, SKIN } from './soldier.js?v=0.17.1';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.17.1';
+import { Zombies, PERKS } from './zombies.js?v=0.17.1';
+import { inspectFor, inspectPose } from './inspect.js?v=0.17.1';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.17.1';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.17.1';
+import { Objectives } from './objectives.js?v=0.17.1';
+import { Streaks, STREAKS } from './streaks.js?v=0.17.1';
+import { Gore } from './gore.js?v=0.17.1';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
+// per-knife swing character: arc = how wide the slash sweeps, reach = lunge distance, roll = wrist roll, chop = overhead drop
+const KNIFE_SWING = {
+  k_combat: { arc: 1, reach: 1, roll: 0.15, chop: 0 }, k_karambit: { arc: 0.8, reach: 0.8, roll: 1.4, chop: 0 }, k_balisong: { arc: 0.9, reach: 0.9, roll: 0.7, chop: 0.1 },
+  k_machete: { arc: 1.3, reach: 1.1, roll: 0.1, chop: 0.2 }, k_tomahawk: { arc: 0.7, reach: 1, roll: 0, chop: 0.9 },
+};
 export const MODES = {
   tdm: { id: 'tdm', name: 'Team Deathmatch', team: true, perSide: 5, scoreLimit: 30, time: 420, blurb: '5v5 - first team to 30 kills' },
   '1v1': { id: '1v1', name: '1v1 Duel', team: false, count: 2, scoreLimit: 10, time: 300, blurb: 'You vs one bot - first to 10 kills' },
@@ -145,19 +150,43 @@ export class Game {
     document.addEventListener('pointerlockerror', () => { if (this.state === 'playing') this.pause(); });
   }
 
-  // graphics presets: render scale, shadows (see the Graphics setting)
-  static GFX = { low: { pr: 0.6, shadow: 0, anim: false }, medium: { pr: 1, shadow: 1024, anim: true }, high: { pr: 1.5, shadow: 2048, anim: true } };
+  // graphics presets (Graphics setting). LOW really cuts work: half-res render, no shadows, no extra point lights,
+  // simple (Lambert) materials in the world, shorter view distance, no ragdolls or gore particles. HIGH adds full-res + 4K shadows.
+  static GFX = {
+    low:    { pr: 0.5, shadow: 0, lambert: true,  lights: false, far: 150, fogMul: 0.55, ragdoll: false, gore: false },
+    medium: { pr: 1,   shadow: 1024, lambert: false, lights: true, far: 350, fogMul: 1, ragdoll: true, gore: true },
+    high:   { pr: 2,   shadow: 4096, lambert: false, lights: true, far: 500, fogMul: 1, ragdoll: true, gore: true },
+  };
+  get gfxQ() { return Game.GFX[this.settings.gfx] || Game.GFX.high; }
   applyGfx() {
-    const q = Game.GFX[this.settings.gfx] || Game.GFX.high;
+    const q = this.gfxQ;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr)); this.resize();
+    camoQ.low = !!q.lambert; this.camera.far = q.far; this.camera.updateProjectionMatrix();
     if (!this.scene) return;
-    this.scene.traverse((o) => {
-      if (!o.isDirectionalLight || !o.shadow) return;
-      if (o.userData.hadShadow === undefined) o.userData.hadShadow = !!o.castShadow;
-      const on = o.userData.hadShadow && q.shadow > 0;
-      if (on && o.shadow.mapSize.x !== q.shadow) { o.shadow.mapSize.set(q.shadow, q.shadow); if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; } }
-      o.castShadow = on;
+    this.gfxSweep(true);
+  }
+  gfxSweep(full) {                                   // (re)apply the preset to everything in the world scene; cheap enough to repeat for newly spawned meshes
+    const q = this.gfxQ, sc = this.scene; if (!sc) return;
+    if (sc.fog && sc.fog.far) { if (sc.userData.fogFar === undefined) sc.userData.fogFar = sc.fog.far; sc.fog.far = sc.userData.fogFar * q.fogMul; }
+    const lamb = this.lambCache || (this.lambCache = new Map());
+    sc.traverse((o) => {
+      if (o.isDirectionalLight && o.shadow) {
+        if (o.userData.hadShadow === undefined) o.userData.hadShadow = !!o.castShadow;
+        const on = o.userData.hadShadow && q.shadow > 0;
+        if (on && o.shadow.mapSize.x !== q.shadow) { o.shadow.mapSize.set(q.shadow, q.shadow); if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; } }
+        o.castShadow = on;
+      } else if (o.isPointLight) {
+        if (o.userData.hadVis === undefined) o.userData.hadVis = o.visible !== false;
+        const v = o.userData.hadVis && q.lights; if (o.visible !== v) { o.visible = v; full = 'mats'; }
+      } else if (o.isMesh && o.material && !Array.isArray(o.material)) {
+        const m = o.material;
+        if (q.lambert && m.isMeshStandardMaterial && !m.isMeshPhysicalMaterial && THREE.MeshLambertMaterial) {
+          let l = lamb.get(m); if (!l) { l = new THREE.MeshLambertMaterial({ color: m.color, map: m.map || null, vertexColors: !!m.vertexColors, transparent: !!m.transparent, opacity: m.opacity, side: m.side, emissive: m.emissive, emissiveIntensity: m.emissiveIntensity, fog: m.fog }); l.userData.orig = m; lamb.set(m, l); }
+          o.userData.origMat = m; o.material = l;
+        } else if (!q.lambert && o.material.userData && o.material.userData.orig) o.material = o.material.userData.orig;
+      }
     });
+    if (full === 'mats') sc.traverse((o) => { if (o.isMesh && o.material && !Array.isArray(o.material)) o.material.needsUpdate = true; });
   }
 
   resize() {
@@ -223,7 +252,7 @@ export class Game {
     this.timeLeft = mode.time; this.matchT = mode.sandbox ? 0 : -3.5; this.ended = false; this.ggWin = null;
     this.killer = null; this.deathInfo = '';
     this.lastCountdown = mode.sandbox ? 0 : 99; this.nextDummyId = 1000;
-    this.matchXp = 0; this.xpDone = false; this.hud.begin(this);
+    this.matchXp = 0; this.xpDone = false; this.hud.begin(this); this.gfxT = 0;
     for (const a of this.actors) this.spawn(a, true);
     this.obj = mode.obj ? new Objectives(this, mode.obj) : null;
     this.streaks = mode.sandbox || mode.zm ? null : new Streaks(this);
@@ -447,7 +476,7 @@ export class Game {
     this.teamScore = info.ts ? info.ts.slice() : [0, 0];
     this.timeLeft = this.mode.time; this.matchT = info.mt; this.ended = false; this.ggWin = null;
     this.killer = null; this.lastCountdown = this.mode.sandbox ? 0 : 99; this.clockOff = null; this.snapT = 0; this.stT = 0; this.nextDummyId = 1000;
-    this.matchXp = 0; this.xpDone = false; this.hud.begin(this);
+    this.matchXp = 0; this.xpDone = false; this.hud.begin(this); this.gfxT = 0;
     for (const a of this.actors) { a.alive = false; a.mesh.root.visible = false; }
     if (net.role === 'host') for (const a of this.actors) if (!a.zombie) this.spawn(a, true);
     this.zm = this.mode.zm ? new Zombies(this) : null;
@@ -833,6 +862,7 @@ export class Game {
     dt = Math.min(dt, 0.05);
     if (this.race && this.race.active) { this.race.frame(dt); return; }
     if (!this.scene) return;
+    if (this.gfxQ.lambert && (this.gfxT = (this.gfxT || 0) - dt) <= 0) { this.gfxT = 2.5; this.gfxSweep(); }     // low: keep swapping materials on freshly spawned meshes (bots, props)
     if (this.state === 'playing' || (this.net && this.state === 'paused')) this.update(dt);
     this.render(dt);
   }
@@ -946,14 +976,14 @@ export class Game {
 
   // Euphoria-style active ragdoll: the dying soldier staggers, clutches the wound and braces before going limp (ragdoll.js)
   startRagdoll(v, k, w, head) {
-    if (!v.mesh || !this.settings.ragdoll) return;
+    if (!v.mesh || !this.settings.ragdoll || !this.gfxQ.ragdoll) return;
     try { Ragdoll.reset(v.mesh); v.rag = makeRagdoll(this.col, v, v.mesh, k, w, head); } catch (e) { v.rag = null; }
   }
 
   // GoreBox-style death: blood spray + splatter on walls and floor, a growing pool, spurting stumps, flying parts
   // (head/torso/arm/leg each have 3 models, plus chunks and organs) leaving blood trails. See gore.js.
   spawnGore(v, k, w, head) {
-    const gr = this.gore; if (!gr || !this.settings.gore || !v.mesh) return;
+    const gr = this.gore; if (!gr || !this.settings.gore || !this.gfxQ.gore || !v.mesh) return;
     const m = v.mesh, cls = (w.id === 'm680' || w.id === 'aa12') ? 'shotgun' : (w.id === 'kar98k' || w.id === 'dmr') ? 'sniper' : 'other', big = cls !== 'other' || head;
     let dx = v.pos.x - k.pos.x, dz = v.pos.z - k.pos.z; const dl = Math.hypot(dx, dz);
     if (dl < 0.01) { const a = Math.random() * 6.28; dx = Math.cos(a); dz = Math.sin(a); } else { dx /= dl; dz /= dl; }
@@ -1570,10 +1600,17 @@ export class Game {
       for (const e of vm.mags) { e.m.visible = true; e.m.position.y = e.p.y - ip.mag * 0.075; e.m.position.z = e.p.z + ip.mag * 0.03; }
     } else if (S.inspWas) { S.inspWas = false; for (const e of vm.mags) { e.m.visible = true; e.m.position.copy(e.p); } }
 
-    if (this.swing) {                                                                  // knife swings
-      const s = this.swing, u = clamp(s.t / s.dur, 0, 1), ph = Math.sin(Math.PI * u);
-      if (s.kind === 'quick') { z -= 0.3 * ph; y += 0.05 * ph; x -= 0.04 * ph; rx -= 0.55 * ph; ry += 0.25 * ph; }
-      else { x += 0.18 - 0.4 * u; y += 0.06 * ph; z -= 0.16 * ph; ry += 1.2 * (0.5 - u); rz += 1.1 * (0.5 - u); rx -= 0.25 * ph; }
+    if (this.swing) {                                                                  // knife swings: wind-up, strike, follow-through, recover (tuned per knife)
+      const s = this.swing, u = clamp(s.t / s.dur, 0, 1), E = (a0, b0) => sm(a0, b0, u), K = KNIFE_SWING[vm.id] || KNIFE_SWING.k_combat;
+      if (s.kind === 'quick') {
+        const wind = E(0, 0.24) * (1 - E(0.24, 0.36)), thrust = E(0.2, 0.46) * (1 - E(0.52, 0.95));
+        z += 0.08 * wind - 0.36 * K.reach * thrust; y += 0.02 * wind + 0.05 * thrust; x += 0.03 * wind - 0.05 * thrust;
+        rx += 0.3 * wind - 0.5 * thrust; ry += 0.22 * thrust; rz += K.roll * thrust - 0.2 * wind;
+      } else {
+        const wi = E(0, 0.26), p2 = E(0.26, 0.62), back = 1 - E(0.64, 1), f = wi * back, a2 = (1 - 2 * p2) * f;            // a2 sweeps +1 (high right) .. -1 (low left)
+        x += 0.2 * K.arc * a2; y += 0.06 * (1 - a2 * a2) * f + 0.03 * f; z -= 0.14 * K.reach * (1 - Math.abs(a2) * 0.4) * f;
+        ry += 1.1 * K.arc * a2; rz += (1.0 * a2 + K.roll * Math.sin(Math.PI * p2)) * f; rx += (-0.25 * (1 - a2 * a2) - K.chop * Math.sin(Math.PI * p2)) * f;
+      }
     }
     // --- apply ----------------------------------------------------------------------------------
     this.vmRoot.position.set(x, y, z); this.vmRoot.rotation.set(rx, ry, rz);

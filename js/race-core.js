@@ -76,7 +76,10 @@ export class Track {
   }
 
   // ground info at (x, z): height, distance from the centreline, whether on the dirt, progress index
+  terrainAt(x, z) { return 0.9 * Math.sin(x * 0.031) * Math.cos(z * 0.027) - 0.5; }
   ground(x, z, hint = -1) {
+    const B = this.bounds;
+    if (x < B.x0 || x > B.x1 || z < B.z0 || z > B.z1) return { h: this.terrainAt(x, z), d: 999, lat: 0, on: false, i: hint >= 0 ? hint : 0 };      // far from the track: just rolling grass (free ride goes anywhere)
     const N = this.N, i = this.nearest(x, z, hint);
     // project onto the neighbouring segment for a smooth height and distance
     const dx = x - this.x[i], dz = z - this.z[i];
@@ -86,7 +89,7 @@ export class Track {
     const lat = dx * this.tz[i] - dz * this.tx[i];                  // +left
     const d = Math.abs(lat);
     const t = smooth(clamp((d - HW) / 9, 0, 1));
-    const terrain = 0.9 * Math.sin(x * 0.031) * Math.cos(z * 0.027) - 0.5;
+    const terrain = this.terrainAt(x, z);
     return { h: trackY * (1 - t) + terrain * t, d, lat, on: d < HW + 0.6, i };
   }
 }
@@ -98,7 +101,7 @@ export class Bike {
     this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.speed = 0; this.vx = 0; this.vz = 0; this.vy = 0;
     this.air = false; this.pitch = 0; this.roll = 0; this.st = 0; this.nitro = 1; this.boosting = false; this.on = true;
     this.idx = 0; this.prog = 0; this.lap = 0; this.lapStart = 0; this.lapTimes = []; this.finished = false; this.finishT = 0; this.stuckT = 0; this.landed = 0; this.offT = 0;
-    this.wheel = 0; this.thr = 0;
+    this.wheel = 0; this.thr = 0; this.wh = 0; this.wheelie = false; this.free = false; this.whT = 0;
   }
   place(idx, lat = 0) {
     const T = this.track, N = T.N, i = ((idx % N) + N) % N, l = T.left(i);
@@ -114,25 +117,31 @@ export class Bike {
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
     const boosting = !!inp.boost && this.nitro > 0.02 && !this.air;
     this.boosting = boosting; this.thr = inp.thr;
+    // wheelie (Shift): front wheel up while on the ground and moving; holding one slowly tops the nitro up
+    const wantWh = !!inp.wheelie && !this.air && this.speed > 5;
+    this.wh += ((wantWh ? 1 : 0) - this.wh) * Math.min(1, dt * (wantWh ? 3.2 : 4.5)); this.wheelie = this.wh > 0.35; this.whT = this.wheelie ? this.whT + dt : 0;
+    if (this.wheelie) this.nitro = Math.min(1, this.nitro + dt * 0.1);
     if (boosting) this.nitro = Math.max(0, this.nitro - dt * 0.34); else this.nitro = Math.min(1, this.nitro + dt * 0.05);
     const vmax = VMAX * (this.on ? 1 : 0.62) * (boosting ? 1.3 : 1) * this.skill;
     this.st += (inp.steer - this.st) * Math.min(1, dt * 9);
     if (!this.air) {
       let a = 0;
-      if (inp.thr > 0) a += inp.thr * 15 * Math.max(0, 1 - Math.max(0, this.speed) / vmax) * (boosting ? 1.8 : 1);
+      if (inp.thr > 0) a += inp.thr * 15 * Math.max(0, 1 - Math.max(0, this.speed) / vmax) * (boosting ? 1.8 : 1) * (1 - 0.18 * this.wh);
       if (inp.brk > 0) a -= inp.brk * (this.speed > 0.5 ? 30 : 7);
       a -= this.speed * 0.04 + (this.speed > 0 ? 1.4 : -1.4) * (this.on ? 1 : 3);              // drag + rolling resistance (dirt is grippy, grass is not)
       a -= 9.8 * Math.sin(this.pitch) * 0.75;                                                    // hills cost speed going up, give it back going down
       if (this.speed > vmax) a -= (this.speed - vmax) * 2;
       this.speed = clamp(this.speed + a * dt, -6, VMAX * 1.5);
-      const yr = this.st * 2.3 / (1 + Math.max(0, Math.abs(this.speed)) / 15) * Math.min(1, Math.abs(this.speed) / 4) * (this.speed >= 0 ? 1 : -1);
+      const yr = this.st * 2.3 * (1 - 0.45 * this.wh) / (1 + Math.max(0, Math.abs(this.speed)) / 15) * Math.min(1, Math.abs(this.speed) / 4) * (this.speed >= 0 ? 1 : -1);
       this.yaw += yr * dt;
       const nfx = -Math.sin(this.yaw), nfz = -Math.cos(this.yaw);
       this.vx = nfx * this.speed; this.vz = nfz * this.speed;
     } else this.yaw += this.st * 0.45 * dt;
-    this.x = clamp(this.x + this.vx * dt, T.bounds.x0, T.bounds.x1); this.z = clamp(this.z + this.vz * dt, T.bounds.z0, T.bounds.z1);
+    if (this.free) { this.x += this.vx * dt; this.z += this.vz * dt; }                                   // free ride: no edge of the world
+    else { this.x = clamp(this.x + this.vx * dt, T.bounds.x0, T.bounds.x1); this.z = clamp(this.z + this.vz * dt, T.bounds.z0, T.bounds.z1); }
     // vertical: ballistic, snapped to the ground whenever it would end up underneath it (so crests launch you, dips don't)
-    const g = T.ground(this.x, this.z, this.idx);
+    const g = T.ground(this.x, this.z, this.free && this.far ? -1 : this.idx);
+    this.far = g.d > 30;
     const yFree = this.y + this.vy * dt - 0.5 * G * dt * dt;
     if (yFree <= g.h + 0.001) {
       const wasAir = this.air;
@@ -154,12 +163,13 @@ export class Bike {
     let pt;
     if (!this.air) { const gf = T.ground(this.x + f2x * 0.7, this.z + f2z * 0.7, this.idx).h, gb = T.ground(this.x - f2x * 0.7, this.z - f2z * 0.7, this.idx).h; pt = Math.atan2(gf - gb, 1.4); }
     else pt = Math.atan2(this.vy, Math.max(6, Math.hypot(this.vx, this.vz))) * 0.8 + (inp.thr > 0 ? 0.08 : 0);
+    pt += this.wh * 0.62;
     this.pitch += (pt - this.pitch) * Math.min(1, dt * (this.air ? 3 : 14));
     this.roll += (this.st * Math.min(1, Math.abs(this.speed) / 18) * 0.55 - this.roll) * Math.min(1, dt * 7);
     this.wheel += this.speed * dt;
     // off the map / stuck for too long -> back on the track
-    this.offT = g.d > HW + 38 ? this.offT + dt : 0;
-    this.stuckT = (!this.air && Math.abs(this.speed) < 1.2 && inp.thr > 0.5) ? this.stuckT + dt : 0;
+    this.offT = !this.free && g.d > HW + 38 ? this.offT + dt : 0;
+    this.stuckT = (!this.free && !this.air && Math.abs(this.speed) < 1.2 && inp.thr > 0.5) ? this.stuckT + dt : 0;
     if (this.offT > 2 || this.stuckT > 4) this.reset();
   }
 }
@@ -197,7 +207,7 @@ export class RaceSim {
       const row = Math.floor(k / 2), side = k % 2 ? 2.4 : -2.4;
       b.place(T.N - Math.round((7 + row * 7) / T.ds), side);
       b.prog = -(7 + row * 7); b.idx = ((T.N - Math.round((7 + row * 7) / T.ds)) % T.N + T.N) % T.N;
-      this.bikes.push(b);
+      b.free = this.free; this.bikes.push(b);
     });
     this.player = this.bikes.find((b) => b.isPlayer) || this.bikes[0];
   }

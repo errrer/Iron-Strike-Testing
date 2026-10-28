@@ -1,7 +1,7 @@
 // Dirt Bike Race: a gun-free racing mode. Rendering, input and HUD live here; the simulation is in race-core.js.
 import * as THREE from 'three';
-import { RaceSim, HW, VMAX } from './race-core.js?v=0.17.0';
-import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.17.0';
+import { RaceSim, HW, VMAX } from './race-core.js?v=0.17.1';
+import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.17.1';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrap = (a) => { const T = Math.PI * 2; a %= T; if (a > Math.PI) a -= T; if (a < -Math.PI) a += T; return a; };
@@ -62,7 +62,7 @@ export function makeBikeMesh(color = 0xd8281c, jersey = 0x222831) {
     limb(rider, [s * 0.14, 0.96, 0.28], [s * 0.24, 0.78, -0.02], 0.15, PANTS); limb(rider, [s * 0.24, 0.78, -0.02], [s * 0.22, 0.4, 0.14], 0.12, PANTS);   // thigh, shin
     box(rider, 0.1, 0.1, 0.26, BOOT, s * 0.22, 0.34, 0.08);
   }
-  return { root, body, rear, front, steerG, rider, head };
+  return { root, body, rear, front, steerG, rider, head, rearG, frontG };
 }
 
 // ------------------------------------------------------------------ the whole game mode
@@ -85,7 +85,7 @@ export class RaceMode {
       <div class="rrow"><label for="rBots">Bots</label><select id="rBots"><option value="0">None (just you)</option><option value="1">1 bot</option><option value="3">3 bots</option><option value="5" selected>5 bots</option></select></div>
       <div class="rrow"><label for="rDiff">Bot skill</label><select id="rDiff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div>
       <div class="rrow"><label for="rColor">Your bike</label><select id="rColor">${Object.keys(BIKE_COLORS).map((c) => `<option>${c}</option>`).join('')}</select></div>
-      <div class="rkeys"><b>W / &uarr;</b> throttle &middot; <b>S / &darr;</b> brake &middot; <b>A D / &larr; &rarr;</b> steer &middot; <b>Shift / Space</b> nitro &middot; <b>R</b> reset to track &middot; <b>V</b> camera &middot; <b>Esc</b> pause<br>Controller: RT gas, LT brake, left stick steer, A nitro, Y reset, Start pause. Touch: on-screen buttons.</div>
+      <div class="rkeys"><b>W / &uarr;</b> throttle &middot; <b>S / &darr;</b> brake &middot; <b>A D / &larr; &rarr;</b> steer &middot; <b>Space</b> nitro &middot; <b>Shift</b> wheelie &middot; <b>R</b> reset to track &middot; <b>V</b> camera &middot; <b>Esc</b> pause<br>Controller: RT gas, LT brake, left stick steer, A nitro, Y reset, Start pause. Touch: on-screen buttons.</div>
       <div class="rbest" id="rBest">${best ? 'Best lap: ' + fmt(parseFloat(best)) : ''}</div>
       <button id="rGo" class="btn primary" type="button">START RACE</button> <button id="rOnline" class="btn alt" type="button">PLAY ONLINE</button> <button id="rBack" class="btn" type="button">Back</button></div>`);
     let nm = 'Player'; try { nm = localStorage.getItem('ironstrike.race.name') || nm; } catch (e) { /* storage blocked */ }
@@ -108,7 +108,7 @@ export class RaceMode {
       <div id="rTimeBox"><small>TIME</small><b id="rTime">0:00.00</b><span id="rLast"></span></div>
       <div id="rSpd"><b id="rKmh">0</b><small>km/h</small><div id="rNit"><i id="rNitFill"></i></div></div>
       <canvas id="rMap" width="150" height="150"></canvas><div id="rMsg"></div><div id="rBoostFx"></div>
-      <div id="rTouch"><div class="rtL"><button data-k="left" type="button">&#9664;</button><button data-k="right" type="button">&#9654;</button></div><div class="rtR"><button data-k="boost" type="button">NITRO</button><button data-k="brake" type="button">BRAKE</button><button data-k="gas" type="button" class="gas">GAS</button></div></div>
+      <div id="rTouch"><div class="rtL"><button data-k="left" type="button">&#9664;</button><button data-k="right" type="button">&#9654;</button></div><div class="rtR"><button data-k="wheelie" type="button">WHEELIE</button><button data-k="boost" type="button">NITRO</button><button data-k="brake" type="button">BRAKE</button><button data-k="gas" type="button" class="gas">GAS</button></div></div>
       <button id="rPauseBtn" type="button">II</button>`);
     this.pauseEl = mk('racePause', 'overlay hidden', `<div class="panel racepanel"><h2>PAUSED</h2><button id="rResume" class="btn primary" type="button">Resume</button> <button id="rRestart" class="btn" type="button">Restart</button> <button id="rQuit" class="btn" type="button">Quit to menu</button></div>`);
     this.endEl = mk('raceEnd', 'overlay hidden', `<div class="panel racepanel"><h2 id="rEndTitle">FINISHED</h2><table id="rEndTable"></table><div id="rEndBest"></div><button id="rAgain" class="btn primary" type="button">Race again</button> <button id="rEndQuit" class="btn" type="button">Menu</button></div>`);
@@ -190,7 +190,7 @@ export class RaceMode {
     if (!this.sim) return []; const f = (v, d = 2) => +v.toFixed(d), out = [];
     for (const b of this.sim.bikes) {
       if (b.remote || b.gone) continue;
-      out.push([b.nid, f(b.x), f(b.y), f(b.z), f(b.yaw, 3), f(b.pitch, 3), f(b.roll, 3), f(b.speed), f(b.st), f(b.thr, 1), (b.air ? 1 : 0) | (b.boosting ? 2 : 0) | (b.finished ? 4 : 0) | (b.on ? 8 : 0), f(b.prog, 1), b.lap, f(b.finishT), f(b.nitro), f(b.lapTimes.length ? Math.min(...b.lapTimes) : 0)]);
+      out.push([b.nid, f(b.x), f(b.y), f(b.z), f(b.yaw, 3), f(b.pitch, 3), f(b.roll, 3), f(b.speed), f(b.st), f(b.thr, 1), (b.air ? 1 : 0) | (b.boosting ? 2 : 0) | (b.finished ? 4 : 0) | (b.on ? 8 : 0) | (b.wheelie ? 16 : 0), f(b.prog, 1), b.lap, f(b.finishT), f(b.nitro), f(b.lapTimes.length ? Math.min(...b.lapTimes) : 0)]);
     }
     return out;
   }
@@ -200,7 +200,7 @@ export class RaceMode {
       const b = this.sim.bikes.find((x) => x.nid === r[0]); if (!b || !b.remote || !isFinite(r[1])) continue;
       const fl = r[10] | 0, first = !b.net;
       b.net = { x: r[1], y: r[2], z: r[3], yaw: r[4], pitch: r[5], roll: r[6], speed: r[7], st: r[8], thr: r[9], t: now };
-      b.air = !!(fl & 1); b.boosting = !!(fl & 2); b.on = !!(fl & 8); b.finished = !!(fl & 4);
+      b.air = !!(fl & 1); b.boosting = !!(fl & 2); b.on = !!(fl & 8); b.finished = !!(fl & 4); b.wheelie = !!(fl & 16);
       b.prog = r[11]; b.lap = r[12]; b.finishT = r[13]; b.nitro = r[14]; b.bestLap = r[15];
       if (first) { b.x = r[1]; b.y = r[2]; b.z = r[3]; b.yaw = r[4]; }
     }
@@ -214,7 +214,7 @@ export class RaceMode {
       const tx = n.x + fx * n.speed * age, tz = n.z + fz * n.speed * age;
       b.x += (tx - b.x) * k; b.z += (tz - b.z) * k; b.y += (n.y + (b.air ? 0 : 0) - b.y) * k;
       b.yaw += wrap(n.yaw - b.yaw) * k; b.pitch += (n.pitch - b.pitch) * k; b.roll += (n.roll - b.roll) * k; b.st += (n.st - b.st) * k;
-      b.speed = n.speed; b.thr = n.thr; b.wheel += n.speed * dt;
+      b.wh += ((b.wheelie ? 1 : 0) - b.wh) * k; b.speed = n.speed; b.thr = n.thr; b.wheel += n.speed * dt;
       if (!b.air) { const g = T.ground(b.x, b.z, b.idx); b.idx = g.i; }
     }
   }
@@ -222,9 +222,9 @@ export class RaceMode {
   // ---------------- build the world
   buildScene() {
     const T = this.sim.track, scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x8fc4ee); scene.fog = new THREE.Fog(0xbcd8ee, 140, 480);
+    scene.background = new THREE.Color(0x8fc4ee); scene.fog = new THREE.Fog(0xbcd8ee, 140, this.game.settings.gfx === 'low' ? 260 : 480);
     scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x5b6b3a, 1.15));
-    const sun = new THREE.DirectionalLight(0xfff1d6, 2.7); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+    const gq = this.game.settings.gfx || 'high', low = gq === 'low', sun = new THREE.DirectionalLight(0xfff1d6, 2.7); sun.castShadow = !low; sun.shadow.mapSize.set(...(gq === 'high' ? [4096, 4096] : [2048, 2048]));
     const sc = sun.shadow.camera; sc.left = -48; sc.right = 48; sc.top = 48; sc.bottom = -48; sc.near = 1; sc.far = 300; sc.updateProjectionMatrix();
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05; scene.add(sun); if (sun.target) scene.add(sun.target); this.sun = sun;
     // terrain: a heightfield that follows the track profile and fades into rolling grass
@@ -240,6 +240,14 @@ export class RaceMode {
     for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const a = j * nx + i, c = a + 1, d = a + nx, e = d + 1; idx.push(a, d, c, c, d, e); }
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); tg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); tg.setIndex(idx); tg.computeVertexNormals();
     const terrain = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 })); terrain.receiveShadow = true; scene.add(terrain);
+    // free ride: an endless grass heightfield that follows the rider, so you can go anywhere
+    if (this.sim.free) {
+      const R = 90, cell = 7, V = (R + 1) * (R + 1), rpos = new Float32Array(V * 3), rcol = new Float32Array(V * 3), ridx = [];
+      for (let j = 0; j < R; j++) for (let i = 0; i < R; i++) { const a = j * (R + 1) + i, c = a + 1, d = a + R + 1, e = d + 1; ridx.push(a, d, c, c, d, e); }
+      const rgeo = new THREE.BufferGeometry(); rgeo.setAttribute('position', new THREE.Float32BufferAttribute(rpos, 3)); rgeo.setAttribute('color', new THREE.Float32BufferAttribute(rcol, 3)); rgeo.setIndex(ridx);
+      const rmesh = new THREE.Mesh(rgeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 })); rmesh.receiveShadow = true; rmesh.frustumCulled = false; scene.add(rmesh);
+      this.roam = { R, cell, geo: rgeo, mesh: rmesh, cx: 1e9, cz: 1e9 };
+    }
     // dirt ribbon with darker racing lines
     const N = T.N, cols = 9, rp = [], rc = [], ri = [], r2 = rng(3);
     for (let i = 0; i <= N; i++) {
@@ -257,7 +265,7 @@ export class RaceMode {
     // scenery: trees, hay bales on the outside of corners, course posts, jump warning signs, start arch
     const rr = rng(21), trunkM = mat(0x5b4026, { r: 1 }), leafM = mat(0x2e6b34, { r: 1 }), leaf2 = mat(0x3d7d3a, { r: 1 });
     const trunkG = new THREE.CylinderGeometry(0.22, 0.3, 2.4, 6), coneG = new THREE.ConeGeometry(1.7, 3.6, 7), coneG2 = new THREE.ConeGeometry(1.3, 3, 7);
-    for (let n = 0; n < 220; n++) {
+    for (let n = 0; n < (low ? 50 : 220); n++) {
       const x = b.x0 + rr() * (b.x1 - b.x0), z = b.z0 + rr() * (b.z1 - b.z0), g = T.ground(x, z, -1); if (g.d < HW + 12) continue;
       const s = 0.8 + rr() * 0.9, tr = new THREE.Mesh(trunkG, trunkM), c1 = new THREE.Mesh(coneG, rr() > 0.5 ? leafM : leaf2), c2 = new THREE.Mesh(coneG2, leafM);
       tr.position.set(x, g.h + 1.2 * s, z); tr.scale.set(s, s, s); c1.position.set(x, g.h + 3.6 * s, z); c1.scale.set(s, s, s); c2.position.set(x, g.h + 5.5 * s, z); c2.scale.set(s, s, s);
@@ -359,16 +367,16 @@ export class RaceMode {
   readInput() {
     const k = this.keys, t = this.touch;
     let thr = (k.KeyW || k.ArrowUp || t.gas) ? 1 : 0, brk = (k.KeyS || k.ArrowDown || t.brake) ? 1 : 0;
-    let steer = ((k.KeyA || k.ArrowLeft || t.left) ? 1 : 0) - ((k.KeyD || k.ArrowRight || t.right) ? 1 : 0), boost = !!(k.ShiftLeft || k.ShiftRight || k.Space || t.boost);
+    let steer = ((k.KeyA || k.ArrowLeft || t.left) ? 1 : 0) - ((k.KeyD || k.ArrowRight || t.right) ? 1 : 0), boost = !!(k.Space || t.boost), wheelie = !!(k.ShiftLeft || k.ShiftRight || t.wheelie);
     const pads = navigator.getGamepads ? navigator.getGamepads() : [], gp = pads && [...pads].find((p) => p && p.connected);
     if (gp) {
       const ax = gp.axes[0] || 0, B = (i) => (gp.buttons[i] ? gp.buttons[i].value || (gp.buttons[i].pressed ? 1 : 0) : 0);
       if (Math.abs(ax) > 0.12) steer = -clamp((Math.abs(ax) - 0.12) / 0.88, 0, 1) * Math.sign(ax);
-      thr = Math.max(thr, B(7)); brk = Math.max(brk, B(6)); boost = boost || B(0) > 0.5 || B(5) > 0.5;
+      thr = Math.max(thr, B(7)); brk = Math.max(brk, B(6)); boost = boost || B(0) > 0.5 || B(5) > 0.5; wheelie = wheelie || B(2) > 0.5;
       const edge = (i, f) => { const d = B(i) > 0.5; if (d && !this.padPrev[i]) f(); this.padPrev[i] = d; };
       edge(3, () => { if (this.sim && !this.paused) this.sim.player.reset(); }); edge(9, () => this.setPause(!this.paused)); edge(4, () => { this.close = !this.close; });
     }
-    return { thr, brk, steer: clamp(steer, -1, 1), boost };
+    return { thr, brk, steer: clamp(steer, -1, 1), boost, wheelie };
   }
 
   // ---------------- engine sound
@@ -412,13 +420,34 @@ export class RaceMode {
     this.render(dt);
   }
 
+  updateRoam(px, pz) {
+    const q = this.roam, T = this.sim.track; if (!q) return;
+    const cx = Math.round(px / q.cell), cz = Math.round(pz / q.cell); if (cx === q.cx && cz === q.cz) return; q.cx = cx; q.cz = cz;
+    const R = q.R, pos = q.geo.attributes.position.array, col = q.geo.attributes.color.array, half = R / 2;
+    for (let j = 0; j <= R; j++) for (let i = 0; i <= R; i++) {
+      const x = (cx + i - half) * q.cell, z = (cz + j - half) * q.cell, k = j * (R + 1) + i, h = T.terrainAt(x, z), n = (Math.sin(x * 1.7) * Math.cos(z * 1.3)) * 0.025;
+      pos[k * 3] = x; pos[k * 3 + 1] = h - 0.1; pos[k * 3 + 2] = z;
+      col[k * 3] = 0.2 + 0.1 * (h + 1) * 0.5 + n; col[k * 3 + 1] = 0.36 + 0.05 * (h + 1) + n; col[k * 3 + 2] = 0.17 + n * 0.5;
+    }
+    q.geo.attributes.position.needsUpdate = true; q.geo.attributes.color.needsUpdate = true; q.geo.computeVertexNormals();
+  }
+
   updateVisuals(dt) {
     const sim = this.sim, T = sim.track;
+    if (this.roam) this.updateRoam(sim.player.x, sim.player.z);
     sim.bikes.forEach((b, i) => {
       const m = this.meshes[i], r = m.root;
-      r.position.set(b.x, b.y, b.z); r.rotation.set(b.pitch, b.yaw, b.roll);
+      // suspension: the body rides on a damped spring over the wheels - bumps, landings, braking and throttle all move it
+      const s = m.sus || (m.sus = { y: 0, v: 0, p: 0, pv: 0, ly: b.y, lvy: 0, ls: b.speed, lp: b.pitch }), sd = Math.max(dt, 1e-3);
+      const vyC = clamp((b.y - s.ly) / sd, -40, 40), acc = clamp((vyC - s.lvy) / sd, -90, 90); s.ly = b.y; s.lvy = vyC;
+      s.v += (-170 * s.y - 15 * s.v - (b.air ? 0 : acc) * 0.55) * sd; s.y = clamp(s.y + s.v * sd, -0.2, 0.07);
+      const lon = clamp((b.speed - s.ls) / sd, -30, 30); s.ls = b.speed;
+      s.pv += (-120 * s.p - 11 * s.pv + (b.air ? 0 : -lon * 0.012 + clamp((b.pitch - s.lp) / sd, -6, 6) * -0.01)) * sd; s.p = clamp(s.p + s.pv * sd, -0.16, 0.16); s.lp = b.pitch;
+      const whA = (b.wh || 0) * 0.62;
+      r.position.set(b.x, b.y + 0.72 * Math.sin(whA), b.z); r.rotation.set(b.pitch, b.yaw, b.roll);
+      m.body.position.y = s.y; m.body.rotation.x = s.p; m.rearG.position.y = 0.38 - s.y * 0.9 - s.p * 0.2; m.steerG.position.y = 0.4 - s.y * 0.9 + s.p * 0.7;
       m.rear.rotation.x = -b.wheel / 0.38; m.front.rotation.x = -b.wheel / 0.4; m.steerG.rotation.y = b.st * 0.4;
-      m.rider.rotation.x = b.thr > 0.2 ? 0.06 : 0; m.rider.rotation.z = -b.roll * 0.35;
+      m.rider.rotation.x = (b.thr > 0.2 ? 0.06 : 0) + (b.wh || 0) * 0.3 + s.p * 0.6; m.rider.position.y = -s.y * 0.6; m.rider.rotation.z = -b.roll * 0.35;
       // dust behind the rear wheel
       if (!b.air && Math.abs(b.speed) > 5 && b.thr > 0.1 && (b.on ? true : true) && Math.random() < 0.9) {
         const k = this.dustI++ % this.dustN, fx = -Math.sin(b.yaw), fz = -Math.cos(b.yaw);
