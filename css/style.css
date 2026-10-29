@@ -700,3 +700,17 @@ body.pad .overlay :focus { outline: 3px solid var(--accent2); outline-offset: 2p
 #gfxVig { display: none; position: fixed; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 58%, rgba(0,0,0,.34) 100%); }
 body.ultra #gfxVig { display: block; }
 body.ultra #c { filter: contrast(1.07) saturate(1.14) brightness(1.02); }
+
+/* ULTRA sun: glow + rotating light shafts anchored on the projected sun position */
+#sunRays { display: none; position: fixed; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; opacity: 0; --x: 50%; --y: 30%; --sc: 255,236,190; mix-blend-mode: screen; }
+body.ultra #sunRays { display: block; }
+#sunRays i { position: absolute; left: var(--x); top: var(--y); border-radius: 50%; translate: -50% -50%; }
+#sunRays .sr-glow { width: 120vmax; height: 120vmax; background: radial-gradient(circle, rgba(255,255,255,.85) 0, rgba(var(--sc),.55) 2.2%, rgba(var(--sc),.22) 8%, rgba(var(--sc),.08) 22%, rgba(var(--sc),0) 50%); }
+#sunRays .sr-rays { width: 150vmax; height: 150vmax; opacity: .5;
+  background: repeating-conic-gradient(from 0deg, rgba(var(--sc),.0) 0deg, rgba(var(--sc),.34) 1.4deg, rgba(var(--sc),0) 3.6deg, rgba(var(--sc),0) 7deg, rgba(var(--sc),.22) 9deg, rgba(var(--sc),0) 12deg, rgba(var(--sc),0) 17deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, rgba(0,0,0,.7) 12%, transparent 50%); mask-image: radial-gradient(circle, #000 0, rgba(0,0,0,.7) 12%, transparent 50%); }
+#sunRays .sr-rays.r2 { opacity: .35; transform: rotate(23deg); filter: blur(2px); }
+body.ultra #c { filter: contrast(1.1) saturate(1.2) brightness(1.03) sepia(.06); }
+@keyframes srSpin { to { rotate: 360deg; } }
+#sunRays .sr-rays { animation: srSpin 240s linear infinite; }
+#sunRays .sr-rays.r2 { animation-duration: 330s; animation-direction: reverse; }

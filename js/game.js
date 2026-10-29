@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.18.2';
-import { canon } from './keybinds.js?v=0.18.2';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.2';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.2';
-import { buildMap } from './maps.js?v=0.18.2';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.2';
-import { buildWorld } from './world.js?v=0.18.2';
-import { Bot } from './bots.js?v=0.18.2';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.2';
-import { buildSoldier, SKIN } from './soldier.js?v=0.18.2';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.2';
-import { Zombies, PERKS } from './zombies.js?v=0.18.2';
-import { inspectFor, inspectPose } from './inspect.js?v=0.18.2';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.2';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.2';
-import { Objectives } from './objectives.js?v=0.18.2';
-import { Streaks, STREAKS } from './streaks.js?v=0.18.2';
-import { Gore } from './gore.js?v=0.18.2';
+import { MOD } from './supermod.js?v=0.18.3';
+import { canon } from './keybinds.js?v=0.18.3';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.3';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.3';
+import { buildMap } from './maps.js?v=0.18.3';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.3';
+import { buildWorld } from './world.js?v=0.18.3';
+import { Bot } from './bots.js?v=0.18.3';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.3';
+import { buildSoldier, SKIN } from './soldier.js?v=0.18.3';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.3';
+import { Zombies, PERKS } from './zombies.js?v=0.18.3';
+import { inspectFor, inspectPose } from './inspect.js?v=0.18.3';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.3';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.3';
+import { Objectives } from './objectives.js?v=0.18.3';
+import { Streaks, STREAKS } from './streaks.js?v=0.18.3';
+import { Gore } from './gore.js?v=0.18.3';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -157,7 +157,7 @@ export class Game {
     medium: { pr: 1,   shadow: 1024, lambert: false, lights: true, far: 350, fogMul: 1, ragdoll: true, gore: true },
     high:   { pr: 2,   shadow: 4096, lambert: false, lights: true, far: 500, fogMul: 1, ragdoll: true, gore: true },
     // ULTRA: supersampled (1.5x the screen's pixel ratio), 8K shadows, image-based lighting on the world, sharper textures, colour grade + vignette
-    ultra:  { pr: 3, ss: 1.5, shadow: 8192, lambert: false, lights: true, far: 650, fogMul: 1.15, ragdoll: true, gore: true, env: true, aniso: true, grade: true, exposure: 1.14 },
+    ultra:  { pr: 3, ss: 1.5, shadow: 8192, lambert: false, lights: true, far: 650, fogMul: 1.15, ragdoll: true, gore: true, env: true, aniso: true, grade: true, exposure: 1.2 },
   };
   get gfxQ() { return Game.GFX[this.settings.gfx] || Game.GFX.high; }
   applyGfx() {
@@ -197,6 +197,34 @@ export class Game {
       }
     });
     if (full === 'mats') sc.traverse((o) => { if (o.isMesh && o.material && !Array.isArray(o.material)) o.material.needsUpdate = true; });
+  }
+
+  // ULTRA: screen-space sun - a glow plus light shafts that sit on the sun, fade out when the sun is behind you or blocked by a wall
+  updateSunRays(cam, dt) {
+    const el = this._sunEl || (this._sunEl = document.getElementById('sunRays')); if (!el) return;
+    const q = this.gfxQ; let target = 0, sx = 0, sy = 0;
+    if (q.grade && this.scene) {
+      if (this._sunL === undefined || (this._sunL && !this._sunL.parent)) { this._sunL = null; this.scene.traverse((o) => { if (!this._sunL && o.isDirectionalLight && o.intensity > 1) this._sunL = o; }); }
+      const L = this._sunL;
+      if (L) {
+        const d = this._sd || (this._sd = new V3()), pr = this._sp || (this._sp = new V3());
+        d.copy(L.position); if (L.target) d.sub(L.target.position); d.normalize();
+        pr.copy(cam.position).addScaledVector(d, 500).project(cam);
+        const front = pr.z < 1 && Math.abs(pr.x) < 1.6 && Math.abs(pr.y) < 1.6;
+        if (front) {
+          sx = (pr.x * 0.5 + 0.5) * 100; sy = (-pr.y * 0.5 + 0.5) * 100;
+          this._sunT = (this._sunT || 0) - dt;
+          if (this._sunT <= 0 || this._sunVis === undefined) { this._sunT = 0.12; this._sunVis = this.col && this.col.ray(cam.position.x, cam.position.y, cam.position.z, d.x, d.y, d.z, 300, true) >= 299 ? 1 : 0; }
+          const edge = Math.max(0, 1 - Math.max(Math.abs(pr.x), Math.abs(pr.y)) * 0.62);
+          target = this._sunVis * Math.min(1, edge * 1.3);
+          const c = L.color; el.style.setProperty('--sc', `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(Math.min(1, c.b + 0.1) * 255)}`);
+        }
+      }
+    }
+    this._sunA = (this._sunA || 0) + (target - (this._sunA || 0)) * Math.min(1, dt * 5);
+    if (this._sunA < 0.01 && !target) { if (el.style.opacity !== '0') el.style.opacity = '0'; return; }
+    if (target) { this._sx = this._sx === undefined ? sx : this._sx + (sx - this._sx) * Math.min(1, dt * 14); this._sy = this._sy === undefined ? sy : this._sy + (sy - this._sy) * Math.min(1, dt * 14); el.style.setProperty('--x', this._sx.toFixed(2) + '%'); el.style.setProperty('--y', this._sy.toFixed(2) + '%'); }
+    el.style.opacity = this._sunA.toFixed(3);
   }
 
   resize() {
@@ -1462,6 +1490,7 @@ export class Game {
     this.updateViewmodel(dt);
     this.renderer.clear();
     this.renderer.render(this.scene, cam);
+    this.updateSunRays(cam, dt);
     if (this.vmRoot.visible) { this.renderer.clearDepth(); this.renderer.render(this.vmScene, this.vmCam); }
   }
 

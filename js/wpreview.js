@@ -1,6 +1,6 @@
 // Menu weapon preview: a slowly swaying 3D render of the selected gun, plus white icon thumbnails for the weapon tiles (COD-style loadout screen).
 import * as THREE from 'three';
-import { buildGun, makeEnv } from './gunmodels.js?v=0.18.2';
+import { buildGun, makeEnv } from './gunmodels.js?v=0.18.3';
 
 export class WeaponPreview {
   constructor(canvas) {
