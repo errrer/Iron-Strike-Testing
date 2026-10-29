@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.18.1';
-import { canon } from './keybinds.js?v=0.18.1';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.1';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.1';
-import { buildMap } from './maps.js?v=0.18.1';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.1';
-import { buildWorld } from './world.js?v=0.18.1';
-import { Bot } from './bots.js?v=0.18.1';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.1';
-import { buildSoldier, SKIN } from './soldier.js?v=0.18.1';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.1';
-import { Zombies, PERKS } from './zombies.js?v=0.18.1';
-import { inspectFor, inspectPose } from './inspect.js?v=0.18.1';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.1';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.1';
-import { Objectives } from './objectives.js?v=0.18.1';
-import { Streaks, STREAKS } from './streaks.js?v=0.18.1';
-import { Gore } from './gore.js?v=0.18.1';
+import { MOD } from './supermod.js?v=0.18.2';
+import { canon } from './keybinds.js?v=0.18.2';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.2';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.2';
+import { buildMap } from './maps.js?v=0.18.2';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.2';
+import { buildWorld } from './world.js?v=0.18.2';
+import { Bot } from './bots.js?v=0.18.2';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.2';
+import { buildSoldier, SKIN } from './soldier.js?v=0.18.2';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.2';
+import { Zombies, PERKS } from './zombies.js?v=0.18.2';
+import { inspectFor, inspectPose } from './inspect.js?v=0.18.2';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.2';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.2';
+import { Objectives } from './objectives.js?v=0.18.2';
+import { Streaks, STREAKS } from './streaks.js?v=0.18.2';
+import { Gore } from './gore.js?v=0.18.2';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -1564,6 +1564,7 @@ export class Game {
 
     // --- reload ----------------------------------------------------------------------------------
     let hand = 0, handDy = 0, handDz = 0;
+    const sw = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };                       // animated offsets (reload turn, knife swings) - smoothed by a spring before they are applied
     let slideT = Math.max(S.slide, am.mag <= 0 && !p.reloading ? 1 : 0);            // pistol slide locks back on an empty gun
     let boltOpen = 0, pumpBack = 0;
     for (const e of vm.mags) { e.m.position.copy(e.p); e.m.visible = true; }
@@ -1601,7 +1602,7 @@ export class Game {
       }
       // the gun turns and dips for the reload but always stays well inside the frame (nudged up and pushed away from the camera)
       const k = revolver ? 1.3 : vm.pistol ? 0.8 : 1;
-      y += tilt * (vm.pistol ? 0.07 : 0.05); x -= tilt * 0.03 * k; z -= tilt * 0.05; rz += tilt * (revolver ? 0.6 : 0.38) * k * (1 - a); rx += (-tilt * 0.22 * k + rk) * (1 - a * 0.7); ry += tilt * 0.15 * k;
+      sw.y += tilt * (vm.pistol ? 0.07 : 0.05); sw.x -= tilt * 0.03 * k; sw.z -= tilt * 0.05; sw.rz += tilt * (revolver ? 0.6 : 0.38) * k * (1 - a); sw.rx += (-tilt * 0.22 * k + rk) * (1 - a * 0.7); sw.ry += tilt * 0.15 * k;
     }
     // sliding: gun canted and low; mantling: gun pushed down and out of the way while you climb
     if (S.slk > 0.01) { const f = S.slk * (1 - a * 0.8); x -= 0.035 * f; y -= 0.03 * f; rz += 0.3 * f; ry += 0.12 * f; rx += 0.05 * f; }
@@ -1618,7 +1619,6 @@ export class Game {
       for (const e of vm.mags) { e.m.visible = true; e.m.position.y = e.p.y - ip.mag * 0.075; e.m.position.z = e.p.z + ip.mag * 0.03; }
     } else if (S.inspWas) { S.inspWas = false; for (const e of vm.mags) { e.m.visible = true; e.m.position.copy(e.p); } }
 
-    const sw = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };
     if (this.swing) {                                                                  // knife swings: wind-up, strike, follow-through, recover (tuned per knife)
       const s = this.swing, u = clamp(s.t / s.dur, 0, 1), E = (a0, b0) => sm(a0, b0, u), K = KNIFE_SWING[vm.id] || KNIFE_SWING.k_combat;
       if (s.kind === 'quick') {
