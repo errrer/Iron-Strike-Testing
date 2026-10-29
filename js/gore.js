@@ -1,7 +1,7 @@
 // Cosmetic gore: body-part gibs (4 parts x 3 models each), blood bursts and floor splats.
 // Stylised low-poly like the rest of the game. Can be switched off in the settings.
 import * as THREE from 'three';
-import { bx, mat, SKIN, DARK, OLIVE, KHAKI } from './soldier.js?v=0.17.3';
+import { bx, mat, SKIN, DARK, OLIVE, KHAKI } from './soldier.js?v=0.18.0';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);

@@ -7,7 +7,7 @@ export function initMapMaker($, showScreen) {
     $(p + 'Ok').addEventListener('click', async () => {
       $(p + 'Warn').classList.add('hidden'); $(p + 'Editor').classList.remove('hidden');
       try {
-        const m = await import('./mapmaker3d.js?v=0.17.3');
+        const m = await import('./mapmaker3d.js?v=0.18.0');
         ed = ed || m.createEditor($(p + 'Editor'), () => showScreen('landing'), opts);
         ed.show();
       } catch (e) { $(p + 'Editor').innerHTML = '<p style="padding:20px">Could not load the 3D editor (' + String(e.message || e) + '). Check your connection and try again.</p>'; console.error(e); }

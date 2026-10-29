@@ -1,7 +1,8 @@
 // Dirt Bike Race: a gun-free racing mode. Rendering, input and HUD live here; the simulation is in race-core.js.
 import * as THREE from 'three';
-import { RaceSim, HW, VMAX } from './race-core.js?v=0.17.3';
-import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.17.3';
+import { makeEnv } from './gunmodels.js?v=0.18.0';
+import { RaceSim, HW, VMAX } from './race-core.js?v=0.18.0';
+import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.18.0';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrap = (a) => { const T = Math.PI * 2; a %= T; if (a > Math.PI) a -= T; if (a < -Math.PI) a += T; return a; };
@@ -108,7 +109,7 @@ export class RaceMode {
       <div id="rTimeBox"><small>TIME</small><b id="rTime">0:00.00</b><span id="rLast"></span></div>
       <div id="rSpd"><b id="rKmh">0</b><small>km/h</small><div id="rNit"><i id="rNitFill"></i></div></div>
       <canvas id="rMap" width="150" height="150"></canvas><div id="rMsg"></div><div id="rBoostFx"></div>
-      <div id="rTouch"><div class="rtL"><button data-k="left" type="button">&#9664;</button><button data-k="right" type="button">&#9654;</button></div><div class="rtR"><button data-k="wheelie" type="button">WHEELIE</button><button data-k="boost" type="button">NITRO</button><button data-k="brake" type="button">BRAKE</button><button data-k="gas" type="button" class="gas">GAS</button></div></div>
+      <div id="rTouch"><div id="rtSteer"><i id="rtKnob"></i><span>&#9664; STEER &#9654;</span></div><div class="rtR"><button data-k="wheelie" type="button"><b>WHEELIE</b></button><button data-k="boost" type="button"><b>NITRO</b></button><button data-k="brake" type="button"><b>BRAKE</b></button><button data-k="gas" type="button" class="gas"><b>GAS</b></button></div></div>
       <button id="rPauseBtn" type="button">II</button>`);
     this.pauseEl = mk('racePause', 'overlay hidden', `<div class="panel racepanel"><h2>PAUSED</h2><button id="rResume" class="btn primary" type="button">Resume</button> <button id="rRestart" class="btn" type="button">Restart</button> <button id="rQuit" class="btn" type="button">Quit to menu</button></div>`);
     this.endEl = mk('raceEnd', 'overlay hidden', `<div class="panel racepanel"><h2 id="rEndTitle">FINISHED</h2><table id="rEndTable"></table><div id="rEndBest"></div><button id="rAgain" class="btn primary" type="button">Race again</button> <button id="rEndQuit" class="btn" type="button">Menu</button></div>`);
@@ -119,10 +120,18 @@ export class RaceMode {
     on('rOnline', () => this.openOnline()); this.bindOnline(on); on('rEndQuit', () => this.exit()); on('rPauseBtn', () => this.setPause(true));
     this.map = document.getElementById('rMap'); this.mapCtx = this.map.getContext('2d');
     const bind = (btn, k) => {
-      const set = (v) => (e) => { this.touch[k] = v; if (e && e.preventDefault) e.preventDefault(); };
+      const set = (v) => (e) => { this.touch[k] = v; btn.classList.toggle('down', v); if (v && navigator.vibrate && (k === 'boost' || k === 'wheelie')) try { navigator.vibrate(12); } catch (x) { /* ignore */ } if (e && e.preventDefault) e.preventDefault(); };
       btn.addEventListener('pointerdown', set(true)); for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) btn.addEventListener(ev, set(false));
     };
     for (const b of this.hud.querySelectorAll('#rTouch button')) bind(b, b.dataset.k);
+    // analog steering strip: slide your thumb left / right of the middle; the further, the harder you turn
+    const pad = this.hud.querySelector('#rtSteer'), knob = this.hud.querySelector('#rtKnob');
+    if (pad) {
+      let pid = null; const upd = (e) => { const rc = pad.getBoundingClientRect(), dx = clamp((e.clientX - (rc.left + rc.width / 2)) / (rc.width / 2 * 0.85), -1, 1); this.touch.steerA = -dx; knob.style.transform = `translateX(${dx * rc.width * 0.42}px)`; };
+      pad.addEventListener('pointerdown', (e) => { if (pid !== null) return; pid = e.pointerId; pad.setPointerCapture(pid); pad.classList.add('live'); upd(e); e.preventDefault(); });
+      pad.addEventListener('pointermove', (e) => { if (e.pointerId === pid) upd(e); });
+      for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) pad.addEventListener(ev, (e) => { if (e.pointerId !== pid) return; pid = null; this.touch.steerA = undefined; knob.style.transform = ''; pad.classList.remove('live'); });
+    }
     void $;
   }
 
@@ -224,7 +233,8 @@ export class RaceMode {
     const T = this.sim.track, scene = new THREE.Scene();
     scene.background = new THREE.Color(0x8fc4ee); scene.fog = new THREE.Fog(0xbcd8ee, 140, this.game.settings.gfx === 'low' ? 260 : 480);
     scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x5b6b3a, 1.15));
-    const gq = this.game.settings.gfx || 'high', low = gq === 'low', sun = new THREE.DirectionalLight(0xfff1d6, 2.7); sun.castShadow = !low; sun.shadow.mapSize.set(...(gq === 'high' ? [4096, 4096] : [2048, 2048]));
+    if (this.game.settings.gfx === 'ultra') { const env = makeEnv(this.game.renderer); if (env) scene.environment = env; }
+    const gq = this.game.settings.gfx || 'high', low = gq === 'low', sun = new THREE.DirectionalLight(0xfff1d6, 2.7); sun.castShadow = !low; sun.shadow.mapSize.set(...(gq === 'ultra' ? [Math.min(8192, (this.game.renderer.capabilities || {}).maxTextureSize || 8192), Math.min(8192, (this.game.renderer.capabilities || {}).maxTextureSize || 8192)] : gq === 'high' ? [4096, 4096] : [2048, 2048]));
     const sc = sun.shadow.camera; sc.left = -48; sc.right = 48; sc.top = 48; sc.bottom = -48; sc.near = 1; sc.far = 300; sc.updateProjectionMatrix();
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05; scene.add(sun); if (sun.target) scene.add(sun.target); this.sun = sun;
     // terrain: a heightfield that follows the track profile and fades into rolling grass
@@ -376,6 +386,7 @@ export class RaceMode {
       const edge = (i, f) => { const d = B(i) > 0.5; if (d && !this.padPrev[i]) f(); this.padPrev[i] = d; };
       edge(3, () => { if (this.sim && !this.paused) this.sim.player.reset(); }); edge(9, () => this.setPause(!this.paused)); edge(4, () => { this.close = !this.close; });
     }
+    if (t.steerA !== undefined) steer = t.steerA;
     return { thr, brk, steer: clamp(steer, -1, 1), boost, wheelie };
   }
 

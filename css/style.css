@@ -349,6 +349,9 @@ html, body { overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap
 #tStreaks { position: absolute; right: 112px; top: 56px; display: flex; gap: 6px; pointer-events: none; }
 #tStreaks .tb { position: static; pointer-events: auto; opacity: .45; }
 #tStreaks .tb.ready { opacity: 1; border-color: #ffd45e; }
+#tKnife { right: 280px; bottom: 30px; width: 56px; height: 56px; }
+#tInsp { right: 280px; bottom: 96px; width: 44px; height: 44px; font-size: 7px; }
+#tSprint { left: calc(28px + env(safe-area-inset-left)); bottom: 168px; width: 46px; height: 46px; font-size: 8px; }
 #tScore { top: 8px; left: 172px; } #tPause { top: 8px; left: 220px; }
 #tRotate { position: fixed; inset: 0; z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: rgba(6,9,13,.96); color: #fff; font-size: 22px; letter-spacing: 3px; text-transform: uppercase; }
 #tRotate span { font-size: 12px; color: var(--dim); letter-spacing: 2px; }
@@ -489,10 +492,17 @@ body.pad .overlay :focus { outline: 3px solid var(--accent2); outline-offset: 2p
 #rPauseBtn { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); pointer-events: auto; font-size: 16px; padding: 6px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,.4); background: rgba(0,0,0,.4); color: #fff; }
 @media (pointer: coarse) {
   #rTouch { display: block; } #rPauseBtn { display: block; }
-  #rTouch button { pointer-events: auto; touch-action: none; position: absolute; border-radius: 16px; border: 2px solid rgba(255,255,255,.55); background: rgba(0,0,0,.35); color: #fff; font-weight: 800; font-size: 18px; user-select: none; }
-  .rtL button { bottom: 28px; width: 90px; height: 90px; } .rtL button[data-k=left] { left: 24px; } .rtL button[data-k=right] { left: 128px; }
-  .rtR button.gas { right: 24px; bottom: 28px; width: 120px; height: 120px; background: rgba(60,200,90,.4); } .rtR button[data-k=brake] { right: 160px; bottom: 28px; width: 90px; height: 90px; background: rgba(220,60,50,.4); } .rtR button[data-k=boost] { right: 36px; bottom: 164px; width: 96px; height: 64px; background: rgba(40,150,255,.45); }
-  #rMap { bottom: auto; top: 70px; left: 20px; width: 100px; height: 100px; } #rSpd { bottom: auto; top: 10px; } #rSpd b { font-size: 36px; } #rNit { display: none; }
+  #rTouch button { pointer-events: auto; touch-action: none; position: absolute; border-radius: 50%; border: 2px solid rgba(255,255,255,.6); background: rgba(0,0,0,.38); color: #fff; font-weight: 800; font-size: 13px; letter-spacing: 1px; user-select: none; -webkit-user-select: none; display: flex; align-items: center; justify-content: center; }
+  #rTouch button.down { background: rgba(255,255,255,.35); transform: scale(.94); }
+  #rtSteer { position: absolute; left: calc(22px + env(safe-area-inset-left)); bottom: 26px; width: min(44vw, 340px); height: 104px; border-radius: 52px; border: 2px solid rgba(255,255,255,.4); background: rgba(0,0,0,.3); pointer-events: auto; touch-action: none; display: flex; align-items: center; justify-content: center; }
+  #rtSteer span { font-size: 12px; letter-spacing: 3px; color: rgba(255,255,255,.55); font-weight: 800; pointer-events: none; }
+  #rtSteer.live { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.75); }
+  #rtKnob { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: rgba(255,255,255,.3); border: 2px solid rgba(255,255,255,.7); pointer-events: none; }
+  .rtR button.gas { right: calc(22px + env(safe-area-inset-right)); bottom: 24px; width: 128px; height: 128px; background: rgba(60,200,90,.42); border-color: #7dffa0; font-size: 18px; }
+  .rtR button[data-k=brake] { right: 164px; bottom: 24px; width: 96px; height: 96px; background: rgba(220,60,50,.42); border-color: #ff8a80; }
+  .rtR button[data-k=boost] { right: 30px; bottom: 166px; width: 92px; height: 92px; background: rgba(40,150,255,.5); border-color: #7cc4ff; }
+  .rtR button[data-k=wheelie] { right: 134px; bottom: 138px; width: 80px; height: 80px; background: rgba(255,170,40,.42); border-color: #ffd080; font-size: 11px; }
+  #rMap { bottom: auto; top: 70px; left: 20px; width: 100px; height: 100px; } #rSpd { bottom: auto; top: 10px; } #rSpd b { font-size: 36px; }
 }
 
 /* =====================================================================================
@@ -683,3 +693,10 @@ body.pad .overlay :focus { outline: 3px solid var(--accent2); outline-offset: 2p
 .gs-decal p { margin: 4px 0 8px; font-size: 12px; opacity: 0.75; }
 .gs-decal-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .gs-decal .chk { font-size: 12px; }
+
+.touchonly { display: none; } body.touch .touchonly { display: block; }
+
+/* ULTRA preset: colour grade + soft vignette over the game canvas */
+#gfxVig { display: none; position: fixed; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 58%, rgba(0,0,0,.34) 100%); }
+body.ultra #gfxVig { display: block; }
+body.ultra #c { filter: contrast(1.07) saturate(1.14) brightness(1.02); }

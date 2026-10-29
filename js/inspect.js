@@ -2,7 +2,7 @@
 // A sequence is a duration plus "beats". A beat is a named move played between t0 and t1 (0..1 of the sequence); the poses of overlapping
 // beats add up. Every beat returns to neutral by its end, so the weapon always lands back in the normal hold.
 const TAU = Math.PI * 2;
-const sm = (u) => u * u * (3 - 2 * u);
+const sm = (u) => u * u * u * (u * (u * 6 - 15) + 10);                          // smootherstep: zero velocity AND acceleration at both ends
 const env = (u) => sm(Math.min(1, u / 0.32)) * sm(Math.min(1, (1 - u) / 0.32));       // ease in, hold the pose, ease out - no sudden starts
 
 // pose channels: x y z (metres), rx ry rz (radians), hand (support hand on the gun), hdy, mag (0 seated .. 1 out), slide, bolt, pump
@@ -11,8 +11,8 @@ const BEATS = {
   tilt:   (u, a) => ({ y: 0.025 * env(u), x: -0.04 * env(u), rz: (a.k || 0.7) * env(u), rx: 0.1 * env(u) }),                                                         // roll it to look along the top
   raise:  (u, a) => ({ y: 0.07 * (a.k || 1) * env(u), z: 0.06 * env(u), x: -0.05 * env(u), rx: 0.4 * (a.k || 1) * env(u) }),                                         // lift it up toward your face
   lower:  (u, a) => ({ y: -0.05 * env(u), z: 0.04 * env(u), rx: -0.25 * env(u) }),
-  roll:   (u, a) => ({ rz: (a.dir || 1) * TAU * (a.n || 1) * sm(u), x: -0.05 * env(u), y: 0.025 * env(u) }),                                                         // full roll around the barrel
-  spin:   (u, a) => ({ ry: (a.dir || 1) * TAU * (a.n || 1) * sm(u), x: -0.1 * env(u), z: 0.05 * env(u), y: 0.02 * env(u) }),                                          // pirouette
+  roll:   (u, a) => ({ rz: (a.dir || 1) * (TAU * (a.n || 1) * sm(u) - 0.22 * Math.sin(Math.PI * Math.min(1, u * 2.2)) * (1 - u)), x: -0.05 * env(u), y: 0.025 * env(u) }),                                                         // full roll around the barrel
+  spin:   (u, a) => ({ ry: (a.dir || 1) * (TAU * (a.n || 1) * sm(u) - 0.2 * Math.sin(Math.PI * Math.min(1, u * 2.2)) * (1 - u)), x: -0.1 * env(u), z: 0.05 * env(u), y: 0.02 * env(u) }),                                          // pirouette
   toss:   (u, a) => ({ y: (a.h || 0.12) * Math.sin(Math.PI * u), z: 0.07 * env(u), x: -0.05 * env(u), rx: (a.dir || 1) * TAU * (a.n || 1) * sm(u) }),                // throw up, flip, catch
   twirl:  (u, a) => ({ rx: (a.dir || 1) * TAU * (a.n || 1) * sm(u), z: 0.04 * env(u), y: 0.02 * env(u), x: -0.06 * env(u) }),                                         // end over end
   nod:    (u, a) => ({ rx: -(a.k || 0.1) * 0.8 * env(u) }),                                                                                              // one slow look-down
@@ -25,7 +25,7 @@ const BEATS = {
   shake:  (u, a) => ({ y: -0.008 * env(u), rx: 0.04 * env(u) }),                                                                                   // a small settle
 };
 
-const A = (dur, ...beats) => ({ dur: dur * 1.25, beats: beats.map(([b, t0, t1, a]) => ({ b, t0, t1, a: a || {} })) });
+const A = (dur, ...beats) => ({ dur: dur * 1.25, beats: beats.map(([b, t0, t1, a]) => ({ b, t0: Math.max(0, t0 - 0.07), t1: Math.min(1, t1 + 0.07), a: a || {} })) });      // beats overlap a little so one move flows into the next
 
 export const INSPECTS = {
   // --- SMGs

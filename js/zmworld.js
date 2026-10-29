@@ -1,8 +1,8 @@
 // Zombies mode: everything you see on the Outpost map besides the walls - barricades, doors, wall guns, perk machines,
 // the Mystery Box, Pack-a-Punch and power-ups. Pure visuals (the rules live in zombies.js). Built from boxes/canvas textures.
 import * as THREE from 'three';
-import { WEAPONS } from './weapons.js?v=0.17.3';
-import { buildGun } from './gunmodels.js?v=0.17.3';
+import { WEAPONS } from './weapons.js?v=0.18.0';
+import { buildGun } from './gunmodels.js?v=0.18.0';
 
 const stdMat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: o.rough ?? 0.8, metalness: o.metal ?? 0.1, emissive: o.emissive ?? 0x000000, emissiveIntensity: o.ei ?? 1, map: o.map || null });
 const bxm = (w, h, d, mat, x, y, z, parent) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = false; parent.add(m); return m; };

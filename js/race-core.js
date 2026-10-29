@@ -175,17 +175,45 @@ export class Bike {
 }
 
 // ---- AI rider: aims at a point further up the track, brakes for corners it can see coming, picks a lane
-export function aiControl(bike, track, dt, boostOk) {
-  const N = track.N, ds = track.ds, v = Math.max(0, bike.speed);
-  const la = 9 + v * 0.5, ti = (bike.idx + Math.round(la / ds)) % N, l = track.left(ti);
-  bike.laneT += (bike.lane - bike.laneT) * Math.min(1, dt * 0.8);
+// ---- AI rider. Reads the track ahead like a person: sets up wide, cuts to the apex, brakes before corners and rolls back onto the gas,
+// goes round slower riders instead of sitting behind them, lifts the front wheel on long straights, and now and then misjudges a corner.
+export function aiControl(bike, track, dt, boostOk, others) {
+  const N = track.N, ds = track.ds, v = Math.max(0, bike.speed), HWc = HW - 1.6;
+  const ai = bike.ai || (bike.ai = { t: Math.random() * 10, dodge: 0, nextWh: 2 + Math.random() * 5, whUntil: 0, slip: 0, slipUntil: 0, noise: Math.random() * 6, skillJit: 0.96 + Math.random() * 0.08 });
+  ai.t += dt;
+  const curvAt = (m) => track.curv[(bike.idx + Math.max(0, Math.round(m / ds))) % N];
+  const la = 8 + v * 0.55;
+  const kNear = curvAt(la), kFar = curvAt(la * 2.3), kMax = (() => { let m = 0; const span = Math.max(8, Math.round((v * 1.5 + 8) / ds)); for (let k = 0; k < span; k += 3) m = Math.max(m, Math.abs(track.curv[(bike.idx + k) % N])); return m; })();
+  // racing line: swing to the outside before a corner, then cut to the inside at the apex
+  let line = bike.lane * 0.35 + clamp(kNear * 70, -4.4, 4.4) - (Math.abs(kFar) > Math.abs(kNear) * 1.4 ? clamp(kFar * 45, -2.6, 2.6) : 0);
+  // other riders: if someone slower is just ahead in my lane, go round them on the side with more room
+  const l0 = track.left(bike.idx), myLat = (bike.x - track.x[bike.idx]) * l0[0] + (bike.z - track.z[bike.idx]) * l0[1];
+  let want = 0;
+  if (others) for (const o of others) {
+    if (o === bike || o.gone || o.finished) continue;
+    let d = o.idx - bike.idx; if (d > N / 2) d -= N; if (d < -N / 2) d += N; d *= ds;
+    if (d < 1 || d > 7 + v * 0.35) continue;
+    const l1 = track.left(o.idx), oLat = (o.x - track.x[o.idx]) * l1[0] + (o.z - track.z[o.idx]) * l1[1];
+    if (Math.abs(oLat - myLat) < 1.9 && v > o.speed - 2) { const side = myLat >= oLat ? 1 : -1, room = side > 0 ? HWc - myLat : HWc + myLat; want = (room > 1.5 ? side : -side) * 2.4; }
+  }
+  ai.dodge += (want - ai.dodge) * Math.min(1, dt * (want ? 3.2 : 1.4));
+  bike.laneT += (clamp(line + ai.dodge, -HWc, HWc) - bike.laneT) * Math.min(1, dt * 2.2);
+  const ti = (bike.idx + Math.round(la / ds)) % N, l = track.left(ti);
   const tx = track.x[ti] + l[0] * bike.laneT, tz = track.z[ti] + l[1] * bike.laneT;
-  const want = Math.atan2(-(tx - bike.x), -(tz - bike.z)), err = wrap(want - bike.yaw);
-  let kmax = 0; const span = Math.max(8, Math.round((v * 1.4 + 6) / ds));
-  for (let k = 0; k < span; k += 3) kmax = Math.max(kmax, Math.abs(track.curv[(bike.idx + k) % N]));
-  const vSafe = clamp(Math.sqrt(20 * bike.skill / Math.max(kmax, 1e-3)), 11, VMAX * 1.05);
+  const err = wrap(Math.atan2(-(tx - bike.x), -(tz - bike.z)) - bike.yaw);
+  // corner speed: brake late and trail off, roll back on the throttle; sometimes carry too much speed
+  if (ai.t > ai.slipUntil && kMax > 0.02 && Math.random() < dt * 0.05 * (1.1 - Math.min(1, bike.skill))) { ai.slip = 1.1 + Math.random() * 0.15; ai.slipUntil = ai.t + 3.5; }
+  else if (ai.t > ai.slipUntil - 2) ai.slip = 1;
+  const vSafe = clamp(Math.sqrt(22 * bike.skill * ai.skillJit / Math.max(kMax, 1e-3)), 11, VMAX * 1.05) * (ai.slip || 1);
   const over = v - vSafe;
-  return { thr: over < 0 ? 1 : 0, brk: over > 2 ? clamp(over / 8, 0.2, 1) : 0, steer: clamp(err * 2, -1, 1), boost: !!boostOk && kmax < 0.012 && v > 20 };
+  const thr = over < -1.5 ? 1 : over < 1.5 ? clamp(0.62 - over * 0.2, 0.3, 1) : over < 3 ? 0.15 : 0;
+  const brk = over > 3 ? clamp((over - 3) / 8, 0.2, 1) : 0;
+  const steer = clamp(err * 2.1 + Math.sin(ai.t * 1.3 + ai.noise) * 0.03, -1, 1);
+  // wheelie on a clear straight: pop it, hold for a second or two, set it down before the next corner
+  const straight = kMax < 0.0035 && Math.abs(kFar) < 0.004 && v > 17 && !bike.air;
+  if (straight && ai.t > ai.nextWh && ai.whUntil < ai.t && Math.abs(err) < 0.06) { ai.whUntil = ai.t + 1.2 + Math.random() * 1.6; ai.nextWh = ai.whUntil + 4 + Math.random() * 6; }
+  const wheelie = ai.t < ai.whUntil && kMax < 0.008 && !bike.air;
+  return { thr: wheelie ? Math.max(thr, 0.8) : thr, brk, steer, boost: !!boostOk && kMax < 0.01 && v > 20 && !wheelie, wheelie };
 }
 
 const NAMES = ['Dusty', 'Mud', 'Roost', 'Kicker', 'Whip', 'Berm', 'Scrub', 'Nitro', 'Clutch'];
@@ -234,11 +262,11 @@ export class RaceSim {
     const pp = this.player.prog;
     for (const b of this.bikes) {
       if (b.remote || b.gone) continue;                                                             // other people's bikes are posed from the network
-      let inp = { thr: 0, brk: 0, steer: 0, boost: false };
+      let inp = { thr: 0, brk: 0, steer: 0, boost: false, wheelie: false };
       if (racing && !(b.finished && b.isPlayer)) {
         if (b.isPlayer) inp = pin; else {
           const rb = clamp((pp - b.prog) / 500, -0.04, 0.06);                                    // gentle rubber band so the pack stays together
-          const sk = b.skill; b.skill = sk * (1 + rb); inp = aiControl(b, T, dt, b.nitro > 0.5 && sk > 0.97); b.skill = sk;
+          const sk = b.skill; b.skill = sk * (1 + rb); inp = aiControl(b, T, dt, b.nitro > 0.5 && sk > 0.97, this.bikes); b.skill = sk;
         }
       } else if (b.finished) inp = { thr: 0, brk: 0.6, steer: 0, boost: false };
       const old = b.idx; b.update(dt, inp);

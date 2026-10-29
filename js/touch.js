@@ -1,6 +1,6 @@
 // Touch controls for phones and tablets: floating move stick (left), look pad (right), fire / aim / jump / crouch / reload / swap buttons,
 // use (zombies), killstreaks, scoreboard and pause. It drives the same state the keyboard and mouse do (game.keys, game.joy, game.fireHeld ...).
-import { STREAKS } from './streaks.js?v=0.17.3';
+import { STREAKS } from './streaks.js?v=0.18.0';
 
 export function wantsTouch() {
   const q = new URLSearchParams(location.search);
@@ -35,6 +35,9 @@ export function initTouch(game, $) {
     <button class="tb" id="tReload" data-l="RELOAD"></button>
     <button class="tb" id="tSwap"   data-l="SWAP"></button>
     <button class="tb" id="tUse"    data-l="USE"></button>
+    <button class="tb" id="tKnife"  data-l="KNIFE"></button>
+    <button class="tb small" id="tInsp" data-l="INSPECT"></button>
+    <button class="tb small" id="tSprint" data-l="SPRINT"></button>
     <div id="tStreaks"></div>
     <button class="tb small" id="tScore" data-l="TAB"></button>
     <button class="tb small" id="tPause" data-l="II"></button>`;
@@ -42,7 +45,9 @@ export function initTouch(game, $) {
   const rot = document.createElement('div'); rot.id = 'tRotate'; rot.innerHTML = '<b>Rotate your phone</b><span>Iron Strike plays in landscape</span>'; document.body.appendChild(rot);
   const g = (id) => root.querySelector('#' + id);
   const P = () => game.player;
-  const LOOK_K = 0.0042;
+  let sprintLock = false;
+  const lookK = () => 0.0042 * (game.settings.touchSens || 1);                      // Settings > Touch look sensitivity
+  const buzz = (ms = 8) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignore */ } };
 
   // ---- move stick (floating: appears where the thumb lands) ----
   const stick = g('tStick'), knob = g('tKnob'), zone = g('tStickZone'), R = 58;
@@ -50,9 +55,9 @@ export function initTouch(game, $) {
   const setStick = (x, y) => {
     let dx = (x - ox) / R, dy = (y - oy) / R; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
     game.joy.x = dx; game.joy.y = dy; knob.style.transform = `translate(${dx * R}px, ${dy * R}px)`;
-    game.keys.ShiftLeft = Math.hypot(dx, dy) > 0.93 && dy < -0.55;          // pushed right to the rim, forwards = sprint
+    game.keys.ShiftLeft = sprintLock || (Math.hypot(dx, dy) > 0.93 && dy < -0.55);          // pushed right to the rim, forwards = sprint
   };
-  const endStick = () => { sid = null; game.joy.x = game.joy.y = 0; game.keys.ShiftLeft = false; knob.style.transform = ''; stick.classList.remove('live'); stick.style.left = stick.style.top = ''; };
+  const endStick = () => { sid = null; game.joy.x = game.joy.y = 0; game.keys.ShiftLeft = sprintLock; knob.style.transform = ''; stick.classList.remove('live'); stick.style.left = stick.style.top = ''; };
   zone.addEventListener('pointerdown', (e) => {
     if (sid !== null) return; sid = e.pointerId; zone.setPointerCapture(sid);
     ox = Math.max(R + 8, Math.min(innerWidth * 0.45, e.clientX)); oy = Math.max(R + 8, Math.min(innerHeight - R - 8, e.clientY));
@@ -65,7 +70,7 @@ export function initTouch(game, $) {
   const dragLook = (el, onDown, onUp) => {
     const last = new Map();
     el.addEventListener('pointerdown', (e) => { el.setPointerCapture(e.pointerId); last.set(e.pointerId, [e.clientX, e.clientY]); if (onDown) onDown(e); e.preventDefault(); });
-    el.addEventListener('pointermove', (e) => { const l = last.get(e.pointerId); if (!l) return; game.look(e.clientX - l[0], e.clientY - l[1], LOOK_K); l[0] = e.clientX; l[1] = e.clientY; });
+    el.addEventListener('pointermove', (e) => { const l = last.get(e.pointerId); if (!l) return; game.look(e.clientX - l[0], e.clientY - l[1], lookK()); l[0] = e.clientX; l[1] = e.clientY; });
     for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(t, (e) => { if (last.delete(e.pointerId) && onUp) onUp(e); });
   };
   dragLook(g('tLook'));
@@ -76,10 +81,14 @@ export function initTouch(game, $) {
     for (const t of ['pointerup', 'pointercancel']) b.addEventListener(t, (e) => { if (!b.classList.contains('down')) return; b.classList.remove('down'); if (up) up(e); });
   };
   const tap = (id, fn) => hold(id, fn);
-  dragLook(g('tFire'), () => { game.fireHeld = true; game.fireEdge = true; g('tFire').classList.add('down'); }, () => { game.fireHeld = false; g('tFire').classList.remove('down'); });   // fire and swipe to aim at the same time
+  dragLook(g('tFire'), () => { game.fireHeld = true; game.fireEdge = true; g('tFire').classList.add('down'); buzz(6); }, () => { game.fireHeld = false; g('tFire').classList.remove('down'); });   // fire and swipe to aim at the same time
   g('tFire').addEventListener('pointerdown', (e) => e.stopPropagation());
-  tap('tAds', () => { game.adsHeld = !game.adsHeld; });
+  tap('tAds', () => { game.adsHeld = !game.adsHeld; buzz(); });
   hold('tJump', () => { game.keys.Space = true; }, () => { game.keys.Space = false; });
+  // knife: tap = quick lunge, hold = take the knife out (same as V on the keyboard)
+  hold('tKnife', () => { game.vHeld = true; game.vHandled = false; game.vDownT = performance.now(); buzz(); }, () => { if (game.vHeld) { game.vHeld = false; if (!game.vHandled && game.state === 'playing') game.startSwing('quick'); } });
+  tap('tInsp', () => { if (!game.zm) game.startInspect(); });
+  tap('tSprint', () => { sprintLock = !sprintLock; game.keys.ShiftLeft = sprintLock; buzz(); });
   tap('tCrouch', () => { game.keys.KeyC = !game.keys.KeyC; });
   tap('tReload', () => { if (P()) game.startReload(P()); });
   tap('tSwap', () => { if (P()) game.switchWeapon(P(), 1 - P().cur); });
@@ -106,6 +115,8 @@ export function initTouch(game, $) {
     root.classList.toggle('on', on); rot.classList.toggle('on', on && innerHeight > innerWidth);
     if (!on) { if (was) { endStick(); was = false; } return; }
     was = true;
+    g('tSprint').classList.toggle('active', sprintLock); if (sprintLock && !game.keys.ShiftLeft && !(game.joy.x || game.joy.y)) { /* stays latched until tapped again */ game.keys.ShiftLeft = true; }
+    g('tKnife').classList.toggle('active', !!game.knifeOut);
     g('tAds').classList.toggle('active', !!game.adsHeld); g('tCrouch').classList.toggle('active', !!game.keys.KeyC);
     g('tUse').style.display = game.zm ? '' : 'none';
     g('tScore').style.display = game.zm ? 'none' : '';

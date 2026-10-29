@@ -15,7 +15,7 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.route('**/cdn.jsdelivr.net/npm/three@**', lambda r: r.fulfill(body=stub, content_type='application/javascript'))
     pg.goto(f'http://127.0.0.1:{port}/index.html'); pg.wait_for_timeout(500)
-    check('gfx buttons in menu + pause', pg.evaluate("document.querySelectorAll('.gfxseg button').length") == 6)
+    check('gfx buttons in menu + pause', pg.evaluate("document.querySelectorAll('.gfxseg button').length") == 8)
     pg.evaluate("document.querySelector('.gfxseg button[data-gfx=low]').click()")
     check('low saved', pg.evaluate("JSON.parse(localStorage.getItem('ironstrike')).gfx") == 'low')
     pg.evaluate("() => { const g = window.__game; g.start({mode:'tdm',map:'dust',mapName:'W',primary:'m4a1',secondary:'g18',attP:0,attS:0,difficulty:'normal'}); g.state='playing'; }")

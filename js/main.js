@@ -1,21 +1,21 @@
-import { Game, MODES, mpMode } from './game.js?v=0.17.3';
-import { Net, cleanCode, cleanName } from './net.js?v=0.17.3';
-import { watchForEgg } from './easter.js?v=0.17.3';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.17.3';
-import { Sound } from './audio.js?v=0.17.3';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.17.3';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.17.3';
-import { loadProps } from './props.js?v=0.17.3';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.17.3';
-import { rankName, UNLOCK } from './progress.js?v=0.17.3';
-import { initMapMaker } from './mapmaker.js?v=0.17.3';
-import { RaceMode } from './race.js?v=0.17.3';
-import { initSupermod, MOD } from './supermod.js?v=0.17.3';
-import { initKeybinds } from './keybinds.js?v=0.17.3';
-import { Gunsmith } from './gunsmith.js?v=0.17.3';
-import { WeaponPreview } from './wpreview.js?v=0.17.3';
-import { initTouch, blockZoom } from './touch.js?v=0.17.3';
-import { initGamepad } from './gamepad.js?v=0.17.3';
+import { Game, MODES, mpMode } from './game.js?v=0.18.0';
+import { Net, cleanCode, cleanName } from './net.js?v=0.18.0';
+import { watchForEgg } from './easter.js?v=0.18.0';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.18.0';
+import { Sound } from './audio.js?v=0.18.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.18.0';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.18.0';
+import { loadProps } from './props.js?v=0.18.0';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.18.0';
+import { rankName, UNLOCK } from './progress.js?v=0.18.0';
+import { initMapMaker } from './mapmaker.js?v=0.18.0';
+import { RaceMode } from './race.js?v=0.18.0';
+import { initSupermod, MOD } from './supermod.js?v=0.18.0';
+import { initKeybinds } from './keybinds.js?v=0.18.0';
+import { Gunsmith } from './gunsmith.js?v=0.18.0';
+import { WeaponPreview } from './wpreview.js?v=0.18.0';
+import { initTouch, blockZoom } from './touch.js?v=0.18.0';
+import { initGamepad } from './gamepad.js?v=0.18.0';
 
 const $ = (id) => document.getElementById(id);
 
@@ -48,7 +48,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gfx: ['low', 'medium', 'high'].includes(cfg.gfx) ? cfg.gfx : 'high', gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll !== false };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gfx: ['low', 'medium', 'high', 'ultra'].includes(cfg.gfx) ? cfg.gfx : 'high', gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll !== false };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -191,6 +191,8 @@ function slider(ids, key, fmt, apply) {
 }
 slider([['sens', 'sensOut'], ['sens2', 'sensOut2']], 'sens', (v) => v.toFixed(2), (v) => { game.settings.sens = v; });
 slider([['fov', 'fovOut'], ['fov2', 'fovOut2']], 'fov', (v) => String(Math.round(v)), (v) => { game.settings.fov = v; });
+cfg.touchSens = cfg.touchSens || 1;
+slider([['tsens', 'tsensOut'], ['tsens2', 'tsensOut2']], 'touchSens', (v) => v.toFixed(2), (v) => { game.settings.touchSens = v; });
 slider([['vol', 'volOut'], ['vol2', 'volOut2']], 'vol', (v) => v.toFixed(2), (v) => { sound.volume = v; if (sound.master) sound.master.gain.value = v; });
 
 // ragdoll toggle (main menu + pause menu)
@@ -246,7 +248,7 @@ buildXh($('xhMenu')); buildXh($('xhPause')); applyXh();
 // graphics preset + FPS counter (main menu + pause menu)
 const gfxBtns = [];
 for (const seg of document.querySelectorAll('.gfxseg')) {
-  for (const v of ['low', 'medium', 'high']) {
+  for (const v of ['low', 'medium', 'high', 'ultra']) {
     const b = document.createElement('button'); b.textContent = v; b.dataset.gfx = v;
     b.addEventListener('click', () => { cfg.gfx = v; game.settings.gfx = v; showGfx(); game.applyGfx(); save(); });
     seg.appendChild(b); gfxBtns.push(b);

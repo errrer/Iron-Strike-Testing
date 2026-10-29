@@ -3,7 +3,7 @@
 //             LB use (zombies) / inspect - RB killstreak - D-pad killstreaks (up UAV, left sentry, right airstrike), down scoreboard - R3 camera view
 //             Select scoreboard (hold) - Start pause / resume
 //   Menus:    left stick or D-pad moves the highlight, A selects, B goes back, left / right on a slider changes it.
-import { STREAKS } from './streaks.js?v=0.17.3';
+import { STREAKS } from './streaks.js?v=0.18.0';
 
 const DEAD = 0.14, LOOK_RATE = 2.9;         // rad/s at full right-stick deflection (x sensitivity setting)
 const curve = (v) => { const a = Math.abs(v); if (a < DEAD) return 0; const t = (a - DEAD) / (1 - DEAD); return Math.sign(v) * t * (0.35 + 0.65 * t); };

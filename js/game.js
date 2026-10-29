@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.17.3';
-import { canon } from './keybinds.js?v=0.17.3';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.17.3';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.17.3';
-import { buildMap } from './maps.js?v=0.17.3';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.17.3';
-import { buildWorld } from './world.js?v=0.17.3';
-import { Bot } from './bots.js?v=0.17.3';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.17.3';
-import { buildSoldier, SKIN } from './soldier.js?v=0.17.3';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.17.3';
-import { Zombies, PERKS } from './zombies.js?v=0.17.3';
-import { inspectFor, inspectPose } from './inspect.js?v=0.17.3';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.17.3';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.17.3';
-import { Objectives } from './objectives.js?v=0.17.3';
-import { Streaks, STREAKS } from './streaks.js?v=0.17.3';
-import { Gore } from './gore.js?v=0.17.3';
+import { MOD } from './supermod.js?v=0.18.0';
+import { canon } from './keybinds.js?v=0.18.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.0';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.0';
+import { buildMap } from './maps.js?v=0.18.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.0';
+import { buildWorld } from './world.js?v=0.18.0';
+import { Bot } from './bots.js?v=0.18.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.18.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.0';
+import { Zombies, PERKS } from './zombies.js?v=0.18.0';
+import { inspectFor, inspectPose } from './inspect.js?v=0.18.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.0';
+import { Objectives } from './objectives.js?v=0.18.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.18.0';
+import { Gore } from './gore.js?v=0.18.0';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -156,11 +156,16 @@ export class Game {
     low:    { pr: 0.5, shadow: 0, lambert: true,  lights: false, far: 150, fogMul: 0.55, ragdoll: false, gore: false },
     medium: { pr: 1,   shadow: 1024, lambert: false, lights: true, far: 350, fogMul: 1, ragdoll: true, gore: true },
     high:   { pr: 2,   shadow: 4096, lambert: false, lights: true, far: 500, fogMul: 1, ragdoll: true, gore: true },
+    // ULTRA: supersampled (1.5x the screen's pixel ratio), 8K shadows, image-based lighting on the world, sharper textures, colour grade + vignette
+    ultra:  { pr: 3, ss: 1.5, shadow: 8192, lambert: false, lights: true, far: 650, fogMul: 1.15, ragdoll: true, gore: true, env: true, aniso: true, grade: true, exposure: 1.14 },
   };
   get gfxQ() { return Game.GFX[this.settings.gfx] || Game.GFX.high; }
   applyGfx() {
     const q = this.gfxQ;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr)); this.resize();
+    const dpr = window.devicePixelRatio || 1;
+    let ratio = Math.min(q.ss ? dpr * q.ss : dpr, q.pr); ratio = Math.min(ratio, Math.sqrt(12e6 / Math.max(1, innerWidth * innerHeight)));      // never more than ~12 megapixels
+    this.renderer.setPixelRatio(ratio); this.resize();
+    this.renderer.toneMappingExposure = q.exposure || 1.2; document.body.classList.toggle('ultra', !!q.grade);
     camoQ.low = !!q.lambert; this.camera.far = q.far; this.camera.updateProjectionMatrix();
     if (!this.scene) return;
     this.gfxSweep(true);
@@ -169,17 +174,22 @@ export class Game {
     const q = this.gfxQ, sc = this.scene; if (!sc) return;
     if (sc.fog && sc.fog.far) { if (sc.userData.fogFar === undefined) sc.userData.fogFar = sc.fog.far; sc.fog.far = sc.userData.fogFar * q.fogMul; }
     const lamb = this.lambCache || (this.lambCache = new Map());
+    if (q.env) { if (!sc.environment) { const env = makeEnv(this.renderer); if (env) { sc.environment = env; sc.userData.ownEnv = env; full = 'mats'; } } }
+    else if (sc.userData.ownEnv && sc.environment === sc.userData.ownEnv) { sc.environment = null; full = 'mats'; }
+    const maxA = q.aniso && this.renderer.capabilities && this.renderer.capabilities.getMaxAnisotropy ? this.renderer.capabilities.getMaxAnisotropy() : 0;
+    const cap = this.renderer.capabilities && this.renderer.capabilities.maxTextureSize || 8192;
     sc.traverse((o) => {
       if (o.isDirectionalLight && o.shadow) {
         if (o.userData.hadShadow === undefined) o.userData.hadShadow = !!o.castShadow;
-        const on = o.userData.hadShadow && q.shadow > 0;
-        if (on && o.shadow.mapSize.x !== q.shadow) { o.shadow.mapSize.set(q.shadow, q.shadow); if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; } }
+        const on = o.userData.hadShadow && q.shadow > 0, sz = Math.min(q.shadow, cap);
+        if (on && o.shadow.mapSize.x !== sz) { o.shadow.mapSize.set(sz, sz); if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; } }
         o.castShadow = on;
       } else if (o.isPointLight) {
         if (o.userData.hadVis === undefined) o.userData.hadVis = o.visible !== false;
         const v = o.userData.hadVis && q.lights; if (o.visible !== v) { o.visible = v; full = 'mats'; }
       } else if (o.isMesh && o.material && !Array.isArray(o.material)) {
         const m = o.material;
+        if (maxA && m.map && m.map.anisotropy < maxA) { m.map.anisotropy = maxA; m.map.needsUpdate = true; }
         if (q.lambert && m.isMeshStandardMaterial && !m.isMeshPhysicalMaterial && THREE.MeshLambertMaterial) {
           let l = lamb.get(m); if (!l) { l = new THREE.MeshLambertMaterial({ color: m.color, map: m.map || null, vertexColors: !!m.vertexColors, transparent: !!m.transparent, opacity: m.opacity, side: m.side, emissive: m.emissive, emissiveIntensity: m.emissiveIntensity, fog: m.fog }); l.userData.orig = m; lamb.set(m, l); }
           o.userData.origMat = m; o.material = l;
@@ -1597,27 +1607,38 @@ export class Game {
     if (S.slk > 0.01) { const f = S.slk * (1 - a * 0.8); x -= 0.035 * f; y -= 0.03 * f; rz += 0.3 * f; ry += 0.12 * f; rx += 0.05 * f; }
     if (S.mvk > 0.01) { y -= 0.1 * S.mvk; z += 0.03 * S.mvk; rx -= 0.35 * S.mvk; rz += 0.15 * S.mvk; }
     // inspect (F): each weapon plays its own sequence from inspect.js
-    let irx = 0, iry = 0, irz = 0;
+    let irx = 0, iry = 0, irz = 0, ix_ = 0, iy_ = 0, iz_ = 0, jrx_ = 0, jry_ = 0, jrz_ = 0;
     if (S.inspectT > 0) {
       S.inspWas = true;
       const ip = inspectPose(inspectFor(vm.id), clamp(1 - S.inspectT / (S.inspectDur || 2.8), 0, 1)), fr = 1 - a;
-      x += ip.x * fr; y += ip.y * fr; z += ip.z * fr;
-      if (vm.piv) { irx = ip.rx * fr; iry = ip.ry * fr; irz = ip.rz * fr; } else { rx += ip.rx * fr; ry += ip.ry * fr; rz += ip.rz * fr; }      // knives: inspect spins live entirely at the wrist, the arm stays put
+      ix_ = ip.x * fr; iy_ = ip.y * fr; iz_ = ip.z * fr;
+      const br = Math.sin(this.time * 1.7) * 0.5 + Math.sin(this.time * 2.9) * 0.3; ix_ += br * 0.0025; iy_ += br * 0.002;       // faint breathing while you look it over
+      if (vm.piv) { irx = ip.rx * fr; iry = ip.ry * fr; irz = ip.rz * fr; } else { jrx_ = ip.rx * fr; jry_ = ip.ry * fr; jrz_ = ip.rz * fr; }      // knives: inspect spins live entirely at the wrist, the arm stays put
       hand = Math.max(hand, ip.hand); handDy += ip.hdy; slideT = Math.max(slideT, ip.slide); boltOpen = Math.max(boltOpen, ip.bolt); pumpBack = Math.max(pumpBack, ip.pump);
       for (const e of vm.mags) { e.m.visible = true; e.m.position.y = e.p.y - ip.mag * 0.075; e.m.position.z = e.p.z + ip.mag * 0.03; }
     } else if (S.inspWas) { S.inspWas = false; for (const e of vm.mags) { e.m.visible = true; e.m.position.copy(e.p); } }
 
+    const sw = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };
     if (this.swing) {                                                                  // knife swings: wind-up, strike, follow-through, recover (tuned per knife)
       const s = this.swing, u = clamp(s.t / s.dur, 0, 1), E = (a0, b0) => sm(a0, b0, u), K = KNIFE_SWING[vm.id] || KNIFE_SWING.k_combat;
       if (s.kind === 'quick') {
         const wind = E(0, 0.24) * (1 - E(0.24, 0.36)), thrust = E(0.2, 0.46) * (1 - E(0.52, 0.95));
-        z += 0.08 * wind - 0.36 * K.reach * thrust; y += 0.02 * wind + 0.05 * thrust; x += 0.03 * wind - 0.05 * thrust;
-        rx += 0.3 * wind - 0.5 * thrust; ry += 0.22 * thrust; rz += K.roll * thrust - 0.2 * wind;
+        sw.z += 0.08 * wind - 0.36 * K.reach * thrust; sw.y += 0.02 * wind + 0.05 * thrust; sw.x += 0.03 * wind - 0.05 * thrust;
+        sw.rx += 0.3 * wind - 0.5 * thrust; sw.ry += 0.22 * thrust; sw.rz += K.roll * thrust - 0.2 * wind;
       } else {
         const wi = E(0, 0.26), p2 = E(0.26, 0.62), back = 1 - E(0.64, 1), f = wi * back, a2 = (1 - 2 * p2) * f;            // a2 sweeps +1 (high right) .. -1 (low left)
-        x += 0.2 * K.arc * a2; y += 0.06 * (1 - a2 * a2) * f + 0.03 * f; z -= 0.14 * K.reach * (1 - Math.abs(a2) * 0.4) * f;
-        ry += 1.1 * K.arc * a2; rz += (1.0 * a2 + K.roll * Math.sin(Math.PI * p2)) * f; rx += (-0.25 * (1 - a2 * a2) - K.chop * Math.sin(Math.PI * p2)) * f;
+        sw.x += 0.2 * K.arc * a2; sw.y += 0.06 * (1 - a2 * a2) * f + 0.03 * f; sw.z -= 0.14 * K.reach * (1 - Math.abs(a2) * 0.4) * f;
+        sw.ry += 1.1 * K.arc * a2; sw.rz += (1.0 * a2 + K.roll * Math.sin(Math.PI * p2)) * f; sw.rx += (-0.25 * (1 - a2 * a2) - K.chop * Math.sin(Math.PI * p2)) * f;
       }
+    }
+    {                                                                                  // organic follow-through: every animated offset chases its target on a slightly under-damped spring (soft starts, tiny overshoot, no snapping)
+      const sp = S.sp || (S.sp = {}), spr = (k, t, w = 20, zt = 0.74) => { const s = sp[k] || (sp[k] = [0, 0, t]); if (/^[sij]r[xyz]$/.test(k)) { const d = t - s[2]; if (Math.abs(d) > 3) s[0] += Math.round(d / 6.2832) * 6.2832; s[2] = t; }      // full turns end back at 0: keep the spring on the shortest path
+      const acc = w * w * (t - s[0]) - 2 * zt * w * s[1]; s[1] += acc * dt; s[0] += s[1] * dt; return s[0]; };
+      x += spr('sx', sw.x); y += spr('sy', sw.y); z += spr('sz', sw.z); rx += spr('srx', sw.rx); ry += spr('sry', sw.ry); rz += spr('srz', sw.rz);
+      hand = Math.max(0, spr('h', hand, 15, 0.85)); handDy = spr('hdy', handDy, 15, 0.85); handDz = spr('hdz', handDz, 15, 0.85);       // support hand glides instead of snapping
+      const wi = 11;
+      x += spr('ix', ix_, wi, 0.8); y += spr('iy', iy_, wi, 0.8); z += spr('iz', iz_, wi, 0.8);
+      if (vm.piv) { irx = spr('irx', irx, wi, 0.8); iry = spr('iry', iry, wi, 0.8); irz = spr('irz', irz, wi, 0.8); } else { rx += spr('jrx', jrx_, wi, 0.8); ry += spr('jry', jry_, wi, 0.8); rz += spr('jrz', jrz_, wi, 0.8); }
     }
     // --- apply ----------------------------------------------------------------------------------
     this.vmRoot.position.set(x, y, z);
