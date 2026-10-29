@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.17.2';
-import { canon } from './keybinds.js?v=0.17.2';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.17.2';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.17.2';
-import { buildMap } from './maps.js?v=0.17.2';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.17.2';
-import { buildWorld } from './world.js?v=0.17.2';
-import { Bot } from './bots.js?v=0.17.2';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.17.2';
-import { buildSoldier, SKIN } from './soldier.js?v=0.17.2';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.17.2';
-import { Zombies, PERKS } from './zombies.js?v=0.17.2';
-import { inspectFor, inspectPose } from './inspect.js?v=0.17.2';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.17.2';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.17.2';
-import { Objectives } from './objectives.js?v=0.17.2';
-import { Streaks, STREAKS } from './streaks.js?v=0.17.2';
-import { Gore } from './gore.js?v=0.17.2';
+import { MOD } from './supermod.js?v=0.17.3';
+import { canon } from './keybinds.js?v=0.17.3';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.17.3';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.17.3';
+import { buildMap } from './maps.js?v=0.17.3';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.17.3';
+import { buildWorld } from './world.js?v=0.17.3';
+import { Bot } from './bots.js?v=0.17.3';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.17.3';
+import { buildSoldier, SKIN } from './soldier.js?v=0.17.3';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.17.3';
+import { Zombies, PERKS } from './zombies.js?v=0.17.3';
+import { inspectFor, inspectPose } from './inspect.js?v=0.17.3';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.17.3';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.17.3';
+import { Objectives } from './objectives.js?v=0.17.3';
+import { Streaks, STREAKS } from './streaks.js?v=0.17.3';
+import { Gore } from './gore.js?v=0.17.3';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -1597,10 +1597,12 @@ export class Game {
     if (S.slk > 0.01) { const f = S.slk * (1 - a * 0.8); x -= 0.035 * f; y -= 0.03 * f; rz += 0.3 * f; ry += 0.12 * f; rx += 0.05 * f; }
     if (S.mvk > 0.01) { y -= 0.1 * S.mvk; z += 0.03 * S.mvk; rx -= 0.35 * S.mvk; rz += 0.15 * S.mvk; }
     // inspect (F): each weapon plays its own sequence from inspect.js
+    let irx = 0, iry = 0, irz = 0;
     if (S.inspectT > 0) {
       S.inspWas = true;
       const ip = inspectPose(inspectFor(vm.id), clamp(1 - S.inspectT / (S.inspectDur || 2.8), 0, 1)), fr = 1 - a;
-      x += ip.x * fr; y += ip.y * fr; z += ip.z * fr; rx += ip.rx * fr; ry += ip.ry * fr; rz += ip.rz * fr;
+      x += ip.x * fr; y += ip.y * fr; z += ip.z * fr;
+      if (vm.piv) { irx = ip.rx * fr; iry = ip.ry * fr; irz = ip.rz * fr; } else { rx += ip.rx * fr; ry += ip.ry * fr; rz += ip.rz * fr; }      // knives: inspect spins live entirely at the wrist, the arm stays put
       hand = Math.max(hand, ip.hand); handDy += ip.hdy; slideT = Math.max(slideT, ip.slide); boltOpen = Math.max(boltOpen, ip.bolt); pumpBack = Math.max(pumpBack, ip.pump);
       for (const e of vm.mags) { e.m.visible = true; e.m.position.y = e.p.y - ip.mag * 0.075; e.m.position.z = e.p.z + ip.mag * 0.03; }
     } else if (S.inspWas) { S.inspWas = false; for (const e of vm.mags) { e.m.visible = true; e.m.position.copy(e.p); } }
@@ -1620,7 +1622,7 @@ export class Game {
     // --- apply ----------------------------------------------------------------------------------
     this.vmRoot.position.set(x, y, z);
     if (vm.piv) {                                                                      // knife: most of the roll / flip happens at the wrist, the forearm twists along with it
-      this.vmRoot.rotation.set(rx * 0.3, ry * 0.5, rz * 0.2); vm.piv.rotation.set(rx * 0.7, ry * 0.5, rz * 0.8);
+      this.vmRoot.rotation.set(rx * 0.3, ry * 0.5, rz * 0.2); vm.piv.rotation.set(rx * 0.7 + irx, ry * 0.5 + iry, rz * 0.8 + irz);
       const bs = vm.arm.userData.base; vm.arm.rotation.set(bs.x, bs.y, bs.z + rz * 0.3);
     } else this.vmRoot.rotation.set(rx, ry, rz);
     vm.lh.position.set(vm.reach.x * hand, vm.reach.y * hand + handDy, vm.reach.z * hand + handDz + pumpBack * 0.08 * (vm.cls === 'shotgun' ? 1 : 0));
