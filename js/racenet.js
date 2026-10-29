@@ -2,7 +2,7 @@
 //   HOST   = creates the room, owns the AI riders, and relays everybody's bike state to everybody 20 times a second.
 //   CLIENT = drives its own bike locally (instant controls) and sends its state to the host.
 // Each bike is simulated by whoever owns it, so there is no steering lag; the others are smoothed on screen.
-import { loadPeerLib, openPeer, genCode, cleanCode, cleanName } from './net.js?v=0.17.1';
+import { loadPeerLib, openPeer, genCode, cleanCode, cleanName } from './net.js?v=0.17.2';
 
 const PREFIX = 'ironstrike-race-v1-';
 const PROTOCOL = 1;

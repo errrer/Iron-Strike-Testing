@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.17.1';
-import { canon } from './keybinds.js?v=0.17.1';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.17.1';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.17.1';
-import { buildMap } from './maps.js?v=0.17.1';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.17.1';
-import { buildWorld } from './world.js?v=0.17.1';
-import { Bot } from './bots.js?v=0.17.1';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.17.1';
-import { buildSoldier, SKIN } from './soldier.js?v=0.17.1';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.17.1';
-import { Zombies, PERKS } from './zombies.js?v=0.17.1';
-import { inspectFor, inspectPose } from './inspect.js?v=0.17.1';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.17.1';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.17.1';
-import { Objectives } from './objectives.js?v=0.17.1';
-import { Streaks, STREAKS } from './streaks.js?v=0.17.1';
-import { Gore } from './gore.js?v=0.17.1';
+import { MOD } from './supermod.js?v=0.17.2';
+import { canon } from './keybinds.js?v=0.17.2';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.17.2';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.17.2';
+import { buildMap } from './maps.js?v=0.17.2';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.17.2';
+import { buildWorld } from './world.js?v=0.17.2';
+import { Bot } from './bots.js?v=0.17.2';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.17.2';
+import { buildSoldier, SKIN } from './soldier.js?v=0.17.2';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.17.2';
+import { Zombies, PERKS } from './zombies.js?v=0.17.2';
+import { inspectFor, inspectPose } from './inspect.js?v=0.17.2';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.17.2';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.17.2';
+import { Objectives } from './objectives.js?v=0.17.2';
+import { Streaks, STREAKS } from './streaks.js?v=0.17.2';
+import { Gore } from './gore.js?v=0.17.2';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -764,7 +764,7 @@ export class Game {
     const glove = new THREE.MeshStandardMaterial({ color: 0x2a2f29, roughness: 0.9 });
     const sleeve = new THREE.MeshStandardMaterial({ color: 0x3b4a3a, roughness: 0.95 });
     const lh = new THREE.Group(); gun.add(lh); lh.visible = w.cls !== 'melee';                      // support hand: animated separately (reloads, pumping, inspecting)
-    const add = (w_, h_, d_, mt, x, y, z, rx = 0, ry = 0, rz = 0, parent = gun) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w_, h_, d_), mt); me.position.set(x, y, z); me.rotation.set(rx, ry, rz); parent.add(me); };
+    const add = (w_, h_, d_, mt, x, y, z, rx = 0, ry = 0, rz = 0, parent = gun) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w_, h_, d_), mt); me.position.set(x, y, z); me.rotation.set(rx, ry, rz); parent.add(me); return me; };
     // trigger hand: the palm sits on the back of the grip, three fingers wrap round the front, the index finger rests on the
     // trigger, the thumb lies along the left side. The whole hand is raked to match the angle of the grip.
     const rake = u.pistol ? -0.3 : -0.36;
@@ -774,7 +774,7 @@ export class Game {
     for (let i = 0; i < 3; i++) add(0.044, 0.022, 0.046, glove, 0.0, -0.002 - i * 0.026, -0.03, 0, 0, 0, hand);   // fingers wrapped round the front
     add(0.014, 0.014, 0.05, glove, 0.004, 0.046, -0.048, 0, 0, 0, hand);                    // index finger on the trigger
     add(0.016, 0.03, 0.06, glove, -0.03, 0.03, 0.005, -0.15, 0, 0.12, hand);                // thumb along the left of the frame
-    add(0.07, 0.07, 0.36, sleeve, G.x + 0.045, G.y - 0.07, G.z + 0.24, 0.5, 0.18, 0);
+    const armMesh = add(0.07, 0.07, 0.36, sleeve, G.x + 0.045, G.y - 0.07, G.z + 0.24, 0.5, 0.18, 0);
     // support hand
     if (u.pistol) {
       // two-handed pistol grip: left palm on the left of the grip, fingers over the right hand's fingers, thumb forward on the frame
@@ -811,7 +811,12 @@ export class Game {
       tgt.multiplyScalar(1 / mags.length);
     }
     const reach = new V3(tgt.x - F.x, tgt.y - F.y + (u.pistol ? 0.04 : 0.05), tgt.z - F.z);
-    return { root, gun, flash, sightY: u.sightY, lh, mags, slides, bolts, pumps, reach, cls: w.cls, id: w.id, pistol: u.pistol };
+    let piv = null, arm = null;
+    if (w.cls === 'melee') {                         // knives: the hand + blade spin on a wrist pivot while the forearm only twists, so a karambit spin looks like a real wrist roll
+      piv = new THREE.Group(); piv.position.set(G.x, G.y, G.z); root.remove(gun); gun.remove(armMesh); gun.position.set(-G.x, -G.y, -G.z); piv.add(gun); root.add(piv);
+      arm = armMesh; arm.userData.base = { x: arm.rotation.x, y: arm.rotation.y, z: arm.rotation.z }; root.add(arm);
+    }
+    return { root, gun, piv, arm, flash, sightY: u.sightY, lh, mags, slides, bolts, pumps, reach, cls: w.cls, id: w.id, pistol: u.pistol };
   }
 
   flashTexture() {
@@ -1613,7 +1618,11 @@ export class Game {
       }
     }
     // --- apply ----------------------------------------------------------------------------------
-    this.vmRoot.position.set(x, y, z); this.vmRoot.rotation.set(rx, ry, rz);
+    this.vmRoot.position.set(x, y, z);
+    if (vm.piv) {                                                                      // knife: most of the roll / flip happens at the wrist, the forearm twists along with it
+      this.vmRoot.rotation.set(rx * 0.3, ry * 0.5, rz * 0.2); vm.piv.rotation.set(rx * 0.7, ry * 0.5, rz * 0.8);
+      const bs = vm.arm.userData.base; vm.arm.rotation.set(bs.x, bs.y, bs.z + rz * 0.3);
+    } else this.vmRoot.rotation.set(rx, ry, rz);
     vm.lh.position.set(vm.reach.x * hand, vm.reach.y * hand + handDy, vm.reach.z * hand + handDz + pumpBack * 0.08 * (vm.cls === 'shotgun' ? 1 : 0));
     for (const e of vm.slides) e.m.position.z = e.p.z + 0.032 * slideT;
     for (const e of vm.bolts) { e.m.position.z = e.p.z + 0.07 * boltOpen; e.m.position.y = e.p.y + 0.012 * boltOpen; }

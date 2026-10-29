@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf } from './weapons.js?v=0.17.1';
+import { getSlot, camoOf } from './weapons.js?v=0.17.2';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +11,7 @@ import { getSlot, camoOf } from './weapons.js?v=0.17.1';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.17.1';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.17.2';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -522,17 +522,23 @@ function buildKCombat() {                                      // tactical drop-
   for (let i = 0; i < 6; i++) b.box(0.0075, 0.005, 0.01, 0, -0.019, -0.1 - i * 0.017, M.black());   // choil teeth
   return kdone(b, V(0, -0.004, 0.0), -0.3);
 }
-function buildKKarambit() {                                    // hooked claw with a finger ring
+function buildKKarambit() {                                    // hooked claw blade growing out of the front of the handle, finger ring at the back
   const b = new B();
-  b.box(0.026, 0.034, 0.1, 0, -0.006, 0.0, M.poly());                                       // handle
-  for (let i = 0; i < 4; i++) b.box(0.028, 0.036, 0.006, 0, -0.006, -0.03 + i * 0.02, M.black());
-  b.box(0.0285, 0.01, 0.02, 0, 0.014, 0.043, M.steel());
-  b._add(new THREE.TorusGeometry(0.023, 0.0058, 8, 22), M.steel(), 0, -0.006, 0.086, 0, Math.PI / 2, 0);   // finger ring
-  const R = 0.12, inner = arc(-0.052, 0.012, R, 0.0, 1.32, 14), outer = arc(-0.052, 0.012 + 0.042, R + 0.0, 0.0, 1.32, 14).map((p, k, a) => [p[0], p[1] - 0.042 * (k / (a.length - 1)) * 0.92]);
-  blade(b, [...outer, ...inner.reverse()], 0.0066, M.silver());                              // crescent blade
-  fuller(b, -0.07, -0.13, 0.026, 0.0034);
-  b.box(0.0068, 0.012, 0.024, 0, 0.026, -0.05, M.steel());                                   // blade root
-  return kdone(b, V(0, -0.006, 0.0), -0.27);
+  b.box(0.026, 0.034, 0.104, 0, -0.006, 0.0, M.poly());                                     // handle
+  for (let i = 0; i < 5; i++) b.box(0.0285, 0.036, 0.007, 0, -0.006, -0.036 + i * 0.019, M.black());   // grip rings
+  b.box(0.0285, 0.012, 0.016, 0, 0.0165, -0.046, M.steel());                                 // front bolster
+  b.box(0.0285, 0.012, 0.016, 0, -0.0285, -0.046, M.steel());
+  b._add(new THREE.TorusGeometry(0.024, 0.0058, 8, 22), M.steel(), 0, -0.014, 0.082, 0, Math.PI / 2, 0);   // finger ring
+  // blade: spine follows an arc that curls down and forward; the cutting edge is the spine pulled in by a width that tapers to the tip
+  const z0 = -0.052, y0 = 0.011, R = 0.125, aEnd = 1.38, N = 16, spine = [], edge = [];
+  for (let k = 0; k <= N; k++) {
+    const a = aEnd * k / N, sz = z0 - R * Math.sin(a), sy = y0 - R * (1 - Math.cos(a)), nz = -(-Math.sin(a)) * 0, w = 0.046 * Math.pow(1 - Math.pow(k / N, 1.5), 0.9) + 0.0015;
+    const cz = z0, cy = y0 - R, dz = (cz - sz) / R, dy = (cy - sy) / R;                       // unit vector from the spine towards the arc centre
+    spine.push([sz, sy]); edge.push([sz + dz * w, sy + dy * w]); void nz;
+  }
+  blade(b, [...spine, ...edge.reverse()], 0.0072, M.silver());
+  for (let k = 3; k < 12; k += 2) { const p = spine[k]; b.box(0.0078, 0.004, 0.006, 0, p[1] - 0.0008, p[0], M.steel(), 0.0); }   // jimping on the spine
+  return kdone(b, V(0, -0.006, 0.0), -0.2);
 }
 function buildKBalisong() {                                    // butterfly knife with the blade flipped out
   const b = new B();
