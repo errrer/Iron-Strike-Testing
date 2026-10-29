@@ -6,7 +6,7 @@ let failed = false;
 for (const id of Object.keys(MAP_BUILDERS)) {
   const map = buildMap(id), zm = !!map.zm;
   const col = new Colliders(map.boxes);
-  const nav = zm ? new NavGraph(col, map.bounds, 1, { margin: 0.55, seg: 0.3 }) : new NavGraph(col, map.bounds, 3);
+  const nav = zm ? new NavGraph(col, map.bounds, 1, { margin: 0.55, seg: 0.3 }) : new NavGraph(col, map.bounds, map.navStep || 3);
   const a = nav.inRect(map.spawns[0]), b = nav.inRect(map.spawns[1]);
   const path = nav.path(a[0], b[b.length - 1]);
   let ok = nav.coverage > (zm ? 0.8 : 0.9) && a.length >= 6 && b.length >= 6 && path.length > 0, extra = '';

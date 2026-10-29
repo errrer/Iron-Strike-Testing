@@ -645,6 +645,108 @@ function container() {
   return m;
 }
 
+// ------------------------------------------------------------------------------------------
+// 9. DOCKS - shipping yard with a gantry, warehouses at the ends, container lanes
+// ------------------------------------------------------------------------------------------
+function docks() {
+  const b = new Builder();
+  b.outerWalls(4, { tex: 'concrete', color: 0x7b8088, tile: 4 });
+  const cols = [0xb23a2f, 0x2f5fa6, 0x3f8a4a, 0xc7842b, 0x2f8a8a, 0x8a8a8a];
+  let ci = 0;
+  const cont = (x, z, w, d, y0 = 0) => { b.solid('container', x, z, w, d, 2.6, { y0, rot: w >= d ? 0 : 1, tint: cols[ci++ % cols.length] }); };
+  for (const [x, z] of [[-14, -16], [-4, -16], [8, -16], [20, -16], [-20, 16], [-8, 16], [4, 16], [16, 16]]) cont(x, z, 8, 2.6);
+  for (const [x, z] of [[-14, -16], [20, 16]]) cont(x, z, 8, 2.6, 2.6);
+  for (const [x, z] of [[-6, -4], [8, 4], [0, 0]]) cont(x, z, 2.6, 8);
+  cont(-24, 4, 2.6, 8); cont(24, -6, 2.6, 8);
+  // end warehouses (doors facing the yard)
+  b.building(-33, -14, 10, 12, 5, { doors: ['px', 'nz'], windows: ['nx'], tex: 'metal', color: 0x59616b, tile: 3, roofColor: 0x3d434b });
+  b.building(33, 14, 10, 12, 5, { doors: ['nx', 'pz'], windows: ['px'], tex: 'metal', color: 0x6b5a4a, tile: 3, roofColor: 0x3d434b });
+  // gantry crane: two legs + a high beam you can reach by stairs
+  for (const z of [-4, 4]) { b.box(-2, z, 1.2, 1.2, 9, { tex: 'metal', color: 0xd9a11a }); b.box(10, z, 1.2, 1.2, 9, { tex: 'metal', color: 0xd9a11a }); }
+  b.box(4, 0, 14, 10, 0.3, { y0: 5.2, tex: 'metal', color: 0x3c4046, tile: 2 });
+  b.stairs(-9.4, 0, 'px', 10, 3, 0.52, 0.8, { tex: 'metal', color: 0x4b5058, tile: 2 });
+  for (const z of [-4.9, 4.9]) b.box(4, z, 14, 0.2, 1.0, { y0: 5.5, tex: 'metal', color: 0xd9a11a, tile: 2 });
+  for (const [x, z] of [[-26, -4], [26, 6], [-1, 22], [3, -22], [14, -4], [-12, 4]]) b.solid('crate', x, z, 1.6, 1.6, 1.6, { tex: 'crate', color: 0xb48a56 });
+  for (const [x, z] of [[-30, 2], [30, -2], [12, 8], [-16, -6], [-24, 22], [26, -22]]) b.solid('barrel', x, z, 0.9, 0.9, 1.0, { color: 0x7a4a2a, tint: 0xb5703c });
+  return finish(b, { id: 'docks', navStep: 1.5, sky: [0x6aa6d8, 0xe8e2d0], fog: [0xd6d8d0, 55, 170], hemi: [0xdfe9f5, 0x59564a, 1.0], sun: { color: 0xfff0d8, intensity: 3.0, pos: [30, 42, -20] }, ground: { tex: 'concrete', color: 0x6e7078, tile: 8 }, impact: 0xb0b0a8 });
+}
+
+// ------------------------------------------------------------------------------------------
+// 10. VILLA - walled courtyard, central house with a balcony, hedges and arches
+// ------------------------------------------------------------------------------------------
+function villa() {
+  const b = new Builder();
+  b.outerWalls(4.5, { tex: 'brick', color: 0xd8c3a0, tile: 3 });
+  b.building(0, 0, 18, 14, 7, { doors: ['nz', 'pz', 'nx', 'px'], windows: ['nz', 'pz'], tex: 'brick', color: 0xe6d2ae, tile: 3, roofColor: 0x9c5b3c });
+  b.box(0, 0, 18.8, 14.8, 0.3, { y0: 3.4, tex: 'wood', color: 0x7a5a3a, tile: 3 });           // upper floor inside the house
+  b.stairs(-6, -5.5, 'px', 7, 2.4, 0.5, 0.8, { tex: 'wood', color: 0x7a5a3a, tile: 2 });
+  // wings + garden walls
+  b.building(-26, -14, 10, 10, 5, { doors: ['px', 'pz'], windows: ['nx'], tex: 'brick', color: 0xd8b48a, tile: 3, roofColor: 0x8f4f33 });
+  b.building(26, 14, 10, 10, 5, { doors: ['nx', 'nz'], windows: ['px'], tex: 'brick', color: 0xd8b48a, tile: 3, roofColor: 0x8f4f33 });
+  for (const sg of [-1, 1]) {
+    b.wall(sg * 12, -24, sg * 12, -8, 0.5, 2.6, { tex: 'brick', color: 0xd8c3a0, tile: 3 }, [{ at: 8, w: 3, type: 'door' }]);
+    b.wall(sg * 12, 8, sg * 12, 24, 0.5, 2.6, { tex: 'brick', color: 0xd8c3a0, tile: 3 }, [{ at: 8, w: 3, type: 'door' }]);
+  }
+  for (const [x, z, w, d] of [[-20, 6, 6, 1.2], [20, -6, 6, 1.2], [-12, 20, 1.2, 6], [12, -20, 1.2, 6], [-33, 8, 1.2, 8], [33, -8, 1.2, 8]]) b.box(x, z, w, d, 1.4, { tex: 'plain', color: 0x2f6a34, tile: 2 });
+  for (const [x, z] of [[-18, -2], [18, 2], [0, -20], [0, 20], [-32, 22], [32, -22]]) { b.cyl(x, z, 0.7, 3.2, { tex: 'wood', color: 0x5a3f28 }); b.deco(x, z, 3.4, 3.4, 1.8, { tex: 'plain', color: 0x2d7a3a, y0: 3.2 }); }
+  b.cyl(0, -20, 2.2, 0.7, { tex: 'concrete', color: 0x9aa0a8 });
+  for (const [x, z] of [[-8, 18], [8, -18], [22, 4], [-22, -4]]) b.solid('crate', x, z, 1.4, 1.4, 1.4, { tex: 'crate', color: 0xb48a56 });
+  return finish(b, { id: 'villa', navStep: 1.5, sky: [0x4f8fd0, 0xf6e6c8], fog: [0xf0e0c0, 55, 170], hemi: [0xfff2dc, 0xa07850, 1.0], sun: { color: 0xffe9bf, intensity: 3.3, pos: [-35, 36, 25] }, ground: { tex: 'sand', color: 0xcdb98c, tile: 6 }, impact: 0xcdb48a });
+}
+
+// ------------------------------------------------------------------------------------------
+// 11. METRO - underground station: platforms either side of a track pit, pillar rows, stairs
+// ------------------------------------------------------------------------------------------
+function metro() {
+  const b = new Builder();
+  b.outerWalls(9, { tex: 'tile', color: 0xb8c4c4, tile: 3 });
+  b.box(0, 0, 90, 66, 0.5, { y0: 9, tex: 'concrete', color: 0x30343a, cast: false });
+  // central track pit (floor lowered by ringing it with raised platforms)
+  for (const sg of [-1, 1]) {
+    b.box(0, sg * 17, 76, 10, 0.5, { tex: 'tile', color: 0xaab4b4, tile: 3 });                      // platforms
+    b.box(0, sg * 11.6, 76, 0.4, 0.5, { tex: 'plain', color: 0xd9c11a, tile: 2 });
+    for (let x = -30; x <= 30; x += 10) b.box(x, sg * 17, 1.2, 1.2, 9, { tex: 'concrete', color: 0x8c9096 });
+    
+  }
+  // two trains standing on the tracks (a long solid body with windows)
+  b.box(-12, -3.5, 30, 3, 3.6, { tex: 'metal', color: 0xc9ced4, tile: 4 });
+  b.box(-12, -3.5, 30.2, 3.05, 0.9, { y0: 1.3, tex: 'windows', color: 0x2f5a7a, tile: 6, collide: false });
+  b.box(16, 3.5, 30, 3, 3.6, { tex: 'metal', color: 0xb23a2f, tile: 4 });
+  b.box(16, 3.5, 30.2, 3.05, 0.9, { y0: 1.3, tex: 'windows', color: 0x2f5a7a, tile: 6, collide: false });
+  // crossing bridge + kiosks + benches
+  b.box(-34, 0, 4, 12, 0.5, { tex: 'tile', color: 0xaab4b4, tile: 3 });
+  b.box(34, 0, 4, 12, 0.5, { tex: 'tile', color: 0xaab4b4, tile: 3 });
+  for (const [x, z] of [[-20, 15], [-4, 20], [14, 15], [26, 22], [-26, -20], [4, -15], [22, -18]]) b.box(x, z, 2.6, 1.4, 1.0, { y0: 0.5, tex: 'wood', color: 0x6a4a2a, tile: 2 });
+  for (const [x, z] of [[-8, 16], [8, -16], [-28, -15], [28, 15]]) b.solid('crate', x, z, 1.4, 1.4, 1.4, { y0: 0.5, tex: 'crate', color: 0xb48a56 });
+  return finish(b, { id: 'metro', navStep: 1.5, sky: [0x1a1d22, 0x30343a], fog: [0x20242a, 25, 95], hemi: [0xcfe0e8, 0x20242a, 0.95], sun: null, ground: { tex: 'concrete', color: 0x4a4f56, tile: 6 }, impact: 0x9a9a9a });
+}
+
+// ------------------------------------------------------------------------------------------
+// 12. QUARRY - terraced pit: stepped ramps, rock stacks, a central tower and a mine hut
+// ------------------------------------------------------------------------------------------
+function quarry() {
+  const b = new Builder();
+  b.outerWalls(10, { tex: 'sand', color: 0x9a8666, tile: 4 });
+  const rock = { tex: 'concrete', color: 0x8d7e68, tile: 3 };
+  // terraces (stacked slabs) on both flanks with stairs up
+  for (const sg of [-1, 1]) {
+    b.box(sg * 26, 0, 14, 40, 1.2, rock); b.box(sg * 29, 0, 8, 28, 2.4, rock); b.box(sg * 32.5, 0, 5, 16, 3.6, rock);
+    b.stairs(sg * 18, -10, sg > 0 ? 'px' : 'nx', 3, 4, 0.4, 0.9, rock);
+    b.stairs(sg * 18, 12, sg > 0 ? 'px' : 'nx', 3, 4, 0.4, 0.9, rock);
+  }
+  // central tower with stairs
+  b.box(0, 0, 8, 8, 4, { tex: 'metal', color: 0x59616b, tile: 3 });
+  b.stairs(-4, 0, 'nx', 8, 3, 0.5, 0.8, { tex: 'metal', color: 0x4b5058, tile: 2 });
+  b.stairs(4, 0, 'px', 8, 3, 0.5, 0.8, { tex: 'metal', color: 0x4b5058, tile: 2 });
+  for (const [x, z, w, d, h] of [[-8, -16, 4, 3, 2], [8, 16, 4, 3, 2], [-10, 14, 3, 3, 1.6], [10, -14, 3, 3, 1.6], [0, 20, 6, 2, 1.4], [0, -20, 6, 2, 1.4], [-14, 0, 2.4, 2.4, 2.6], [14, 0, 2.4, 2.4, 2.6]]) b.box(x, z, w, d, h, rock);
+  b.building(-4, -22, 8, 5, 3.4, { doors: ['pz'], windows: ['nz'], tex: 'wood', color: 0x7a5a3a, tile: 3, roofColor: 0x4a3a2a });
+  for (const [x, z] of [[-14, -8], [14, 8], [-6, 10], [6, -10]]) b.solid('barrel', x, z, 0.9, 0.9, 1.0, { color: 0x7a4a2a, tint: 0xb5703c });
+  for (const [x, z] of [[-18, 18], [18, -18], [2, 8], [-2, -8]]) b.solid('crate', x, z, 1.5, 1.5, 1.5, { tex: 'crate', color: 0xb48a56 });
+  const m = finish(b, { id: 'quarry', navStep: 1.5, sky: [0x4a86c4, 0xf0d6a4], fog: [0xe2c898, 50, 165], hemi: [0xfff0d0, 0x9a7a4e, 1.0], sun: { color: 0xffe2b0, intensity: 3.2, pos: [-20, 30, -35] }, ground: { tex: 'sand', color: 0xb89a68, tile: 7 }, impact: 0xcdb48a });
+  m.spawns = { 0: { x0: -16, x1: -8, z0: -24, z1: 24 }, 1: { x0: 8, x1: 16, z0: -24, z1: 24 } };
+  return m;
+}
+
 function finish(b, theme) {
   return { ...theme, bounds: BOUNDS, boxes: b.boxes, visuals: b.visuals, spawns: SPAWNS };
 }
@@ -657,10 +759,14 @@ export const MAP_INFO = {
   bunker: { name: 'Bunker', desc: 'Zombies: four rooms deep underground, ten windows, three doors, a raised armoury up the stairs.', thumb: 'linear-gradient(135deg,#06090c,#39d98a 60%,#ff7a68)' },
   farm: { name: 'Farmstead', desc: 'Zombies: foggy farm night. Farmhouse, barn and granary, a hayloft up the stairs.', thumb: 'linear-gradient(135deg,#0a0f1c,#4a5a38 60%,#e0c060)' },
   container: { name: 'Container', desc: 'Open container yard, built with the Map Maker. Containers at every angle, stacked ones to mantle onto.', thumb: 'linear-gradient(135deg,#5f9fd6,#3f7f3a 60%,#b23a2f)' },
+  docks: { name: 'Docks', desc: 'Shipping yard. Container lanes, a crane gantry to climb and warehouses at each end.', thumb: 'linear-gradient(135deg,#6aa6d8,#7b8088 55%,#c7842b)' },
+  villa: { name: 'Villa', desc: 'Walled courtyard around a two-storey house. Doorways, hedges and a balcony floor.', thumb: 'linear-gradient(135deg,#4f8fd0,#e6d2ae 55%,#9c5b3c)' },
+  metro: { name: 'Metro', desc: 'Underground station. Platforms, parked trains and pillar rows in dim light.', thumb: 'linear-gradient(135deg,#1a1d22,#aab4b4 55%,#b23a2f)' },
+  quarry: { name: 'Quarry', desc: 'Terraced pit with rock stacks, a central tower and a mine hut.', thumb: 'linear-gradient(135deg,#4a86c4,#b89a68 55%,#8d7e68)' },
   frostbite: { name: 'Frostbite', desc: 'Snow compound with watchtowers for long-range duels.', thumb: 'linear-gradient(135deg,#4f6f93,#dfe9f2 60%,#8a6a45)' },
 };
 
-export const MAP_BUILDERS = { warehouse, dust, skyline, container, frostbite, outpost, bunker, farm };
+export const MAP_BUILDERS = { warehouse, dust, skyline, container, frostbite, docks, villa, metro, quarry, outpost, bunker, farm };
 export const ZM_MAPS = ['outpost', 'bunker', 'farm'];                                    // zombies-only maps (not offered in the normal map list)
 export const MAP_IDS = Object.keys(MAP_BUILDERS).filter((id) => !ZM_MAPS.includes(id));
 export function buildMap(id) { return MAP_BUILDERS[id](); }

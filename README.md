@@ -300,3 +300,4 @@ Removed the imported map-prop models. Containers (corrugated, locking bars, corn
 - V0.18.2: inspects no longer do full spins or twirls (the hand/arm dragged with them) - they are slow, partial turns now. Reload movement is spring-smoothed like the rest of the viewmodel, so every animation eases in and out instead of snapping.
 - V0.18.3: Ultra now has a real sun - a bright glow plus slowly turning light shafts that sit on the sun, fade when you look away or a wall blocks it, take the sun's colour, plus a warmer, punchier colour grade.
 - V0.18.4: Ultra runs much faster: lighter supersampling, 4K shadows, no full-screen colour filter and a cheaper sun glow. Brighter exposure so it looks punchier without the cost.
+- V0.18.5: four new maps for every mode - Docks, Villa, Metro and Quarry. Ultra now matches High's look (the image-lighting that flattened it is gone) and adds sharper textures, supersampling and the sun rays on top.

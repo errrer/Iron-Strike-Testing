@@ -1,8 +1,8 @@
 // COD-style Gunsmith: a full-screen overlay with the gun in the middle, one box per attachment slot around it, a pick list with the
 // trade-offs of every option, and the weapon stats (with numbers) updating live as you swap parts.
-import { WEAPONS, SLOTS, ATT, CAMOS, camoReqText, withAtt, weaponStats, cleanMask, getSlot, setSlot, setCamo, camoOf, attList } from './weapons.js?v=0.18.4';
-import { WeaponPreview } from './wpreview.js?v=0.18.4';
-import { camoSwatch, decal } from './gunmodels.js?v=0.18.4';
+import { WEAPONS, SLOTS, ATT, CAMOS, camoReqText, withAtt, weaponStats, cleanMask, getSlot, setSlot, setCamo, camoOf, attList } from './weapons.js?v=0.18.5';
+import { WeaponPreview } from './wpreview.js?v=0.18.5';
+import { camoSwatch, decal } from './gunmodels.js?v=0.18.5';
 
 const $ = (id) => document.getElementById(id);
 const mk = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
