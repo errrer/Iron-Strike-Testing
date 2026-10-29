@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.18.3';
-import { canon } from './keybinds.js?v=0.18.3';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.3';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.3';
-import { buildMap } from './maps.js?v=0.18.3';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.3';
-import { buildWorld } from './world.js?v=0.18.3';
-import { Bot } from './bots.js?v=0.18.3';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.3';
-import { buildSoldier, SKIN } from './soldier.js?v=0.18.3';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.3';
-import { Zombies, PERKS } from './zombies.js?v=0.18.3';
-import { inspectFor, inspectPose } from './inspect.js?v=0.18.3';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.3';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.3';
-import { Objectives } from './objectives.js?v=0.18.3';
-import { Streaks, STREAKS } from './streaks.js?v=0.18.3';
-import { Gore } from './gore.js?v=0.18.3';
+import { MOD } from './supermod.js?v=0.18.4';
+import { canon } from './keybinds.js?v=0.18.4';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.4';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.4';
+import { buildMap } from './maps.js?v=0.18.4';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.4';
+import { buildWorld } from './world.js?v=0.18.4';
+import { Bot } from './bots.js?v=0.18.4';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.4';
+import { buildSoldier, SKIN } from './soldier.js?v=0.18.4';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.4';
+import { Zombies, PERKS } from './zombies.js?v=0.18.4';
+import { inspectFor, inspectPose } from './inspect.js?v=0.18.4';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.4';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.4';
+import { Objectives } from './objectives.js?v=0.18.4';
+import { Streaks, STREAKS } from './streaks.js?v=0.18.4';
+import { Gore } from './gore.js?v=0.18.4';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -156,8 +156,8 @@ export class Game {
     low:    { pr: 0.5, shadow: 0, lambert: true,  lights: false, far: 150, fogMul: 0.55, ragdoll: false, gore: false },
     medium: { pr: 1,   shadow: 1024, lambert: false, lights: true, far: 350, fogMul: 1, ragdoll: true, gore: true },
     high:   { pr: 2,   shadow: 4096, lambert: false, lights: true, far: 500, fogMul: 1, ragdoll: true, gore: true },
-    // ULTRA: supersampled (1.5x the screen's pixel ratio), 8K shadows, image-based lighting on the world, sharper textures, colour grade + vignette
-    ultra:  { pr: 3, ss: 1.5, shadow: 8192, lambert: false, lights: true, far: 650, fogMul: 1.15, ragdoll: true, gore: true, env: true, aniso: true, grade: true, exposure: 1.2 },
+    // ULTRA: lightly supersampled, 4K shadows, image-based lighting on the world, sharper textures, colour grade + vignette
+    ultra:  { pr: 2, ss: 1.15, shadow: 4096, lambert: false, lights: true, far: 600, fogMul: 1.1, ragdoll: true, gore: true, env: true, aniso: true, grade: true, exposure: 1.25 },
   };
   get gfxQ() { return Game.GFX[this.settings.gfx] || Game.GFX.high; }
   applyGfx() {
