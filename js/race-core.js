@@ -113,6 +113,8 @@ export class Bike {
   reset() { this.place(this.idx + 3, 0); this.nitro = Math.max(this.nitro, 0.3); }
 
   update(dt, inp) {
+    if (!(dt > 1e-4)) return;                                                                      // a zero-length frame would divide by zero below and poison the bike (and the camera) with NaN
+    if (!Number.isFinite(this.x + this.y + this.z + this.vy + this.speed + this.yaw)) { this.reset(); return; }   // belt and braces: recover instead of staying broken
     const T = this.track;
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
     const boosting = !!inp.boost && this.nitro > 0.02 && !this.air;

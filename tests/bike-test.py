@@ -28,5 +28,7 @@ with sync_playwright() as p:
     check('Space = nitro', r['boost'])
     check('free ride: can leave the track area', not (r['bounds']['x0'] < r['pos'][0] < r['bounds']['x1'] and r['bounds']['z0'] < r['pos'][1] < r['bounds']['z1']) or r['far'] > 600, r['far'])
     check('suspension state exists', r['sus'] is not None)
+    z = pg.evaluate("() => { const g = window.__game, R = g.race, p = R.sim.player; p.update(0, {thr: 1, brk: 0, steer: 0}); R.sim.update(0, {thr: 1, brk: 0, steer: 0}); for (let i = 0; i < 5; i++) g.frame(0); g.frame(1/60); const c = R.camera.position; return [Number.isFinite(p.y), Number.isFinite(c.x + c.y + c.z)]; }")
+    check('zero-length frames cannot break the bike or camera', z == [True, True], z)
     b.close()
 print(errs[:3]); print('PASS' if ok and not errs else 'FAIL')

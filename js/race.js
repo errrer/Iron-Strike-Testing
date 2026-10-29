@@ -1,8 +1,8 @@
 // Dirt Bike Race: a gun-free racing mode. Rendering, input and HUD live here; the simulation is in race-core.js.
 import * as THREE from 'three';
-import { makeEnv } from './gunmodels.js?v=0.18.0';
-import { RaceSim, HW, VMAX } from './race-core.js?v=0.18.0';
-import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.18.0';
+import { makeEnv } from './gunmodels.js?v=0.18.1';
+import { RaceSim, HW, VMAX } from './race-core.js?v=0.18.1';
+import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.18.1';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrap = (a) => { const T = Math.PI * 2; a %= T; if (a > Math.PI) a -= T; if (a < -Math.PI) a += T; return a; };
@@ -498,11 +498,13 @@ export class RaceMode {
     this.camYaw += wrap(p.yaw - this.camYaw) * Math.min(1, dt * (p.air ? 2.5 : 5));
     const fx = -Math.sin(this.camYaw), fz = -Math.cos(this.camYaw), dist = (this.close ? 3.3 : 5.2) + Math.abs(p.speed) * 0.025, hgt = this.close ? 1.6 : 2.1;
     const want = [p.x - fx * dist, p.y + hgt + (p.air ? Math.max(-0.5, p.vy * 0.04) : 0), p.z - fz * dist];
-    if (!this.camPos) this.camPos = want.slice(); else { const k = Math.min(1, dt * 11); for (let i = 0; i < 3; i++) this.camPos[i] += (want[i] - this.camPos[i]) * k; }
+    if (!this.camPos || !this.camPos.every(Number.isFinite) || !want.every(Number.isFinite)) this.camPos = want.every(Number.isFinite) ? want.slice() : [0, 3, 0]; else { const k = Math.min(1, dt * 11); for (let i = 0; i < 3; i++) this.camPos[i] += (want[i] - this.camPos[i]) * k; }
     const gh = T.ground(this.camPos[0], this.camPos[2], -1).h + 0.7; if (this.camPos[1] < gh) this.camPos[1] = gh;
     this.shake = Math.max(0, this.shake - dt * 2.2); const sh = this.shake * 0.08, s2 = Math.abs(p.speed) > 25 ? 0.012 : 0;
     cam.position.set(this.camPos[0] + (Math.random() - 0.5) * (sh + s2), this.camPos[1] + (Math.random() - 0.5) * (sh + s2), this.camPos[2] + (Math.random() - 0.5) * (sh + s2));
-    cam.lookAt(p.x + fx * 3, p.y + 1.2 + (p.air ? p.vy * 0.02 : 0), p.z + fz * 3);
+    { const tx = p.x + fx * 3, tz = p.z + fz * 3; let ty = p.y + 1.2 + (p.air ? clamp(p.vy * 0.02, -1, 1) : 0);
+      ty = Math.min(ty, cam.position.y + 0.18 * Math.hypot(tx - cam.position.x, tz - cam.position.z));          // never tilt the view up into the sky (big jumps, steep lips)
+      if (Number.isFinite(tx + ty + tz)) cam.lookAt(tx, ty, tz); }
     const fov = 68 + Math.min(1, Math.abs(p.speed) / VMAX) * 10 + (p.boosting ? 12 : 0); if (Math.abs(cam.fov - fov) > 0.05) { cam.fov += (fov - cam.fov) * Math.min(1, dt * 6); cam.updateProjectionMatrix(); }
     if (this.sun) { this.sun.position.set(p.x + 70, p.y + 100, p.z + 45); if (this.sun.target) this.sun.target.position.set(p.x, p.y, p.z); }
     r.clear(); r.render(this.scene, cam);
