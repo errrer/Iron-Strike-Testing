@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.18.7';
-import { canon } from './keybinds.js?v=0.18.7';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.7';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.7';
-import { buildMap } from './maps.js?v=0.18.7';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.7';
-import { buildWorld } from './world.js?v=0.18.7';
-import { Bot } from './bots.js?v=0.18.7';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.7';
-import { buildSoldier, SKIN } from './soldier.js?v=0.18.7';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.7';
-import { Zombies, PERKS } from './zombies.js?v=0.18.7';
-import { inspectFor, inspectPose } from './inspect.js?v=0.18.7';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.7';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.7';
-import { Objectives } from './objectives.js?v=0.18.7';
-import { Streaks, STREAKS } from './streaks.js?v=0.18.7';
-import { Gore } from './gore.js?v=0.18.7';
+import { MOD } from './supermod.js?v=0.18.8';
+import { canon } from './keybinds.js?v=0.18.8';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.8';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.8';
+import { buildMap } from './maps.js?v=0.18.8';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.8';
+import { buildWorld } from './world.js?v=0.18.8';
+import { Bot } from './bots.js?v=0.18.8';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.8';
+import { buildSoldier, SKIN } from './soldier.js?v=0.18.8';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.8';
+import { Zombies, PERKS } from './zombies.js?v=0.18.8';
+import { inspectFor, inspectPose } from './inspect.js?v=0.18.8';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.8';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.8';
+import { Objectives } from './objectives.js?v=0.18.8';
+import { Streaks, STREAKS } from './streaks.js?v=0.18.8';
+import { Gore } from './gore.js?v=0.18.8';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -157,7 +157,7 @@ export class Game {
     medium: { pr: 1,   shadow: 1024, lambert: false, lights: true, far: 350, fogMul: 1, ragdoll: true, gore: true },
     high:   { pr: 2,   shadow: 4096, lambert: false, lights: true, far: 500, fogMul: 1, ragdoll: true, gore: true },
     // ULTRA: lightly supersampled, 4K shadows, image-based lighting on the world, sharper textures, colour grade + vignette
-    ultra:  { pr: 2, ss: 1.15, shadow: 4096, lambert: false, lights: true, far: 600, fogMul: 1.1, ragdoll: true, gore: true, aniso: true, grade: true, exposure: 1.2 },
+    ultra:  { pr: 2, ss: 1.15, shadow: 4096, lambert: false, lights: true, far: 600, fogMul: 1.1, ragdoll: true, gore: true, aniso: true, grade: true, bloom: true, exposure: 1.2 },
   };
   get gfxQ() { return Game.GFX[this.settings.gfx] || Game.GFX.high; }
   applyGfx() {
@@ -201,6 +201,31 @@ export class Game {
       }
     });
     if (full === 'mats') sc.traverse((o) => { if (o.isMesh && o.material && !Array.isArray(o.material)) o.material.needsUpdate = true; });
+  }
+
+  // ULTRA bloom: the world is drawn through an HDR composer (bright highlights - sun, muzzle flashes, emissives, wet speculars - glow), then the gun is drawn crisp on top
+  bloomRender(cam) {
+    if (this._bloomFail) return false;
+    const C = this._bloom;
+    if (!C) {
+      if (!this._bloomLoading) {
+        this._bloomLoading = true;
+        Promise.all([import('three/addons/postprocessing/EffectComposer.js'), import('three/addons/postprocessing/RenderPass.js'), import('three/addons/postprocessing/UnrealBloomPass.js'), import('three/addons/postprocessing/OutputPass.js')]).then(([EC, RP, UB, OP]) => {
+          const r = this.renderer, size = r.getSize(new THREE.Vector2()), pr = r.getPixelRatio();
+          const rt = new THREE.WebGLRenderTarget(size.x * pr, size.y * pr, { type: THREE.HalfFloatType, samples: 4 });
+          const comp = new EC.EffectComposer(r, rt); comp.setPixelRatio(pr); comp.setSize(size.x, size.y);
+          const rp = new RP.RenderPass(this.scene, this.camera), bp = new UB.UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.5, 0.65, 1.35);
+          comp.addPass(rp); comp.addPass(bp); comp.addPass(new OP.OutputPass());
+          this._bloom = { comp, rp, bp };
+        }).catch(() => { this._bloomFail = true; });
+      }
+      return false;
+    }
+    const sz = this.renderer.getSize(this._bsz || (this._bsz = new THREE.Vector2())), pr = this.renderer.getPixelRatio();
+    if (C.w !== sz.x || C.h !== sz.y || C.pr !== pr) { C.w = sz.x; C.h = sz.y; C.pr = pr; C.comp.setPixelRatio(pr); C.comp.setSize(sz.x, sz.y); }
+    C.rp.scene = this.scene; C.rp.camera = cam;
+    try { C.comp.render(); } catch (e) { this._bloomFail = true; return false; }
+    return true;
   }
 
   // ULTRA: screen-space sun - a glow plus light shafts that sit on the sun, fade out when the sun is behind you or blocked by a wall
@@ -1559,7 +1584,7 @@ export class Game {
     this.updateLaser(p, cam, scoped);
     this.updateViewmodel(dt);
     this.renderer.clear();
-    this.renderer.render(this.scene, cam);
+    if (this.gfxQ.bloom && this.bloomRender(cam)) { /* world drawn through the bloom composer */ } else this.renderer.render(this.scene, cam);
     this.updateSunRays(cam, dt); this.updateMotes(cam, dt);
     if (this.vmRoot.visible) { this.renderer.clearDepth(); this.renderer.render(this.vmScene, this.vmCam); }
   }
