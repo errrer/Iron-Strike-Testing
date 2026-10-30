@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PROPS, PROP_TEX, imgTex } from './props.js?v=0.18.5';
+import { PROPS, PROP_TEX, imgTex } from './props.js?v=0.18.6';
 
 // ---- procedural textures (greyscale detail, tinted by material colour) ---------------------------
 const texCache = new Map();
@@ -77,12 +77,32 @@ export function buildWorld(map) {
   scene.fog = new THREE.Fog(fogColor, map.fog[1], map.fog[2]);
 
   // sky dome
+  const sunP = map.sun ? new THREE.Vector3(...map.sun.pos).normalize() : new THREE.Vector3(0, 1, 0), sunC = new THREE.Color(map.sun ? map.sun.color : 0x000000);
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { top: { value: new THREE.Color(map.sky[0]) }, bottom: { value: new THREE.Color(map.sky[1]) } },
+    uniforms: { top: { value: new THREE.Color(map.sky[0]) }, bottom: { value: new THREE.Color(map.sky[1]) }, ultra: { value: 0 }, sunDir: { value: sunP }, sunCol: { value: sunC }, hasSun: { value: map.sun ? 1 : 0 }, time: { value: 0 } },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float h = clamp(vP.y*1.3+0.05,0.0,1.0); gl_FragColor = vec4(mix(bottom, top, pow(h,0.6)),1.0);\n#include <colorspace_fragment>\n}',
+    // ULTRA adds a sun disc + halo, drifting clouds lit from the sun's side and a hazy horizon (uniform ultra = 0 keeps the plain gradient)
+    fragmentShader: `uniform vec3 top; uniform vec3 bottom; uniform float ultra; uniform vec3 sunDir; uniform vec3 sunCol; uniform float hasSun; uniform float time; varying vec3 vP;
+      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h2(i), h2(i+vec2(1,0)), f.x), mix(h2(i+vec2(0,1)), h2(i+vec2(1,1)), f.x), f.y); }
+      float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a * vn(p); p = p * 2.03 + 7.1; a *= 0.5; } return s; }
+      void main(){
+        float h = clamp(vP.y*1.3+0.05,0.0,1.0); vec3 col = mix(bottom, top, pow(h,0.6));
+        if (ultra > 0.5) {
+          vec3 d = normalize(vP); float sd = max(dot(d, sunDir), 0.0);
+          col = mix(col, bottom, (1.0 - smoothstep(0.0, 0.3, d.y)) * 0.55);
+          vec2 uv = d.xz / (d.y + 0.28) * 1.4 + vec2(time * 0.012, time * 0.004);
+          float c = smoothstep(0.36, 0.72, fbm(uv)) * smoothstep(0.02, 0.3, d.y);
+          vec3 cc = mix(vec3(0.78, 0.82, 0.9), vec3(1.0, 0.97, 0.9), 0.5 + 0.5 * pow(sd, 2.0)) * (0.82 + 0.5 * pow(sd, 3.0) * hasSun);
+          col = mix(col, cc, c * 0.8);
+          col += sunCol * hasSun * (pow(sd, 6.0) * 0.28 + pow(sd, 48.0) * 0.55 + smoothstep(0.9992, 0.9997, sd) * 2.2) * (1.0 - c * 0.6);
+        }
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+      }`,
   });
+  scene.userData.skyMat = skyMat;
   const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 20, 12), skyMat);
   sky.renderOrder = -10; sky.frustumCulled = false;
   scene.add(sky);
@@ -159,7 +179,7 @@ export function buildWorld(map) {
   return {
     scene,
     update(dt, camPos) {
-      sky.position.copy(camPos);
+      sky.position.copy(camPos); skyMat.uniforms.time.value += dt;
       if (snow) {
         const p = snow.geometry.attributes.position, b = snow.userData.base;
         for (let i = 0; i < p.count; i++) {

@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.18.5';
-import { canon } from './keybinds.js?v=0.18.5';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.5';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.5';
-import { buildMap } from './maps.js?v=0.18.5';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.5';
-import { buildWorld } from './world.js?v=0.18.5';
-import { Bot } from './bots.js?v=0.18.5';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.5';
-import { buildSoldier, SKIN } from './soldier.js?v=0.18.5';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.5';
-import { Zombies, PERKS } from './zombies.js?v=0.18.5';
-import { inspectFor, inspectPose } from './inspect.js?v=0.18.5';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.5';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.5';
-import { Objectives } from './objectives.js?v=0.18.5';
-import { Streaks, STREAKS } from './streaks.js?v=0.18.5';
-import { Gore } from './gore.js?v=0.18.5';
+import { MOD } from './supermod.js?v=0.18.6';
+import { canon } from './keybinds.js?v=0.18.6';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.6';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.6';
+import { buildMap } from './maps.js?v=0.18.6';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.6';
+import { buildWorld } from './world.js?v=0.18.6';
+import { Bot } from './bots.js?v=0.18.6';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.6';
+import { buildSoldier, SKIN } from './soldier.js?v=0.18.6';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.6';
+import { Zombies, PERKS } from './zombies.js?v=0.18.6';
+import { inspectFor, inspectPose } from './inspect.js?v=0.18.6';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.6';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.6';
+import { Objectives } from './objectives.js?v=0.18.6';
+import { Streaks, STREAKS } from './streaks.js?v=0.18.6';
+import { Gore } from './gore.js?v=0.18.6';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -173,6 +173,7 @@ export class Game {
   gfxSweep(full) {                                   // (re)apply the preset to everything in the world scene; cheap enough to repeat for newly spawned meshes
     const q = this.gfxQ, sc = this.scene; if (!sc) return;
     if (sc.fog && sc.fog.far) { if (sc.userData.fogFar === undefined) sc.userData.fogFar = sc.fog.far; sc.fog.far = sc.userData.fogFar * q.fogMul; }
+    if (sc.userData.skyMat) sc.userData.skyMat.uniforms.ultra.value = q.grade ? 1 : 0;
     const lamb = this.lambCache || (this.lambCache = new Map());
     if (q.env) { if (!sc.environment) { const env = makeEnv(this.renderer); if (env) { sc.environment = env; sc.userData.ownEnv = env; full = 'mats'; } } }
     else if (sc.userData.ownEnv && sc.environment === sc.userData.ownEnv) { sc.environment = null; full = 'mats'; }
@@ -184,6 +185,8 @@ export class Game {
         const on = o.userData.hadShadow && q.shadow > 0, sz = Math.min(q.shadow, cap);
         if (on && o.shadow.mapSize.x !== sz) { o.shadow.mapSize.set(sz, sz); if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; } }
         o.castShadow = on;
+        if (o.userData.baseI === undefined) o.userData.baseI = o.intensity;
+        o.intensity = o.userData.baseI * (q.grade ? 1.12 : 1); if (on && q.grade) o.shadow.radius = 3;
       } else if (o.isPointLight) {
         if (o.userData.hadVis === undefined) o.userData.hadVis = o.visible !== false;
         const v = o.userData.hadVis && q.lights; if (o.visible !== v) { o.visible = v; full = 'mats'; }
@@ -200,6 +203,25 @@ export class Game {
   }
 
   // ULTRA: screen-space sun - a glow plus light shafts that sit on the sun, fade out when the sun is behind you or blocked by a wall
+  updateMotes(cam, dt) {                                   // ULTRA: floating dust specks around the camera, they catch the light and give the air depth
+    const on = this.gfxQ.grade && this.scene && this.state === 'playing';
+    let P = this._motes;
+    if (!on) { if (P && P.visible) P.visible = false; return; }
+    if (!P || P.userData.scene !== this.scene) {
+      const n = 160, pos = new Float32Array(n * 3); for (let i = 0; i < n * 3; i++) pos[i] = (Math.random() - 0.5) * 24;
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      P = this._motes = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xfff2d8, size: 0.045, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      P.frustumCulled = false; P.userData.scene = this.scene; this.scene.add(P);
+    }
+    P.visible = true; const a = P.geometry.attributes.position.array, t = this.time || 0;
+    for (let i = 0; i < a.length; i += 3) {
+      const j = i / 3;
+      a[i] += Math.sin(t * 0.3 + j) * 0.12 * dt; a[i + 1] += (Math.sin(t * 0.21 + j * 1.7) * 0.06 - 0.02) * dt; a[i + 2] += Math.cos(t * 0.27 + j * 0.6) * 0.12 * dt;
+      for (let k = 0; k < 3; k++) { const c = k === 0 ? cam.position.x : k === 1 ? cam.position.y : cam.position.z; const d = a[i + k] - c; if (d > 12 || d < -12) a[i + k] = c + ((d + 12) % 24 + 24) % 24 - 12; }
+    }
+    P.geometry.attributes.position.needsUpdate = true;
+  }
+
   updateSunRays(cam, dt) {
     const el = this._sunEl || (this._sunEl = document.getElementById('sunRays')); if (!el) return;
     const q = this.gfxQ; let target = 0, sx = 0, sy = 0;
@@ -1490,7 +1512,7 @@ export class Game {
     this.updateViewmodel(dt);
     this.renderer.clear();
     this.renderer.render(this.scene, cam);
-    this.updateSunRays(cam, dt);
+    this.updateSunRays(cam, dt); this.updateMotes(cam, dt);
     if (this.vmRoot.visible) { this.renderer.clearDepth(); this.renderer.render(this.vmScene, this.vmCam); }
   }
 
