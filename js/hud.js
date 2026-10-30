@@ -96,7 +96,12 @@ export class HUD {
     this.el.deadTxt.textContent = `ELIMINATED BY ${k.name.toUpperCase()}`;
     this.deadWeapon = `${w.name}${head ? ' - headshot' : ''}`;
   }
-  onRespawn() { this.el.dead.classList.add('hidden'); }
+  onRespawn() { this.el.dead.classList.add('hidden'); this.el.dead.classList.remove('killcam'); }
+  setKillcam(k, game) {                                   // killcam banner shown while the camera follows the killer
+    const e = this.el;
+    if (!k) { e.dead.classList.remove('killcam'); return; }
+    e.dead.classList.add('killcam'); e.deadTxt.textContent = `KILLCAM  -  ${k.name.toUpperCase()}`;
+  }
 
   showPause(on) { this.el.pause.classList.toggle('hidden', !on); this.el.sbPanel.classList.toggle('hidden', !(on && this.sandbox)); }
 
@@ -118,6 +123,17 @@ export class HUD {
     e.zmPrompt.classList.toggle('show', !!pr);
   }
 
+  showPlays(game) {                                       // your best plays this match + all-time bests (kept in this browser)
+    const el = document.getElementById('endPlays'); if (!el) return;
+    const best = game.bestPlays(5); let all = [];
+    try { all = JSON.parse(localStorage.getItem('is_bestplays') || '[]'); } catch (e) { all = []; }
+    for (const p of best) all.push({ score: p.score, text: p.text, mode: p.mode });
+    all.sort((a, b) => b.score - a.score); const seen = new Set(); all = all.filter((p) => !seen.has(p.text) && seen.add(p.text)).slice(0, 5);
+    try { localStorage.setItem('is_bestplays', JSON.stringify(all)); } catch (e) { /* ignore */ }
+    const row = (p) => `<li><b>${p.text}</b><i>${Math.round(p.score)}</i></li>`;
+    el.innerHTML = best.length ? `<h3>BEST PLAYS</h3><ol>${best.map(row).join('')}</ol>` + (all.length ? `<h4>All-time best</h4><ol>${all.map(row).join('')}</ol>` : '') : '';
+  }
+
   showEnd(game, win) {
     const e = this.el, p = game.player;
     if (game.mode.zm) {
@@ -130,7 +146,7 @@ export class HUD {
     e.endTitle.className = win === null ? 'draw' : (won ? 'win' : 'lose');
     e.endSub.textContent = game.mode.team ? `Allies ${game.teamScore[p.team % 2]} - ${game.teamScore[1 - (p.team % 2)]} Enemy` : `${[...game.actors].sort((a, b) => b.kills - a.kills)[0].name} wins with ${[...game.actors].sort((a, b) => b.kills - a.kills)[0].kills} kills`;
     if (game.endXp) e.endSub.textContent += `  -  +${game.endXp} XP`;
-    this.buildTable(game, e.endTable);
+    this.buildTable(game, e.endTable); this.showPlays(game);
     e.endscreen.classList.remove('hidden');
     this.el.dead.classList.add('hidden');
   }

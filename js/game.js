@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.18.6';
-import { canon } from './keybinds.js?v=0.18.6';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.6';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.6';
-import { buildMap } from './maps.js?v=0.18.6';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.6';
-import { buildWorld } from './world.js?v=0.18.6';
-import { Bot } from './bots.js?v=0.18.6';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.6';
-import { buildSoldier, SKIN } from './soldier.js?v=0.18.6';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.6';
-import { Zombies, PERKS } from './zombies.js?v=0.18.6';
-import { inspectFor, inspectPose } from './inspect.js?v=0.18.6';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.6';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.6';
-import { Objectives } from './objectives.js?v=0.18.6';
-import { Streaks, STREAKS } from './streaks.js?v=0.18.6';
-import { Gore } from './gore.js?v=0.18.6';
+import { MOD } from './supermod.js?v=0.18.7';
+import { canon } from './keybinds.js?v=0.18.7';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.7';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.7';
+import { buildMap } from './maps.js?v=0.18.7';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.7';
+import { buildWorld } from './world.js?v=0.18.7';
+import { Bot } from './bots.js?v=0.18.7';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.7';
+import { buildSoldier, SKIN } from './soldier.js?v=0.18.7';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.7';
+import { Zombies, PERKS } from './zombies.js?v=0.18.7';
+import { inspectFor, inspectPose } from './inspect.js?v=0.18.7';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.7';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.7';
+import { Objectives } from './objectives.js?v=0.18.7';
+import { Streaks, STREAKS } from './streaks.js?v=0.18.7';
+import { Gore } from './gore.js?v=0.18.7';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -180,7 +180,8 @@ export class Game {
     const maxA = q.aniso && this.renderer.capabilities && this.renderer.capabilities.getMaxAnisotropy ? this.renderer.capabilities.getMaxAnisotropy() : 0;
     const cap = this.renderer.capabilities && this.renderer.capabilities.maxTextureSize || 8192;
     sc.traverse((o) => {
-      if (o.isDirectionalLight && o.shadow) {
+      if (o.isDirectionalLight && o.userData.isFill) { o.visible = !q.lambert; o.intensity = q.grade ? 0.6 : 0.45; }
+      else if (o.isDirectionalLight && o.shadow) {
         if (o.userData.hadShadow === undefined) o.userData.hadShadow = !!o.castShadow;
         const on = o.userData.hadShadow && q.shadow > 0, sz = Math.min(q.shadow, cap);
         if (on && o.shadow.mapSize.x !== sz) { o.shadow.mapSize.set(sz, sz); if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; } }
@@ -352,6 +353,13 @@ export class Game {
     });
     const eye = new THREE.MeshBasicMaterial({ color: 0xff2a1a, fog: false });
     for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.025, 0.012), eye); e.position.set(sx * 0.047, 0.03, -0.112); m.headG.add(e); }
+    // variety + gore: every zombie gets its own size and lean, blood-soaked rags, a torn chest and a ragged jaw
+    { const sc = 0.92 + Math.random() * 0.2; m.root.scale.set(sc * (0.95 + Math.random() * 0.1), sc, sc); m.body.rotation.z = (Math.random() - 0.5) * 0.12;
+      if (!Game._zbits) Game._zbits = { blood: new THREE.MeshStandardMaterial({ color: 0x5a0d0d, roughness: 0.55 }), rag: new THREE.MeshStandardMaterial({ color: 0x3c3a30, roughness: 1 }), bone: new THREE.MeshStandardMaterial({ color: 0xd8d0b8, roughness: 0.8 }), dark: new THREE.MeshStandardMaterial({ color: 0x2a0606, roughness: 0.9 }) };
+      const Z = Game._zbits, add = (w, h, d, mat, x, y, z, rz = 0, parent = m.body) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); o.position.set(x, y, z); o.rotation.z = rz; parent.add(o); return o; };
+      add(0.46, 0.28, 0.02, Z.rag, 0, 1.05, -0.155, (Math.random() - 0.5) * 0.3); add(0.14, 0.16, 0.02, Z.blood, -0.1 + Math.random() * 0.2, 1.18, -0.168, Math.random());
+      add(0.12, 0.2, 0.02, Z.dark, 0.08, 1.05, -0.17); for (let i = 0; i < 3; i++) add(0.1, 0.012, 0.02, Z.bone, 0.08, 1.0 + i * 0.05, -0.18);
+      add(0.1, 0.05, 0.02, Z.blood, 0, -0.01, -0.11, 0, m.headG); add(0.07, 0.03, 0.02, Z.bone, 0, -0.045, -0.112, 0, m.headG); }
     return m;
   }
 
@@ -729,9 +737,9 @@ export class Game {
   applyKill(kid, vid, wid, head) {
     const v = this.byId(vid), k = this.byId(kid) || (kid < 0 && v ? this.fakeKiller(v) : null), w = WEAPONS[wid];
     if (!k || !v || !w) return;
-    v.alive = false; v.hp = 0; v.deathT = 0; v.reloading = false; v.respawnT = 3.2; v.deaths++; if (k !== v) k.kills++;
+    v.alive = false; v.hp = 0; v.deathT = 0; v.reloading = false; v.respawnT = v.isPlayer && !this.mode.zm ? 4.6 : 3.2; v.deaths++; if (k !== v) k.kills++;
     this.spawnGore(v, k, w, head); this.startRagdoll(v, k, w, head);
-    this.killXp(k, v, head);
+    this.killXp(k, v, head); this.playOnKill(k, v, w, head);
     this.ggOnKill(k, v, w);
     if (!v.zombie) this.hud.feed(k, v, w, head, this);
     if (v.isPlayer) { this.killer = k; v.down = false; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
@@ -1240,14 +1248,14 @@ export class Game {
   }
 
   kill(v, k, w, head) {
-    v.alive = false; v.hp = 0; v.deaths++; v.deathT = 0; v.reloading = false; v.respawnT = v.isPlayer ? 3.2 : 3;
+    v.alive = false; v.hp = 0; v.deaths++; v.deathT = 0; v.reloading = false; v.respawnT = v.isPlayer ? (this.mode.zm ? 3.2 : 4.6) : 3;
     this.spawnGore(v, k, w, head); this.startRagdoll(v, k, w, head);
     if (k !== v) { k.kills++; k.streak++; if (this.mode.team && !this.mode.obj && !this.mode.zm) this.teamScore[k.team]++; }
     v.streak = 0;
     if (this.obj) this.obj.onKill(v, k);
     this.ggOnKill(k, v, w);
     if (this.streaks && k.isPlayer && k !== v && !v.dummy) this.streaks.earn(k.streak);
-    this.killXp(k, v, head);
+    this.killXp(k, v, head); this.playOnKill(k, v, w, head);
     if (!v.zombie) this.hud.feed(k, v, w, head, this);
     if (this.net) this.net.ev(['k', k.id, v.id, w.id, head ? 1 : 0]);
     if (v.isPlayer) { this.killer = k; v.down = false; this.hud.onDeath(k, w, head); this.fireHeld = false; this.adsHeld = false; }
@@ -1256,6 +1264,28 @@ export class Game {
       if (!v.zombie) for (let i = 0; i < 2; i++) { const am = k.ammo[i]; am.res = Math.min(k.weapons[i].reserve, am.res + Math.ceil(k.weapons[i].mag / 2)); }
     }
     if (this.zm && v.zombie) this.zm.onKill(v, k, head);
+  }
+
+  // ------------------------------------------------------------------ best plays: the player's standout kills, listed on the end screen
+  playOnKill(k, v, w, head) {
+    if (v.isPlayer) this._lastKiller = k.id;
+    if (!k.isPlayer || k === v || v.zombie || v.dummy || this.mode.zm) return;
+    const L = this.plays || (this.plays = []), t = this.time || 0, d = Math.hypot(k.pos.x - v.pos.x, k.pos.z - v.pos.z), add = (score, text) => L.push({ score, text, t, mode: this.mode.name || this.mode.id });
+    this._mk = (t - (this._mkT === undefined ? -99 : this._mkT) < 4.2) ? (this._mk || 1) + 1 : 1; this._mkT = t;
+    if (this._mk >= 2) add(30 + this._mk * 30, ['', '', 'Double kill', 'Triple kill', 'Quad kill', 'Rampage'][Math.min(5, this._mk)] || `${this._mk}x multi-kill`);
+    if (d >= 45) add(d * 1.1, `${Math.round(d)} m ${head ? 'headshot' : 'long shot'}`);
+    if (w.cls === 'sniper' && k.ads < 0.4) add(70, 'No-scope sniper kill');
+    if (w.cls === 'melee') add(45, `Knife kill (${w.name})`);
+    if (!k.onGround && !k.noclip) add(40, `Airborne kill with the ${w.name}`);
+    if (k.hp > 0 && k.hp <= 20) add(50, `Clutch kill at ${Math.ceil(k.hp)} HP`);
+    if (this._lastKiller === v.id) { add(35, `Revenge on ${v.name}`); this._lastKiller = null; }
+    if (k.streak >= 5 && k.streak % 5 === 0) add(40 + k.streak * 8, `${k.streak} kill streak`);
+    if (head && w.cls !== 'sniper' && d >= 20) add(30 + d, `${Math.round(d)} m headshot (${w.name})`);
+  }
+  bestPlays(n = 5) {
+    const L = (this.plays || []).slice().sort((a, b) => b.score - a.score), out = [], seen = new Set();
+    for (const p of L) { if (seen.has(p.text)) continue; seen.add(p.text); out.push(p); if (out.length >= n) break; }
+    return out;
   }
 
   // ------------------------------------------------------------------ progression (XP, ranks; see progress.js)
@@ -1470,6 +1500,23 @@ export class Game {
     if (this.flashT > 0) { this.flashT -= dt; if (this.flashT <= 0) { if (this.vm) this.vm.flash.visible = false; this.flashLight.intensity = 0; } }
   }
 
+  // KILLCAM: after a short beat on your own death, the camera swings behind whoever killed you and follows them until you respawn
+  killcam(p, cam, dt) {
+    const k = this.killer, on = !p.alive && k && k !== p && !k.zombie && !k.dummy && !this.mode.zm && !this.ended && p.deathT > 1.1 && k.pos && k.yaw !== undefined;
+    if (!on) { if (this._kc) { this._kc = 0; this.hud.setKillcam(null); } return; }
+    if (!this._kc) { this._kc = 1; this._kcP = null; this.hud.setKillcam(k, this); }
+    const eyeH = k.alive ? (k.crouch ? 1.1 : 1.55) : 0.6, ox = k.pos.x, oy = k.pos.y + eyeH, oz = k.pos.z, cp = Math.cos(k.pitch || 0);
+    const fx = -Math.sin(k.yaw) * cp, fy = Math.sin(k.pitch || 0), fz = -Math.cos(k.yaw) * cp, rx = Math.cos(k.yaw), rz = -Math.sin(k.yaw);
+    let dx = -fx * 2.6 + rx * 0.7, dy = -fy * 2.6 + 0.35, dz = -fz * 2.6 + rz * 0.7; const len = Math.hypot(dx, dy, dz); dx /= len; dy /= len; dz /= len;
+    const hit = this.col.ray(ox, oy, oz, dx, dy, dz, len), dist = hit < len ? Math.max(0.3, hit - 0.3) : len;
+    const tx = ox + dx * dist, ty = Math.max(0.2, oy + dy * dist), tz = oz + dz * dist;
+    const P = this._kcP || (this._kcP = { x: tx, y: ty, z: tz }), s = 1 - Math.exp(-9 * dt);
+    P.x += (tx - P.x) * s; P.y += (ty - P.y) * s; P.z += (tz - P.z) * s;
+    cam.position.set(P.x, P.y, P.z);
+    cam.rotation.set(0, 0, 0); cam.lookAt(ox + fx * 6, oy + fy * 6 + 0.1, oz + fz * 6);
+    if (k.mesh) k.mesh.root.visible = true;
+  }
+
   render(dt) {
     const p = this.player, cam = this.camera;
     let bob = 0, roll = 0, eye = p.eye;
@@ -1502,6 +1549,7 @@ export class Game {
     const S = this.vmS; S.shake = Math.max(0, S.shake - dt * 5);
     this.updateAimSway(p, dt);
     cam.rotation.set(p.pitch + (this.landDip || 0) * 0.5 + this.swY - S.mvk * 0.12 + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + this.swX + (Math.random() - 0.5) * 0.004 * S.shake, roll + S.slk * 0.045 + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
+    this.killcam(p, cam, dt);
     if (p.mesh) p.mesh.root.visible = this.tp && p.mesh.root.visible;
     const zoom = lerp(1, this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
     const fov = this.settings.fov / zoom;

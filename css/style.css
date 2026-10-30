@@ -713,3 +713,11 @@ body.ultra #sunRays { display: block; }
 @keyframes srSpin { to { rotate: 360deg; } }
 #sunRays .sr-rays { animation: srSpin 240s linear infinite; }
 #sunRays .sr-rays.r2 { animation-duration: 330s; animation-direction: reverse; }
+
+#endPlays h3, #endPlays h4 { margin: 10px 0 4px; letter-spacing: 2px; font-size: 13px; color: var(--accent, #ffb02e); }
+#endPlays h4 { color: #9aa; font-size: 11px; }
+#endPlays ol { margin: 0; padding: 0; list-style: none; }
+#endPlays li { display: flex; justify-content: space-between; padding: 3px 8px; border-left: 3px solid var(--accent, #ffb02e); background: rgba(255,255,255,.05); margin-bottom: 3px; font-size: 13px; }
+#endPlays li i { font-style: normal; opacity: .6; }
+#dead.killcam { background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,0) 22%, rgba(0,0,0,0) 78%, rgba(0,0,0,.55)); }
+#dead.killcam #deadTxt { font-size: 22px; letter-spacing: 6px; }

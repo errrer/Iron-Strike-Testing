@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PROPS, PROP_TEX, imgTex } from './props.js?v=0.18.6';
+import { PROPS, PROP_TEX, imgTex } from './props.js?v=0.18.7';
 
 // ---- procedural textures (greyscale detail, tinted by material colour) ---------------------------
 const texCache = new Map();
@@ -117,6 +117,8 @@ export function buildWorld(map) {
     const sc = sun.shadow.camera; sc.left = -55; sc.right = 55; sc.top = 40; sc.bottom = -40; sc.near = 1; sc.far = 160; sc.updateProjectionMatrix();
     sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04;
     scene.add(sun);
+    // soft cool fill from the opposite side so shaded faces keep form instead of going flat (switched off on Low)
+    const fill = new THREE.DirectionalLight(map.sky[0], 0.45); fill.position.set(-sun.position.x, Math.abs(sun.position.y) * 0.6, -sun.position.z); fill.userData.isFill = true; scene.add(fill);
   }
   if (map.lights) for (const p of map.lights) { const l = new THREE.PointLight(p[3] ?? 0xfff0d8, 300, 45, 2); l.position.set(p[0], p[1], p[2]); scene.add(l); }
 
