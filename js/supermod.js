@@ -10,7 +10,7 @@ export const modActive = () => Object.keys(DEFAULTS).some((k) => MOD[k] !== DEFA
 
 const TOGGLES = [
   ['unlockAll', 'Unlock everything', 'All weapons, attachments and every camo, rank-free'],
-  ['infMoney', 'Infinite money', 'Buy every skin for free - your balance never runs out'],
+  ['infMoney', 'Infinite money', 'Buy every paint, gun and case for free - your balance never runs out'],
   ['god', 'God mode', 'You cannot be hurt (solo / host only)'],
   ['infAmmo', 'Infinite ammo', 'Your magazine never runs dry'],
   ['noRecoil', 'No recoil', 'The gun does not kick'],

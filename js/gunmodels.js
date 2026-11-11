@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf } from './weapons.js?v=0.19.1';
+import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.19.2';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +11,7 @@ import { getSlot, camoOf } from './weapons.js?v=0.19.1';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.19.1';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.19.2';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -1084,6 +1084,39 @@ function addMuzzleAttachments(g, w) {
   const ammo = getSlot(mask, 'ammo');
 }
 
+// ---- SKINS: recolour the gun's body and bolt extra model parts onto it, sized from the gun's own bounding box (barrel points to -z, up is +y)
+function applySkin(g, sk) {
+  let mn, mx;
+  try { const b = new THREE.Box3().setFromObject(g); mn = b.min.clone(); mx = b.max.clone(); } catch (e) { mn = { x: -0.04, y: -0.12, z: -0.5 }; mx = { x: 0.04, y: 0.08, z: 0.3 }; }
+  if (!isFinite(mn.z) || !isFinite(mx.z) || mx.z - mn.z < 0.05) { mn = { x: -0.04, y: -0.12, z: -0.5 }; mx = { x: 0.04, y: 0.08, z: 0.3 }; }
+  const L = mx.z - mn.z, H = mx.y - mn.y, cx = (mn.x + mx.x) / 2, cy = (mn.y + mx.y) / 2, cz = (mn.z + mx.z) / 2, hw = Math.max(0.03, (mx.x - mn.x) / 2);
+  const body = new THREE.Color(sk.body), acc = new THREE.Color(sk.accent);
+  // recolour: the paintable body parts take the skin's body colour, dark furniture is pulled toward it
+  g.traverse((o) => {
+    if (!o.isMesh || !o.material || !o.material.color || (o.userData && o.userData.iron)) return;
+    const m = o.material, camoable = (m.userData && m.userData.camo) || o.userData.camoPart, c = m.color, lum = (c.r + c.g + c.b) / 3;
+    if (m.map && !camoable) return;
+    if (!camoable && lum > 0.55) return;
+    o.material = m.clone(); if (camoable) o.material.map = null; o.material.color.copy(camoable ? body : c).lerp(body, camoable ? 1 : 0.7); if (o.material.metalness !== undefined) { o.material.metalness = camoable ? sk.metal : o.material.metalness; o.material.roughness = camoable ? sk.rough : o.material.roughness; }
+  });
+  const accM = new THREE.MeshStandardMaterial({ color: acc, metalness: Math.min(1, sk.metal + 0.1), roughness: Math.max(0.1, sk.rough), envMapIntensity: 1.6 }), glowM = new THREE.MeshBasicMaterial({ color: sk.glow }), bodyM = new THREE.MeshStandardMaterial({ color: body, metalness: sk.metal, roughness: sk.rough });
+  const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.userData.skinPart = true; g.add(m); return m; };
+  const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  const yb = mn.y + H * 0.64, yt = mn.y + H * 0.8, zf = mn.z;           // yb ~ the barrel / receiver line, yt ~ the top rail, zf = muzzle end
+  for (const part of sk.parts) {
+    if (part === 'strips') for (const sd of [-1, 1]) add(box(0.003, 0.006, L * 0.42), glowM, cx + sd * (hw + 0.002), yb - H * 0.02, cz - L * 0.04);
+    else if (part === 'fins') for (let i = 0; i < 3; i++) add(box(0.004, 0.018 + i * 0.006, L * 0.14), accM, cx, yt + 0.006, zf + L * (0.38 + i * 0.16), 0.3, 0, 0);
+    else if (part === 'blade') { const len = L * 0.4; add(new THREE.ConeGeometry(0.012, len, 4), accM, cx, yb - H * 0.1, zf - L * 0.04 + len / 2, -Math.PI / 2, 0, 0).scale.set(0.22, 1, 1.5); add(box(0.006, 0.016, L * 0.12), bodyM, cx, yb - H * 0.08, zf + L * 0.3); }
+    else if (part === 'wings') for (const sd of [-1, 1]) { add(box(0.003, 0.026, L * 0.24), accM, cx + sd * (hw + 0.006), yb + H * 0.02, cz - L * 0.06, 0, sd * 0.06, sd * 0.2); add(box(0.003, 0.018, L * 0.16), bodyM, cx + sd * (hw + 0.012), yb + H * 0.09, cz - L * 0.1, 0, sd * 0.08, sd * 0.45); }
+    else if (part === 'orb') { add(new THREE.SphereGeometry(0.011, 12, 10), glowM, cx + hw + 0.004, yb, cz - L * 0.08); add(new THREE.TorusGeometry(0.017, 0.002, 6, 16), accM, cx + hw + 0.004, yb, cz - L * 0.08, 0, Math.PI / 2, 0); }
+    else if (part === 'halo') { add(new THREE.TorusGeometry(0.03, 0.003, 8, 24), glowM, cx, yb, zf + 0.012); add(new THREE.TorusGeometry(0.022, 0.0025, 8, 20), accM, cx, yb, zf + 0.034); }
+    else if (part === 'spines') for (let i = 0; i < 6; i++) add(new THREE.ConeGeometry(0.006, 0.026 - i * 0.002, 4), accM, cx, yt + 0.012, zf + L * (0.3 + i * 0.08));
+    else if (part === 'tail') add(new THREE.ConeGeometry(0.01, L * 0.16, 4), accM, cx, yb, mx.z + L * 0.02, Math.PI / 2, 0, 0);
+    else if (part === 'bar') add(box(0.008, 0.005, L * 0.36), glowM, cx, yt + 0.006, cz - L * 0.04);
+    else if (part === 'crown') for (let i = -2; i <= 2; i++) add(new THREE.ConeGeometry(0.008, 0.04 - Math.abs(i) * 0.008, 5), accM, cx, yt + 0.016, cz + L * 0.06 + i * 0.022, 0, 0, i * 0.1);
+  }
+  g.userData.skin = sk.id;
+}
 export function buildGun(w) {
   const data = w.asset && MODEL_DATA[w.asset.id];
   const g = data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || (() => new THREE.Group()))();
@@ -1092,6 +1125,7 @@ export function buildGun(w) {
     const c = o.material.color; if ((c.r + c.g + c.b) / 3 > 0.45) return;
     o.material = o.material.clone(); o.material.color.lerp(new THREE.Color(w.tint), 0.55);
   });
+  const skinId = skinOf(w.attMask); if (skinId && SKINS[skinId] && w.slot !== 'melee' && THREE.Box3 && THREE.SphereGeometry) { try { applySkin(g, SKINS[skinId]); } catch (e) { /* headless test environment */ } }
   if (w.attMask) {
     addAttachments(g, w); addMuzzleAttachments(g, w);
     const c = camoOf(w.attMask);

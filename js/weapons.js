@@ -281,6 +281,37 @@ export const getSlot = (mask, slotId) => { const s = SLOTS.find((x) => x.id === 
 export const attIn = (mask, slotId) => { const v = getSlot(mask, slotId); return v ? ATT_BY_SLOT[slotId].find((a) => a.v === v) || null : null; };
 export function setSlot(mask, slotId, v) { const s = SLOTS.find((x) => x.id === slotId); if (!s) return mask | 0; return ((mask | 0) & ~(slotMax(s) << s.shift)) | ((v & slotMax(s)) << s.shift); }
 export const hasAtt = (mask, id) => { const a = ATT[id]; return !!a && getSlot(mask, a.slot) === a.v; };
+
+// ---------------- skins: cosmetic MODEL packs (they reshape the gun with fins, blades, wings, glowing cores...) found in cases ----------------
+// The chosen skin lives in the loadout mask (bits 24-30) so it works with camos, attachments, classes and multiplayer automatically.
+export const SKIN_SHIFT = 24, SKIN_BITS = 7;
+export const RARITY = { rare: { name: 'Rare', color: '#4aa3ff', refund: 300 }, epic: { name: 'Epic', color: '#b266ff', refund: 800 }, legendary: { name: 'Legendary', color: '#ffb02e', refund: 2000 }, mythic: { name: 'Mythic', color: '#ff4466', refund: 4500 } };
+// body / accent / glow colours + the extra model parts the skin adds (see applySkin in gunmodels.js)
+export const SKINS = [
+  null,
+  { id: 1, name: 'Ironwood', rarity: 'rare', body: 0x4a3322, accent: 0xc79a3c, glow: 0xffc766, metal: 0.5, rough: 0.5, parts: ['strips', 'tail'] },
+  { id: 2, name: 'Glacier Edge', rarity: 'rare', body: 0xcfe8f5, accent: 0x6ad4ff, glow: 0x7fe0ff, metal: 0.7, rough: 0.22, parts: ['blade', 'strips'] },
+  { id: 3, name: 'Spectre', rarity: 'rare', body: 0x7c8794, accent: 0xe8f2ff, glow: 0xffffff, metal: 0.6, rough: 0.3, parts: ['fins', 'orb'] },
+  { id: 4, name: 'Ember Drake', rarity: 'epic', body: 0x1c1a1a, accent: 0xff6a1f, glow: 0xff8a2a, metal: 0.55, rough: 0.35, parts: ['spines', 'strips', 'tail'] },
+  { id: 5, name: 'Void Bloom', rarity: 'epic', body: 0x120a22, accent: 0xa14dff, glow: 0xc489ff, metal: 0.7, rough: 0.2, parts: ['wings', 'orb', 'halo'] },
+  { id: 6, name: 'Neon Syndicate', rarity: 'epic', body: 0x0b0d14, accent: 0xff2fd0, glow: 0x2ff0ff, metal: 0.5, rough: 0.3, parts: ['bar', 'strips', 'fins'] },
+  { id: 7, name: 'Crimson Saint', rarity: 'legendary', body: 0x5a0a14, accent: 0xe9edf2, glow: 0xff3a55, metal: 0.85, rough: 0.16, parts: ['blade', 'halo', 'wings'] },
+  { id: 8, name: 'Aether Wing', rarity: 'legendary', body: 0xe8e6ef, accent: 0xd9a93a, glow: 0xffd77a, metal: 0.9, rough: 0.14, parts: ['wings', 'orb', 'blade', 'strips'] },
+  { id: 9, name: 'Abyss Leviathan', rarity: 'mythic', body: 0x06323a, accent: 0x20e0c0, glow: 0x40ffe0, metal: 0.8, rough: 0.12, parts: ['spines', 'blade', 'tail', 'orb', 'strips'] },
+  { id: 10, name: 'Solar Crown', rarity: 'mythic', body: 0xe3b23a, accent: 0xfff2b0, glow: 0xffe27a, metal: 1.0, rough: 0.1, parts: ['crown', 'halo', 'wings', 'orb', 'strips'] },
+];
+export const skinOf = (mask) => ((mask | 0) >> SKIN_SHIFT) & ((1 << SKIN_BITS) - 1);
+export const setSkin = (mask, s) => ((mask | 0) & ~(((1 << SKIN_BITS) - 1) << SKIN_SHIFT)) | ((s & ((1 << SKIN_BITS) - 1)) << SKIN_SHIFT);
+// cases: buy one for money, open it, get a random skin (a duplicate pays a refund). The odds differ per case.
+export const CASES = [
+  { id: 'std', name: 'Standard Case', price: 1000, odds: { rare: 0.66, epic: 0.27, legendary: 0.065, mythic: 0.005 }, tint: '#4aa3ff' },
+  { id: 'elite', name: 'Elite Case', price: 3000, odds: { rare: 0.3, epic: 0.45, legendary: 0.2, mythic: 0.05 }, tint: '#b266ff' },
+  { id: 'mythic', name: 'Mythic Case', price: 7500, odds: { rare: 0, epic: 0.4, legendary: 0.45, mythic: 0.15 }, tint: '#ff4466' },
+];
+export function rollCase(c, rnd = Math.random) {
+  let r = rnd(), rar = 'rare'; for (const k of ['rare', 'epic', 'legendary', 'mythic']) { if (r < c.odds[k]) { rar = k; break; } r -= c.odds[k]; }
+  const pool = SKINS.filter((s) => s && s.rarity === rar); return pool[Math.floor(rnd() * pool.length)] || SKINS[1];
+}
 export const camoOf = (mask) => ((mask | 0) >> CAMO_SHIFT) & ((1 << CAMO_BITS) - 1);
 export const setCamo = (mask, c) => ((mask | 0) & ~(((1 << CAMO_BITS) - 1) << CAMO_SHIFT)) | ((c & ((1 << CAMO_BITS) - 1)) << CAMO_SHIFT);
 export const allowedMask = (w) => (w.attach || []).reduce((m, k) => setSlot(m, ATT[k].slot, ATT[k].v) | 0, 0);   // (only used as a "has any attachment" test)
@@ -293,6 +324,7 @@ export function cleanMask(w, mask) {
     if (a && ((w && w.opts && w.opts[s.id]) || []).includes(a.id)) out = setSlot(out, s.id, v);
   }
   const c = camoOf(mask); if (c > 0 && c < CAMOS.length) out = setCamo(out, c);
+  const sk = skinOf(mask); if (sk > 0 && sk < SKINS.length && w && w.slot !== 'melee') out = setSkin(out, sk);
   return out;
 }
 // the old (pre-V0.15) save format was one bit per attachment: 1 dot, 2 grip, 4 laser, 8 suppressor, 16 xmag, 32 comp, 64 long barrel

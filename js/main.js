@@ -1,21 +1,22 @@
-import { Game, MODES, mpMode } from './game.js?v=0.19.1';
-import { Net, cleanCode, cleanName } from './net.js?v=0.19.1';
-import { watchForEgg } from './easter.js?v=0.19.1';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.19.1';
-import { Sound } from './audio.js?v=0.19.1';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.19.1';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.19.1';
-import { loadProps } from './props.js?v=0.19.1';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.19.1';
-import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.19.1';
-import { initMapMaker } from './mapmaker.js?v=0.19.1';
-import { RaceMode } from './race.js?v=0.19.1';
-import { initSupermod, MOD } from './supermod.js?v=0.19.1';
-import { initKeybinds } from './keybinds.js?v=0.19.1';
-import { Gunsmith } from './gunsmith.js?v=0.19.1';
-import { WeaponPreview } from './wpreview.js?v=0.19.1';
-import { initTouch, blockZoom } from './touch.js?v=0.19.1';
-import { initGamepad } from './gamepad.js?v=0.19.1';
+import { Game, MODES, mpMode } from './game.js?v=0.19.2';
+import { Net, cleanCode, cleanName } from './net.js?v=0.19.2';
+import { watchForEgg } from './easter.js?v=0.19.2';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.19.2';
+import { Sound } from './audio.js?v=0.19.2';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.19.2';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.19.2';
+import { loadProps } from './props.js?v=0.19.2';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.19.2';
+import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.19.2';
+import { initMapMaker } from './mapmaker.js?v=0.19.2';
+import { RaceMode } from './race.js?v=0.19.2';
+import { initSupermod, MOD } from './supermod.js?v=0.19.2';
+import { initKeybinds } from './keybinds.js?v=0.19.2';
+import { Gunsmith } from './gunsmith.js?v=0.19.2';
+import { SkinsUI } from './skinsui.js?v=0.19.2';
+import { WeaponPreview } from './wpreview.js?v=0.19.2';
+import { initTouch, blockZoom } from './touch.js?v=0.19.2';
+import { initGamepad } from './gamepad.js?v=0.19.2';
 
 const $ = (id) => document.getElementById(id);
 
@@ -136,13 +137,15 @@ $('knifeGs').addEventListener('click', () => { if (gsm) gsm.show(cfg.knife); });
 // ---------------- attachments (equipped per weapon, remembered between sessions) ----------------
 const MAX_DUMMIES_UI = 20;
 const mk = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
-let gsm = null;
+let gsm = null, skm = null;
 function renderAtt(el, slot) {
   const id = cfg[slot], w = WEAPONS[id]; el.textContent = '';
   const m = maskFor(id), l = attList(m), total = Object.keys(w.opts || {}).length;
   const b = mk('button', 'btn gsbtn'); b.type = 'button'; b.appendChild(mk('span', null, `GUNSMITH - ${w.name}`)); b.appendChild(mk('span', null, `${l.length}/${total} attachments${camoOf(m) ? ' - ' + CAMOS[camoOf(m)].name : ''}`));
   b.addEventListener('click', () => { if (gsm) gsm.show(id); });
   el.appendChild(b);
+  const sb = mk('button', 'btn gsbtn skinbtn'); sb.type = 'button'; const sk = skinOf(m); sb.appendChild(mk('span', null, `SKINS - ${w.name}`)); sb.appendChild(mk('span', null, sk && SKINS[sk] ? `${SKINS[sk].name} (${RARITY[SKINS[sk].rarity].name})` : 'factory model - open cases for special skins'));
+  sb.addEventListener('click', () => { if (skm) skm.show(id); }); el.appendChild(sb);
   if (l.length) { const s = mk('div', 'attsum'); s.textContent = l.map((a) => a.name).join(' \u00b7 '); el.appendChild(s); }
 }
 function refreshAtt() {
@@ -186,6 +189,7 @@ initSupermod({
   onChange: () => { game.settings.unlockAll = cfg.unlockAll === true || MOD.unlockAll; refreshProg(); refreshAtt(); },
   maxRank: () => { game.prog.add(1e7); refreshProg(); refreshAtt(); },
 });
+skm = new SkinsUI({ prog: game.prog, getMask: (id) => maskFor(id), setMask: (id, mk2) => { cfg.att[id] = mk2; save(); }, onBuy: () => refreshProg(), onClose: () => { renderClasses(); refreshAtt(); loadoutChanged(); showWeapon(cfg[curSlot], curSlot); } });
 gsm = new Gunsmith({ prog: game.prog, getMask: (id) => maskFor(id), setMask: (id, m) => { cfg.att[id] = m; save(); if (id === cfg.knife) syncKnife(); }, onBuy: () => refreshProg(), onClose: (id) => { renderClasses(); refreshAtt(); loadoutChanged(); showWeapon(cfg[curSlot], curSlot); for (const c of document.querySelectorAll('[data-wid]')) { const w = WEAPONS[c.dataset.wid], bx = c.querySelector('.bars'); if (bx && w) bx.innerHTML = barsHtml(withAtt(w, maskFor(w.id)), false); } } });
 showWeapon(cfg.primary, 'primary');
 
@@ -497,6 +501,7 @@ function loop(now) {
   if ((game.settings.gfx || 'high') !== 'low') tickCamos(Math.min(dt, 0.1));
   if (cfg.fps) { fpsAcc += dt; fpsN++; if (fpsAcc >= 0.5) { $('fpsBox').textContent = Math.round(fpsN / fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; } }
   if (gsm && gsm.open) gsm.tick(Math.min(dt, 0.1));
+  if (skm && skm.open) skm.tick(Math.min(dt, 0.1));
   else if (wprev && !$('menu').classList.contains('hidden')) { try { wprev.tick(Math.min(dt, 0.1)); } catch (e) { wprev.ok = false; } }
   requestAnimationFrame(loop);
 }

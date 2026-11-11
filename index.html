@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b0f14">
 <title>IRON STRIKE - 3D Tactical Shooter</title>
 <meta name="description" content="A free browser-based 3D first-person shooter with 4 maps, Team Deathmatch, 1v1 and Free-For-All, and 8 weapons. Built with Three.js.">
-<link rel="stylesheet" href="css/style.css?v=0.19.1">
+<link rel="stylesheet" href="css/style.css?v=0.19.2">
 <div id="sm" class="sm hidden"><div class="sm-box"><h2>SUPERMOD</h2><p class="hint">Secret mod menu. Pick your mods, then choose how long they last.</p><div id="smList" class="sm-list"></div><button id="smMax" class="btn" type="button">MAX RANK NOW</button><p id="smNote" class="sm-note"></p><div class="sm-foot"><button id="smSession" class="btn primary" type="button">APPLY - UNTIL GAME CLOSES</button><button id="smPerm" class="btn primary" type="button">APPLY - PERMANENT</button></div><div class="sm-foot"><button id="smReset" class="btn" type="button">RESET ALL</button><button id="smClose" class="btn" type="button">CLOSE</button></div></div></div>
 <div id="kb" class="kb hidden"><div class="kb-box"><h2>KEYBINDS</h2><p class="hint">Click a key, then press the new one. Backspace = back to default, Esc = cancel. Mouse: LMB fire, RMB aim.</p><div id="kbList" class="kb-list"></div><div class="kb-foot"><button id="kbReset" class="btn" type="button">RESET ALL</button><button id="kbClose" class="btn primary" type="button">DONE</button></div></div></div>
 <div id="gs" class="gs hidden" tabindex="-1">
@@ -19,6 +19,14 @@
     <div id="gsPick" class="gs-pick"></div>
     <div id="gsStats" class="gs-stats"></div>
   </div>
+</div>
+<div id="sk" class="sk hidden" tabindex="-1">
+  <div class="sk-head"><h1 id="skTitle">SKINS</h1><span id="skCash" class="sk-cash"></span><button id="skClose" class="btn primary" type="button">DONE</button></div>
+  <div class="sk-body">
+    <div class="sk-stage"><canvas id="skCanvas"></canvas><div id="skName" class="sk-name"></div></div>
+    <div class="sk-side"><div class="sk-tabs"><button data-tab="mine" class="on" type="button">MY SKINS</button><button data-tab="cases" type="button">CASES</button></div><div id="skList" class="sk-list"></div></div>
+  </div>
+  <div id="skReel" class="sk-reel hidden"><div class="sk-reelbox"><div id="skWindow" class="sk-window"><div id="skStrip" class="sk-strip"></div><div class="sk-mark"></div></div><div id="skResult" class="sk-result hidden"></div></div></div>
 </div>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/", "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.0/build/index.module.js", "three-bvh-csg": "https://cdn.jsdelivr.net/npm/three-bvh-csg@0.0.6/build/index.module.js" } }
@@ -238,7 +246,7 @@
     <section>
       <h2>Melee &middot; Knife <small class="dim">(tap V = quick lunge, hold V = knife out)</small></h2>
       <div id="knives" class="cards weapons"></div>
-      <button id="knifeGs" class="btn gsbtn" type="button"><span>KNIFE CAMOS &amp; SKINS</span><span>paint your knife - skins are bought with money</span></button>
+      <button id="knifeGs" class="btn gsbtn" type="button"><span>KNIFE CAMOS</span><span>paint your knife - premium paints are bought with money</span></button>
     </section>
 
     <section>
@@ -319,7 +327,7 @@
 </div>
 
 <div id="loaderr" class="hidden"></div>
-<script type="module" src="js/main.js?v=0.19.1"></script>
+<script type="module" src="js/main.js?v=0.19.2"></script>
 <div id="gfxVig"></div>
 <div id="sunRays"><i class="sr-glow"></i><i class="sr-rays"></i><i class="sr-rays r2"></i></div>
 <div id="fpsBox" class="hidden" style="position:fixed;top:6px;right:8px;z-index:60;font:12px monospace;color:#9f9;background:#0008;padding:2px 6px;pointer-events:none"></div>

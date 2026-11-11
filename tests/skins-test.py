@@ -34,7 +34,7 @@ with sync_playwright() as p:
       return [a, b, bought, pr.d.cash, pr.camoUnlocked('ak47', c), pr.camoUnlocked('m4a1', c)]; }""")
     check('skin needs 5000', r[0] is False and r[1] is True)
     check('buying deducts 5000 and unlocks only that gun', r[2] is True and r[3] == 0 and r[4] is True and r[5] is False)
-    r = pg.evaluate("""async () => { const m = await import('./js/supermod.js?v=0.19.1').catch(() => null); return !!m; }""")
+    r = pg.evaluate("""async () => { const m = await import('./js/supermod.js?v=0.19.2').catch(() => null); return !!m; }""")
     r = pg.evaluate("""() => { const g = window.__game, pr = g.prog; pr.d.cash = 0; const before = pr.canBuy(19);
       const s = JSON.parse(localStorage.getItem('ironstrike_supermod') || '{}'); return [before, typeof pr.cash]; }""")
     check('no money, no skin', r[0] is False)
@@ -51,8 +51,8 @@ with sync_playwright() as p:
     for m in ['catacombs', 'ruins', 'plaza']:
         r = pg.evaluate("(m) => { const g = window.__game; g.start({mode:'tdm',map:m,mapName:m,primary:'m4a1',secondary:'g18',attP:0,attS:0,difficulty:'normal'}); g.state='playing'; for (let i=0;i<30;i++) g.update ? g.update(1/30) : 0; return g.actors.length; }", m)
         check('map ' + m + ' loads', r > 1)
-    r = pg.evaluate("""async () => { const P = await import('./js/progress.js?v=0.19.1'), W = await import('./js/weapons.js?v=0.19.1'), M = await import('./js/gunmodels.js?v=0.19.1');
-      (await import('./js/supermod.js?v=0.19.1')).MOD.infMoney = false; const pr = new P.Progress(); const bad = []; for (const id of Object.keys(P.UNLOCK)) if (!W.WEAPONS[id]) bad.push(id);
+    r = pg.evaluate("""async () => { const P = await import('./js/progress.js?v=0.19.2'), W = await import('./js/weapons.js?v=0.19.2'), M = await import('./js/gunmodels.js?v=0.19.2');
+      (await import('./js/supermod.js?v=0.19.2')).MOD.infMoney = false; const pr = new P.Progress(); const bad = []; for (const id of Object.keys(P.UNLOCK)) if (!W.WEAPONS[id]) bad.push(id);
       pr.d.xp = 1e9; const maxed = pr.info.level; pr.reset(); pr.d.xp = 0; pr.d.cash = 0;
       const locked = !pr.unlocked('barrett', false), cant = !pr.canBuyGun('barrett'); pr.d.cash = P.gunPrice('barrett'); const can = pr.canBuyGun('barrett'), got = pr.buyGun('barrett');
       return { bad, maxed, locked, cant, can, got, own: pr.unlocked('barrett', false), cash: pr.d.cash, price: P.gunPrice('barrett'), n: W.PRIMARIES.length + W.SECONDARIES.length, lock2: !pr.unlocked('awp', false) }; }""")
@@ -60,5 +60,25 @@ with sync_playwright() as p:
     check('every UNLOCK id is a real gun', not r['bad'])
     check('buying a gun with money works', r['locked'] and r['cant'] and r['can'] and r['got'] and r['own'] and r['cash'] == 0 and r['lock2'])
     check('lots of guns', r['n'] >= 45)
+    # skins & cases: mask bits, rolling, panel + reel
+    r = pg.evaluate("""async () => { const W = await import('./js/weapons.js?v=0.19.2'), P = await import('./js/progress.js?v=0.19.2');
+      (await import('./js/supermod.js?v=0.19.2')).MOD.infMoney = false;
+      const m = W.setSkin(W.setCamo(0, 5), 8), keep = W.cleanMask(W.WEAPONS.ak47, m), knife = W.cleanMask(W.WEAPONS.k_combat, m);
+      const counts = { rare: 0, epic: 0, legendary: 0, mythic: 0 }; for (let i = 0; i < 4000; i++) counts[W.rollCase(W.CASES[1]).rarity]++;
+      const pr = new P.Progress(); pr.d.cash = 999; const no = pr.openCase(W.CASES[0]); pr.d.cash = 1000; const a = pr.openCase(W.CASES[0]);
+      return { skin: W.skinOf(keep), camo: W.camoOf(keep), knifeSkin: W.skinOf(knife), counts, no, a: !!a && pr.ms.length === 1 && pr.d.cash === 0, n: W.SKINS.length - 1 }; }""")
+    check('skin bits survive cleanMask next to a camo (not on knives)', r['skin'] == 8 and r['camo'] == 5 and r['knifeSkin'] == 0)
+    check('case odds are sensible', r['counts']['rare'] < r['counts']['epic'] and r['counts']['mythic'] > 0 and r['counts']['mythic'] < 400)
+    check('case needs its price, then pays out a skin', r['no'] is None and r['a'])
+    pg.evaluate("() => { window.__game.prog.d.cash = 20000; }")
+    pg.evaluate("() => { document.querySelector('.skinbtn').click(); }")
+    check('skins panel opens', pg.evaluate("() => !document.getElementById('sk').classList.contains('hidden')"))
+    pg.evaluate("() => document.querySelector('.sk-tabs button[data-tab=cases]').click()")
+    pg.evaluate("() => document.querySelector('.sk-open').click()")
+    pg.wait_for_timeout(6200)
+    check('case reel finishes with a result', pg.evaluate("() => !document.getElementById('skResult').classList.contains('hidden') && document.getElementById('skResult').textContent.length > 10"))
+    pg.evaluate("() => { const b = [...document.querySelectorAll('#skResult button')][0]; b.click(); }")
+    pg.evaluate("() => document.querySelector('.sk-tabs button[data-tab=mine]').click()")
+    check('won skin is equipped', pg.evaluate("() => !/Factory/.test(document.getElementById('skName').textContent)") or pg.evaluate("() => document.querySelectorAll('.sk-card.sel').length > 0"))
     b.close()
 print(errs[:3]); print('PASS' if ok and not errs else 'FAIL')

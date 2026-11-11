@@ -1,8 +1,8 @@
 // COD-style Gunsmith: a full-screen overlay with the gun in the middle, one box per attachment slot around it, a pick list with the
 // trade-offs of every option, and the weapon stats (with numbers) updating live as you swap parts.
-import { WEAPONS, SLOTS, ATT, CAMOS, camoReqText, withAtt, weaponStats, cleanMask, getSlot, setSlot, setCamo, camoOf, attList } from './weapons.js?v=0.19.1';
-import { WeaponPreview } from './wpreview.js?v=0.19.1';
-import { camoSwatch, decal } from './gunmodels.js?v=0.19.1';
+import { WEAPONS, SLOTS, ATT, CAMOS, camoReqText, withAtt, weaponStats, cleanMask, getSlot, setSlot, setCamo, camoOf, attList } from './weapons.js?v=0.19.2';
+import { WeaponPreview } from './wpreview.js?v=0.19.2';
+import { camoSwatch, decal } from './gunmodels.js?v=0.19.2';
 
 const $ = (id) => document.getElementById(id);
 const mk = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
@@ -100,7 +100,7 @@ export class Gunsmith {
 
   renderCamos(pick, mask) {
     const id = this.id, prog = this.o.prog, grid = mk('div', 'gs-camos'), cash = prog.cash;
-    const bal = mk('div', 'gs-cash', `Balance: ${cash === Infinity ? '$\u221e (supermod)' : '$' + cash.toLocaleString('en-US')}  -  skins cost $5,000 each, +$100 for every win`); pick.appendChild(bal);
+    const bal = mk('div', 'gs-cash', `Balance: ${cash === Infinity ? '$\u221e (supermod)' : '$' + cash.toLocaleString('en-US')}  -  premium paints cost $5,000 each, +$100 for every win`); pick.appendChild(bal);
     const tile = (c) => {
       const open = prog.camoUnlocked(id, c.id), buy = c.req.t === 'buy', b = mk('button', 'camo' + (camoOf(mask) === c.id ? ' sel' : '') + (open ? '' : ' locked') + (buy ? ' skin' : '')); b.type = 'button';
       const sw = mk('i', 'sw'); const url = c.id ? camoSwatch(c.id, 120, 64) : ''; if (url) sw.style.backgroundImage = `url(${url})`; else if (!c.id) sw.classList.add('factory'); if (!open && !buy) sw.appendChild(mk('s', null, '\u{1F512}'));
@@ -118,7 +118,7 @@ export class Gunsmith {
     };
     for (const c of CAMOS) if (!c.skin) grid.appendChild(tile(c));
     pick.appendChild(grid);
-    pick.appendChild(mk('div', 'gs-sub', 'SKINS'));
+    pick.appendChild(mk('div', 'gs-sub', 'PREMIUM PAINTS'));
     const sg = mk('div', 'gs-camos'); for (const c of CAMOS) if (c.skin) sg.appendChild(tile(c)); pick.appendChild(sg);
   }
 }
