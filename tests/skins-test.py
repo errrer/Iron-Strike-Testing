@@ -34,7 +34,7 @@ with sync_playwright() as p:
       return [a, b, bought, pr.d.cash, pr.camoUnlocked('ak47', c), pr.camoUnlocked('m4a1', c)]; }""")
     check('skin needs 5000', r[0] is False and r[1] is True)
     check('buying deducts 5000 and unlocks only that gun', r[2] is True and r[3] == 0 and r[4] is True and r[5] is False)
-    r = pg.evaluate("""async () => { const m = await import('./js/supermod.js?v=0.19.0').catch(() => null); return !!m; }""")
+    r = pg.evaluate("""async () => { const m = await import('./js/supermod.js?v=0.19.1').catch(() => null); return !!m; }""")
     r = pg.evaluate("""() => { const g = window.__game, pr = g.prog; pr.d.cash = 0; const before = pr.canBuy(19);
       const s = JSON.parse(localStorage.getItem('ironstrike_supermod') || '{}'); return [before, typeof pr.cash]; }""")
     check('no money, no skin', r[0] is False)
@@ -51,8 +51,8 @@ with sync_playwright() as p:
     for m in ['catacombs', 'ruins', 'plaza']:
         r = pg.evaluate("(m) => { const g = window.__game; g.start({mode:'tdm',map:m,mapName:m,primary:'m4a1',secondary:'g18',attP:0,attS:0,difficulty:'normal'}); g.state='playing'; for (let i=0;i<30;i++) g.update ? g.update(1/30) : 0; return g.actors.length; }", m)
         check('map ' + m + ' loads', r > 1)
-    r = pg.evaluate("""async () => { const P = await import('./js/progress.js?v=0.19.0'), W = await import('./js/weapons.js?v=0.19.0'), M = await import('./js/gunmodels.js?v=0.19.0');
-      (await import('./js/supermod.js?v=0.19.0')).MOD.infMoney = false; const pr = new P.Progress(); const bad = []; for (const id of Object.keys(P.UNLOCK)) if (!W.WEAPONS[id]) bad.push(id);
+    r = pg.evaluate("""async () => { const P = await import('./js/progress.js?v=0.19.1'), W = await import('./js/weapons.js?v=0.19.1'), M = await import('./js/gunmodels.js?v=0.19.1');
+      (await import('./js/supermod.js?v=0.19.1')).MOD.infMoney = false; const pr = new P.Progress(); const bad = []; for (const id of Object.keys(P.UNLOCK)) if (!W.WEAPONS[id]) bad.push(id);
       pr.d.xp = 1e9; const maxed = pr.info.level; pr.reset(); pr.d.xp = 0; pr.d.cash = 0;
       const locked = !pr.unlocked('barrett', false), cant = !pr.canBuyGun('barrett'); pr.d.cash = P.gunPrice('barrett'); const can = pr.canBuyGun('barrett'), got = pr.buyGun('barrett');
       return { bad, maxed, locked, cant, can, got, own: pr.unlocked('barrett', false), cash: pr.d.cash, price: P.gunPrice('barrett'), n: W.PRIMARIES.length + W.SECONDARIES.length, lock2: !pr.unlocked('awp', false) }; }""")

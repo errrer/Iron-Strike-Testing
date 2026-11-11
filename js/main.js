@@ -1,21 +1,21 @@
-import { Game, MODES, mpMode } from './game.js?v=0.19.0';
-import { Net, cleanCode, cleanName } from './net.js?v=0.19.0';
-import { watchForEgg } from './easter.js?v=0.19.0';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.19.0';
-import { Sound } from './audio.js?v=0.19.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.19.0';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.19.0';
-import { loadProps } from './props.js?v=0.19.0';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.19.0';
-import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.19.0';
-import { initMapMaker } from './mapmaker.js?v=0.19.0';
-import { RaceMode } from './race.js?v=0.19.0';
-import { initSupermod, MOD } from './supermod.js?v=0.19.0';
-import { initKeybinds } from './keybinds.js?v=0.19.0';
-import { Gunsmith } from './gunsmith.js?v=0.19.0';
-import { WeaponPreview } from './wpreview.js?v=0.19.0';
-import { initTouch, blockZoom } from './touch.js?v=0.19.0';
-import { initGamepad } from './gamepad.js?v=0.19.0';
+import { Game, MODES, mpMode } from './game.js?v=0.19.1';
+import { Net, cleanCode, cleanName } from './net.js?v=0.19.1';
+import { watchForEgg } from './easter.js?v=0.19.1';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.19.1';
+import { Sound } from './audio.js?v=0.19.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.19.1';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.19.1';
+import { loadProps } from './props.js?v=0.19.1';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.19.1';
+import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.19.1';
+import { initMapMaker } from './mapmaker.js?v=0.19.1';
+import { RaceMode } from './race.js?v=0.19.1';
+import { initSupermod, MOD } from './supermod.js?v=0.19.1';
+import { initKeybinds } from './keybinds.js?v=0.19.1';
+import { Gunsmith } from './gunsmith.js?v=0.19.1';
+import { WeaponPreview } from './wpreview.js?v=0.19.1';
+import { initTouch, blockZoom } from './touch.js?v=0.19.1';
+import { initGamepad } from './gamepad.js?v=0.19.1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -33,8 +33,11 @@ if (cfg.attv !== 2) { for (const k of Object.keys(cfg.att)) cfg.att[k] = migrate
 if (!cfg.name) cfg.name = 'Player' + Math.floor(100 + Math.random() * 900);
 if (cfg.view !== 'first' && cfg.view !== 'third') cfg.view = 'first';
 // ---------------- classes: five custom loadouts (primary, secondary, their attachments, knife) you can swap between, even mid-match
-const CLASS_DEFAULTS = [['m4a1', 'g18'], ['ak47', 'm1911'], ['mp5', 'skorp'], ['dmr', 'magnum'], ['m680', 'deagle']];
+const CLASS_DEFAULTS = [['m4a1', 'g18'], ['ak47', 'm1911'], ['mp5', 'skorp'], ['mk14', 'magnum'], ['m680', 'deagle']];
 const snapClass = () => ({ prim: cfg.primary, sec: cfg.secondary, knife: cfg.knife, ap: cleanMask(WEAPONS[cfg.primary], cfg.att[cfg.primary] | 0), as: cleanMask(WEAPONS[cfg.secondary], cfg.att[cfg.secondary] | 0) });
+// the SVD was removed from the game: anyone who had it equipped gets the Mk14 instead
+if (cfg.primary === 'dmr') cfg.primary = 'mk14';
+if (Array.isArray(cfg.classes)) for (const c of cfg.classes) if (c && c.prim === 'dmr') c.prim = 'mk14';
 if (!Array.isArray(cfg.classes) || cfg.classes.length !== 5) cfg.classes = CLASS_DEFAULTS.map(([p, s], i) => (i === 0 ? { prim: cfg.primary, sec: cfg.secondary, knife: cfg.knife || 'k_combat', ap: 0, as: 0 } : { prim: p, sec: s, knife: 'k_combat', ap: 0, as: 0 }));
 if (!(cfg.cls >= 0 && cfg.cls < 5)) cfg.cls = 0;
 const save = () => { try { if (cfg.classes && WEAPONS[cfg.primary] && WEAPONS[cfg.secondary]) cfg.classes[cfg.cls] = snapClass(); localStorage.setItem('ironstrike', JSON.stringify(cfg)); } catch (e) { /* ignore */ } };

@@ -6,8 +6,8 @@
 //  - the match ends when every player is down or dead
 // The host (or the offline player) runs everything; clients mirror the state from 'zs' snapshots and 'z*' events.
 import * as THREE from 'three';
-import { WEAPONS, withAtt } from './weapons.js?v=0.19.0';
-import { buildWindow, setBoards, buildDoor, buildBuy, buildMachine, buildBox, buildPap, gunDisplay, buildPowerup, label, setLabel, POWERUPS } from './zmworld.js?v=0.19.0';
+import { WEAPONS, withAtt } from './weapons.js?v=0.19.1';
+import { buildWindow, setBoards, buildDoor, buildBuy, buildMachine, buildBox, buildPap, gunDisplay, buildPowerup, label, setLabel, POWERUPS } from './zmworld.js?v=0.19.1';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -23,7 +23,7 @@ export const PERKS = {
 export const PERK_KEYS = Object.keys(PERKS);
 export const START_PTS = 500, BOX_COST = 950, PAP_COST = 5000, BLEED = 45, HIT_PTS = 10, KILL_PTS = 60, HEAD_PTS = 100;
 export const START_GUN = 'm1911';
-const BOX_POOL = ['vmp', 'vmp', 'super46', 'super46', 'mp5', 'p90', 'm680', 'm680', 'aa12', 'm4a1', 'm4a1', 'ak47', 'ak47', 'scar', 'lmg', 'dmr', 'kar98k', 'g18', 'skorp', 'magnum', 'magnum', 'deagle', 'm1911'];
+const BOX_POOL = ['vmp', 'vmp', 'super46', 'super46', 'mp5', 'p90', 'm680', 'm680', 'aa12', 'm4a1', 'm4a1', 'ak47', 'ak47', 'scar', 'lmg', 'mk14', 'kar98k', 'g18', 'skorp', 'magnum', 'magnum', 'deagle', 'm1911'];
 const POWER_POOL = ['max', 'max', 'max', 'insta', 'insta', 'dbl', 'dbl', 'nuke', 'carp', 'carp'];
 
 // a purchasable weapon: normal, or Pack-a-Punched (double damage, bigger mags)

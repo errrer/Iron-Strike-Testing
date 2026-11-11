@@ -1,6 +1,6 @@
-import { MOD } from './supermod.js?v=0.19.0';
+import { MOD } from './supermod.js?v=0.19.1';
 // Player progression: XP, levels, ranks and weapon unlocks, saved in localStorage (per browser).
-import { CAMOS } from './weapons.js?v=0.19.0';
+import { CAMOS } from './weapons.js?v=0.19.1';
 const KEY = 'ironstrike.prog';
 export const MAX_LEVEL = 100;
 export const XP_REWARD = { kill: 100, headshot: 50, streak: 25, capture: 75, hold: 5, confirm: 60, deny: 40, plant: 150, defuse: 200, win: 300, played: 100 };
@@ -8,7 +8,7 @@ export const RANKS = ['Recruit', 'Private', 'Corporal', 'Sergeant', 'Staff Serge
 // level required for each weapon
 // money prices: a gun can be bought outright instead of reaching its level
 export const gunPrice = (id) => Math.round((500 + (UNLOCK[id] || 1) * 70) / 50) * 50;
-export const UNLOCK = { vmp: 1, super46: 4, m4a1: 1, g18: 1, m1911: 3, mp5: 2, ak47: 5, skorp: 6, scar: 7, m680: 8, p90: 9, magnum: 11, lmg: 12, kar98k: 14, aa12: 16, deagle: 17, dmr: 19, ump: 7, m16: 10, fal: 13, rpk: 15, sks: 18, mac10: 5, revolver44: 14,
+export const UNLOCK = { vmp: 1, super46: 4, m4a1: 1, g18: 1, m1911: 3, mp5: 2, ak47: 5, skorp: 6, scar: 7, m680: 8, p90: 9, magnum: 11, lmg: 12, kar98k: 14, aa12: 16, deagle: 17, ump: 7, m16: 10, fal: 13, rpk: 15, sks: 18, mac10: 5, revolver44: 14,
   mp7: 3, usp: 6, pp19: 12, tec9: 15, five7: 18, ak74: 22, famas: 26, aug: 30, cz75: 34, spas12: 38, kriss: 42, g36: 46, python: 50, saiga: 54, hk417: 58, mk14: 62, ksg: 66, judge: 70, r700: 74, pkm: 78, m60: 84, awp: 90, barrett: 96, reaper: 56 };
 
 export const need = (level) => 300 + Math.min(level, 60) * 70;                      // xp from this level to the next

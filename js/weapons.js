@@ -31,8 +31,8 @@ export const WEAPONS = {
     zoom: 1.45, scope: false, moveMul: 0.96, snd: { f: 2100, len: 0.13, thump: 0.8 }, builder: 'ak', attach: ['dot', 'grip', 'laser'],
   },
   kar98k: {
-    id: 'kar98k', name: 'Kar98k', slot: 'primary', cls: 'sniper', desc: 'Bolt-action sniper. One shot to the body kills.',
-    dmg: 105, hs: 2.0, rpm: 46, auto: false, mag: 5, reserve: 25, reload: 3.0,
+    id: 'kar98k', name: 'Kar98k', slot: 'primary', cls: 'sniper', desc: 'Bolt-action sniper. Two shots to the body, one to the head.',
+    dmg: 60, hs: 2.0, rpm: 46, auto: false, mag: 5, reserve: 25, reload: 3.0,
     spread: 0.09, adsSpread: 0.0004, recoil: 0.03, recoilYaw: 0.004, range: [60, 120], minMul: 0.95, pellets: 1,
     zoom: 4.0, scope: true, moveMul: 0.9, snd: { f: 1500, len: 0.22, thump: 1.1 }, builder: 'bolt', attach: ['grip', 'laser'],
   },
@@ -67,7 +67,7 @@ export const WEAPONS = {
     zoom: 1.4, scope: false, moveMul: 0.84, snd: { f: 1800, len: 0.14, thump: 0.9 }, builder: 'lmg', attach: ['dot', 'laser'],
   },
   dmr: {
-    id: 'dmr', name: 'SVD', slot: 'primary', cls: 'ar', desc: 'Semi-auto marksman rifle with a 2.6x scope. Two body shots to kill.',
+    id: 'dmr', hidden: true, name: 'SVD', slot: 'primary', cls: 'ar', desc: 'Semi-auto marksman rifle with a 2.6x scope. Two body shots to kill.',
     dmg: 62, hs: 2.0, rpm: 240, auto: false, mag: 10, reserve: 50, reload: 2.8,
     spread: 0.06, adsSpread: 0.001, recoil: 0.016, recoilYaw: 0.004, range: [50, 100], minMul: 0.85, pellets: 1,
     zoom: 2.6, scope: false, moveMul: 0.93, snd: { f: 1500, len: 0.2, thump: 1.0 }, builder: 'dmr', attach: ['grip', 'laser'],
@@ -167,7 +167,7 @@ knife('k_kukri', 'Kukri', 'Bent chopping blade. Heavy hits at a steady pace.', {
 knife('k_dagger', 'Dagger', 'Slim double-edged stiletto. Very quick, very short.', { dmg: 46, cd: 0.3, reach: 2.2, speed: 1.16 });
 knife('k_tomahawk', 'Tomahawk', 'Throwing axe. Hits hard, a bit slow.', { dmg: 72, cd: 0.62, reach: 2.8, speed: 1.08 });
 
-export const PRIMARIES = ['vmp', 'super46', 'mp5', 'mp7', 'ump', 'p90', 'pp19', 'kriss', 'm4a1', 'm16', 'aug', 'famas', 'ak47', 'ak74', 'scar', 'g36', 'fal', 'hk417', 'lmg', 'rpk', 'pkm', 'm60', 'dmr', 'sks', 'mk14', 'kar98k', 'r700', 'awp', 'reaper', 'barrett', 'm680', 'spas12', 'ksg', 'aa12', 'saiga'];
+export const PRIMARIES = ['vmp', 'super46', 'mp5', 'mp7', 'ump', 'p90', 'pp19', 'kriss', 'm4a1', 'm16', 'aug', 'famas', 'ak47', 'ak74', 'scar', 'g36', 'fal', 'hk417', 'lmg', 'rpk', 'pkm', 'm60', 'sks', 'mk14', 'kar98k', 'r700', 'awp', 'reaper', 'barrett', 'm680', 'spas12', 'ksg', 'aa12', 'saiga'];
 export const SECONDARIES = ['g18', 'tec9', 'cz75', 'm1911', 'usp', 'five7', 'skorp', 'mac10', 'magnum', 'python', 'revolver44', 'judge', 'deagle'];
 
 // Stats shown on the loadout / gunsmith screens: a 0..100 style number per row plus a 0..1 bar. `good` says which way is better.

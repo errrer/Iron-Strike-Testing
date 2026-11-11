@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.19.0';
-import { canon } from './keybinds.js?v=0.19.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.19.0';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.19.0';
-import { buildMap } from './maps.js?v=0.19.0';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.19.0';
-import { buildWorld } from './world.js?v=0.19.0';
-import { Bot } from './bots.js?v=0.19.0';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.19.0';
-import { buildSoldier, SKIN } from './soldier.js?v=0.19.0';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.19.0';
-import { Zombies, PERKS } from './zombies.js?v=0.19.0';
-import { inspectFor, inspectPose } from './inspect.js?v=0.19.0';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.19.0';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.19.0';
-import { Objectives } from './objectives.js?v=0.19.0';
-import { Streaks, STREAKS } from './streaks.js?v=0.19.0';
-import { Gore } from './gore.js?v=0.19.0';
+import { MOD } from './supermod.js?v=0.19.1';
+import { canon } from './keybinds.js?v=0.19.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.19.1';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.19.1';
+import { buildMap } from './maps.js?v=0.19.1';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.19.1';
+import { buildWorld } from './world.js?v=0.19.1';
+import { Bot } from './bots.js?v=0.19.1';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.19.1';
+import { buildSoldier, SKIN } from './soldier.js?v=0.19.1';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.19.1';
+import { Zombies, PERKS } from './zombies.js?v=0.19.1';
+import { inspectFor, inspectPose } from './inspect.js?v=0.19.1';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.19.1';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.19.1';
+import { Objectives } from './objectives.js?v=0.19.1';
+import { Streaks, STREAKS } from './streaks.js?v=0.19.1';
+import { Gore } from './gore.js?v=0.19.1';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -59,7 +59,7 @@ const CALLSIGNS = ['Ghost', 'Viper', 'Razor', 'Havoc', 'Nova', 'Falcon', 'Rook',
 const DUMMY_COLOR = 0x8a8f94;
 const FFA_COLORS = [0xc0392b, 0xd68910, 0x1e8449, 0x7d3c98, 0x148f77, 0xb7950b, 0xa04000, 0x2e86c1];
 const TEAM_COLORS = [0x2e6fbd, 0xc0392b];
-const BOT_PRIMARY_POOL = ['vmp', 'super46', 'vmp', 'mp5', 'p90', 'm4a1', 'm4a1', 'm4a1', 'ak47', 'ak47', 'scar', 'lmg', 'm680', 'aa12', 'dmr', 'kar98k'];
+const BOT_PRIMARY_POOL = ['vmp', 'super46', 'vmp', 'mp5', 'p90', 'm4a1', 'm4a1', 'm4a1', 'ak47', 'ak47', 'scar', 'lmg', 'm680', 'aa12', 'mk14', 'kar98k'];
 
 // how many metres of wall each weapon class can shoot through (a wall-bang loses damage per metre)
 const PEN = { pistol: 0.2, smg: 0.3, shotgun: 0.12, ar: 0.5, dmr: 0.8, lmg: 0.7, sniper: 1.4 };
