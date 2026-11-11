@@ -69,6 +69,17 @@ export const INSPECTS = {
   k_dagger:   A(2.6, ['tilt', 0.0, 0.2, { k: 0.5 }], ['twirl', 0.2, 0.5, { n: 1, dir: 1 }], ['roll', 0.5, 0.8, { dir: -1 }], ['shake', 0.8, 1]),
   k_tomahawk: A(3.0, ['raise', 0.0, 0.18, { k: 0.5 }], ['toss', 0.18, 0.62, { h: 0.16, n: 1, dir: 1 }], ['wobble', 0.62, 0.9, { k: 0.1 }]),
 };
+// the new guns borrow the inspect routine of the gun whose model they use
+const ALIAS = { mp7: 'mp5', pp19: 'p90', kriss: 'super46', aug: 'm4a1', famas: 'm4a1', ak74: 'ak47', g36: 'scar', hk417: 'scar', mk14: 'dmr', m60: 'lmg', pkm: 'rpk', r700: 'kar98k', awp: 'kar98k', barrett: 'kar98k', reaper: 'kar98k', spas12: 'm680', ksg: 'm680', saiga: 'aa12', usp: 'm1911', five7: 'm1911', tec9: 'g18', cz75: 'g18', python: 'magnum', judge: 'revolver44' };
+// ...remixed so every gun still has its own: different length, mirrored sides/turns, retimed beats, softer or stronger moves
+Object.entries(ALIAS).forEach(([k, v], n) => {
+  const s = INSPECTS[v]; if (!s || INSPECTS[k]) return;
+  const flip = n % 2 ? -1 : 1, kk = 0.8 + ((n * 7) % 5) * 0.09, sh = ((n * 3) % 5 - 2) * 0.012;
+  INSPECTS[k] = { dur: s.dur * (0.9 + ((n * 5) % 7) * 0.035), beats: s.beats.map((b, j) => {
+    const a = { ...b.a }; if (a.dir) a.dir *= flip * (j % 2 ? 1 : -1) * -1; if (a.side) a.side *= flip; if (a.k) a.k = +(a.k * kk).toFixed(3);
+    return { b: b.b, t0: Math.max(0, +(b.t0 + sh).toFixed(3)), t1: Math.min(1, +(b.t1 + sh * 0.6 + 0.004 * (n + 1)).toFixed(3)), a };
+  }) };
+});
 const FALLBACK = A(2.8, ['show', 0.0, 0.5, { side: -1 }], ['roll', 0.5, 0.9, { dir: 1 }]);
 
 export const inspectFor = (id) => INSPECTS[id] || FALLBACK;

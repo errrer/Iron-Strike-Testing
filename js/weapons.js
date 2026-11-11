@@ -123,6 +123,35 @@ variant('lmg', 'rpk', 'RPK', 'Box-fed light machine gun. Quicker than the M249, 
 variant('dmr', 'sks', 'SKS', 'Semi-auto battle carbine with a long reach. Heavy punch, slow cycle.', 'primary', { dmg: 70, rpm: 240, mag: 10, reserve: 60, reload: 2.6, recoil: 0.02 }, 0x8a5a2a);
 variant('skorp', 'mac10', 'MAC-10', 'Tiny machine pistol that empties a mag in two seconds. Deadly up close.', 'secondary', { dmg: 15, rpm: 1150, mag: 32, reserve: 128, reload: 1.7, range: [6, 17], spread: 0.04 }, 0x6a3030);
 variant('magnum', 'revolver44', '.44 Revolver', 'Slower, harder hitting cousin of the Magnum.', 'secondary', { dmg: 62, rpm: 150, mag: 6, reserve: 36, reload: 2.8 }, 0x4a4a55);
+
+const variant2 = (base, id, name, desc, slot, patch, tint) => { const b = WEAPONS[base]; WEAPONS[id] = { ...b, id, name, desc, slot, ...patch, tint, asset: 'asset' in patch ? patch.asset : b.asset }; };   // like variant() but keeps the base gun's model asset
+// ---- the big armoury: 24 more guns (unlocked by level or bought with money). Each is a tuned variant of an existing model, recoloured.
+const P = 'primary', S = 'secondary';
+variant2('mp5', 'mp7', 'MP7', 'Tiny PDW. Light, fast and easy to control, low damage per hit.', P, { dmg: 19, rpm: 950, mag: 40, reserve: 200, reload: 1.9, recoil: 0.0036, range: [10, 28], moveMul: 1.1 }, 0x3b3f45);
+variant2('p90', 'pp19', 'PP-19 Vityaz', 'Helical-mag SMG with a big magazine and a lazy fire rate.', P, { dmg: 20, rpm: 720, mag: 64, reserve: 256, reload: 2.9, recoil: 0.0040, range: [12, 32], moveMul: 1.04 }, 0x5a5648);
+variant2('super46', 'kriss', 'Kriss Vector', 'Extreme fire rate with a low-kick design. Strips armour fast.', P, { dmg: 20, rpm: 1180, mag: 33, reserve: 198, reload: 2.0, recoil: 0.0030, range: [9, 26] }, 0x8a8a52);
+variant2('m4a1', 'aug', 'AUG', 'Bullpup rifle: accurate, smooth, with a compact reload.', P, { dmg: 32, rpm: 670, mag: 30, reserve: 180, reload: 2.1, recoil: 0.0058, recoilYaw: 0.0028, range: [26, 62], moveMul: 1.0 }, 0xb7bcb0);
+variant2('m4a1', 'famas', 'FAMAS', 'Very fast bullpup. Shreds at close range, drops off fast.', P, { dmg: 27, rpm: 900, mag: 25, reserve: 175, reload: 2.2, recoil: 0.0062, range: [20, 48], moveMul: 1.01 }, 0x66705a);
+variant2('ak47', 'ak74', 'AK-74', 'Lighter AK. Less punch than the 47 but far easier to control.', P, { dmg: 32, rpm: 650, mag: 30, reserve: 180, reload: 2.3, recoil: 0.0060, recoilYaw: 0.0030, range: [26, 62] }, 0x7a5a38);
+variant2('scar', 'g36', 'G36C', 'Compact carbine: steady, light and accurate on the move.', P, { dmg: 30, rpm: 700, mag: 30, reserve: 180, reload: 2.1, recoil: 0.0055, range: [22, 54], moveMul: 1.03 }, 0x4f5662);
+variant2('scar', 'hk417', 'HK417', 'Heavy 7.62 battle rifle. Strong recoil, strong hits.', P, { dmg: 52, rpm: 360, mag: 20, reserve: 100, reload: 2.7, recoil: 0.0135, range: [32, 80], moveMul: 0.95 }, 0x2f3238);
+variant2('dmr', 'mk14', 'Mk14 EBR', 'Fast semi-auto marksman rifle. Rapid follow-up shots.', P, { dmg: 56, rpm: 320, mag: 20, reserve: 80, reload: 2.8, recoil: 0.014 }, 0x6a6f4a);
+variant2('lmg', 'm60', 'M60', 'Heavy belt-fed LMG. Hits hard but handles like a brick.', P, { dmg: 38, rpm: 560, mag: 100, reserve: 200, reload: 6.2, moveMul: 0.8, recoil: 0.0065 }, 0x44483a);
+variant2('lmg', 'pkm', 'PKM', 'Fast Russian LMG. Big magazine, steady stream of fire.', P, { dmg: 34, rpm: 680, mag: 100, reserve: 200, reload: 5.6, moveMul: 0.84 }, 0x6a4a2e);
+variant2('kar98k', 'r700', 'R700', 'Light bolt-action. Quick to cycle and quick to aim.', P, { dmg: 100, rpm: 62, mag: 5, reserve: 30, reload: 2.5, zoom: 3.4, moveMul: 0.94 }, 0x5a4630);
+variant2('kar98k', 'awp', 'Arctic AW', 'Precision rifle. Heavy hitting, long range, slow cycle.', P, { dmg: 118, rpm: 40, mag: 5, reserve: 25, reload: 3.4, zoom: 4.6, moveMul: 0.88, range: [70, 140] }, 0x8fa3b5);
+variant2('kar98k', 'barrett', 'M82 Barrett', '.50 anti-materiel rifle. One shot kills anywhere and punches through walls.', P, { dmg: 155, rpm: 56, mag: 5, reserve: 20, reload: 3.8, zoom: 5.0, moveMul: 0.82, recoil: 0.04, range: [80, 160], pen: 2.2 }, 0x2c2f34);
+variant2('kar98k', 'reaper', 'Reaper', 'One bullet in the chamber and it kills anywhere on the body at any range. Mid-speed reload between shots.', P, { dmg: 200, hs: 1, rpm: 50, mag: 1, reserve: 24, reload: 3.0, zoom: 4.2, moveMul: 0.9, range: [300, 300], minMul: 1, recoil: 0.034, pen: 1.6 }, 0x7a1f1f);
+variant2('m680', 'spas12', 'SPAS-12', 'Combat shotgun. Faster to cycle than the pump, slightly weaker.', P, { dmg: 11, rpm: 95, mag: 8, reserve: 40, reload: 3.0, pellets: 10, moveMul: 1.0 }, 0x3a3d42);
+variant2('m680', 'ksg', 'KSG', 'Twin-tube shotgun with a huge shell capacity. Slow to reload.', P, { dmg: 11, rpm: 70, mag: 12, reserve: 48, reload: 3.8, pellets: 9, spread: 0.065 }, 0x7a6a50);
+variant2('aa12', 'saiga', 'Saiga-12', 'Semi-auto-feeling shotgun with a steady cadence and reliable damage.', P, { dmg: 10, rpm: 240, mag: 10, reserve: 50, reload: 3.1, pellets: 9, recoil: 0.014 }, 0x7a5a30);
+variant2('m1911', 'usp', 'USP .45', 'Dependable service pistol. Large magazine, easy recoil.', S, { dmg: 30, rpm: 480, mag: 12, reserve: 60, reload: 1.5, recoil: 0.0095, range: [14, 34] }, 0x2d3036);
+variant2('m1911', 'five7', 'Five-seveN', 'High-velocity pistol: 20 rounds and good range, light hits.', S, { dmg: 27, rpm: 520, mag: 20, reserve: 100, reload: 1.6, recoil: 0.0075, range: [18, 42] }, 0x4a4f2e);
+variant2('g18', 'tec9', 'TEC-9', 'Cheap machine pistol with a 32-round mag. Spits out bullets.', S, { dmg: 18, rpm: 880, mag: 32, reserve: 128, reload: 1.8, spread: 0.04 }, 0x55555d);
+variant2('g18', 'cz75', 'CZ-75 Auto', 'Full-auto pistol that hits harder than the G18 and fires slower.', S, { dmg: 22, rpm: 700, mag: 18, reserve: 108, reload: 1.5, range: [10, 26] }, 0x8a8a90);
+variant2('magnum', 'python', 'Python', 'Long-barrel revolver. Slower, but kills in two body shots at range.', S, { dmg: 82, rpm: 105, mag: 6, reserve: 30, reload: 3.0, range: [24, 55], recoil: 0.034 }, 0x9aa0a8);
+variant2('magnum', 'judge', 'The Judge', 'Revolver that fires shot shells. Wicked at point-blank.', S, { dmg: 13, rpm: 150, mag: 5, reserve: 30, reload: 3.2, pellets: 8, spread: 0.06, adsSpread: 0.04, range: [4, 13], minMul: 0.15 }, 0x6a4a38);
+
 // the Gun Game finale: one bullet, one shot, one kill - then a very slow reload
 variant('deagle', 'goldgun', 'Golden Gun', 'One bullet. One shot. One kill. Then a very slow reload.', 'special', { builder: 'goldgun', dmg: 500, hs: 1, rpm: 40, auto: false, mag: 1, reserve: 999, reload: 6.5, spread: 0.012, adsSpread: 0.0004, recoil: 0.022, recoilYaw: 0.002, range: [250, 250], minMul: 1, moveMul: 0.96, snd: { f: 900, len: 0.24, thump: 1.4 }, attach: [] }, 0xffd24a);
 
@@ -138,8 +167,8 @@ knife('k_kukri', 'Kukri', 'Bent chopping blade. Heavy hits at a steady pace.', {
 knife('k_dagger', 'Dagger', 'Slim double-edged stiletto. Very quick, very short.', { dmg: 46, cd: 0.3, reach: 2.2, speed: 1.16 });
 knife('k_tomahawk', 'Tomahawk', 'Throwing axe. Hits hard, a bit slow.', { dmg: 72, cd: 0.62, reach: 2.8, speed: 1.08 });
 
-export const PRIMARIES = ['vmp', 'super46', 'mp5', 'ump', 'p90', 'm4a1', 'm16', 'ak47', 'scar', 'fal', 'lmg', 'rpk', 'dmr', 'sks', 'kar98k', 'm680', 'aa12'];
-export const SECONDARIES = ['g18', 'm1911', 'skorp', 'mac10', 'magnum', 'revolver44', 'deagle'];
+export const PRIMARIES = ['vmp', 'super46', 'mp5', 'mp7', 'ump', 'p90', 'pp19', 'kriss', 'm4a1', 'm16', 'aug', 'famas', 'ak47', 'ak74', 'scar', 'g36', 'fal', 'hk417', 'lmg', 'rpk', 'pkm', 'm60', 'dmr', 'sks', 'mk14', 'kar98k', 'r700', 'awp', 'reaper', 'barrett', 'm680', 'spas12', 'ksg', 'aa12', 'saiga'];
+export const SECONDARIES = ['g18', 'tec9', 'cz75', 'm1911', 'usp', 'five7', 'skorp', 'mac10', 'magnum', 'python', 'revolver44', 'judge', 'deagle'];
 
 // Stats shown on the loadout / gunsmith screens: a 0..100 style number per row plus a 0..1 bar. `good` says which way is better.
 export function weaponStats(w) {

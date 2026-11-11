@@ -729,3 +729,7 @@ body.ultra #sunRays { display: block; }
 .camo.skin.locked .sw { filter: saturate(.75) brightness(.8); }
 .camo.nope .price { color: #ff6b6b; }
 #knifeGs { margin-top: 10px; }
+
+.card.locked.buyable { cursor: pointer; }
+.card.locked.buyable .lock { color: #7dff9a; }
+.card.locked { opacity: .78; }

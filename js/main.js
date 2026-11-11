@@ -1,21 +1,21 @@
-import { Game, MODES, mpMode } from './game.js?v=0.18.9';
-import { Net, cleanCode, cleanName } from './net.js?v=0.18.9';
-import { watchForEgg } from './easter.js?v=0.18.9';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.18.9';
-import { Sound } from './audio.js?v=0.18.9';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.18.9';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.18.9';
-import { loadProps } from './props.js?v=0.18.9';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.18.9';
-import { rankName, UNLOCK } from './progress.js?v=0.18.9';
-import { initMapMaker } from './mapmaker.js?v=0.18.9';
-import { RaceMode } from './race.js?v=0.18.9';
-import { initSupermod, MOD } from './supermod.js?v=0.18.9';
-import { initKeybinds } from './keybinds.js?v=0.18.9';
-import { Gunsmith } from './gunsmith.js?v=0.18.9';
-import { WeaponPreview } from './wpreview.js?v=0.18.9';
-import { initTouch, blockZoom } from './touch.js?v=0.18.9';
-import { initGamepad } from './gamepad.js?v=0.18.9';
+import { Game, MODES, mpMode } from './game.js?v=0.19.0';
+import { Net, cleanCode, cleanName } from './net.js?v=0.19.0';
+import { watchForEgg } from './easter.js?v=0.19.0';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.19.0';
+import { Sound } from './audio.js?v=0.19.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.19.0';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.19.0';
+import { loadProps } from './props.js?v=0.19.0';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.19.0';
+import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.19.0';
+import { initMapMaker } from './mapmaker.js?v=0.19.0';
+import { RaceMode } from './race.js?v=0.19.0';
+import { initSupermod, MOD } from './supermod.js?v=0.19.0';
+import { initKeybinds } from './keybinds.js?v=0.19.0';
+import { Gunsmith } from './gunsmith.js?v=0.19.0';
+import { WeaponPreview } from './wpreview.js?v=0.19.0';
+import { initTouch, blockZoom } from './touch.js?v=0.19.0';
+import { initGamepad } from './gamepad.js?v=0.19.0';
 
 const $ = (id) => document.getElementById(id);
 
@@ -48,7 +48,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gfx: ['low', 'medium', 'high', 'ultra'].includes(cfg.gfx) ? cfg.gfx : 'high', gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll !== false };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gfx: ['low', 'medium', 'high', 'ultra'].includes(cfg.gfx) ? cfg.gfx : 'high', gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll === true };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -58,9 +58,15 @@ try {
 }
 
 // ---------------- menu cards ----------------
+function tryBuyGun(d) {                                   // a locked weapon can be bought with money instead of waiting for its level
+  const id = d.dataset.wid, pr = game.prog; if (!id || !WEAPONS[id]) return;
+  const price = gunPrice(id), have = pr.cash === Infinity ? '\u221e' : '$' + pr.cash.toLocaleString('en-US');
+  if (!pr.canBuyGun(id)) { alert(`${WEAPONS[id].name} unlocks at level ${UNLOCK[id]}, or buy it for $${price.toLocaleString('en-US')}.\nYou have ${have}.`); return; }
+  if (confirm(`Buy the ${WEAPONS[id].name} for $${price.toLocaleString('en-US')}?\nYou have ${have}.`)) { pr.buyGun(id); refreshProg(); refreshAtt(); }
+}
 function card(parent, html, selected, onClick) {
   const d = document.createElement('div'); d.className = 'card' + (selected ? ' sel' : ''); d.innerHTML = html;
-  d.addEventListener('click', () => { if (d.classList.contains('locked')) return; onClick(); for (const c of parent.children) c.classList.remove('sel'); d.classList.add('sel'); save(); });
+  d.addEventListener('click', () => { if (d.classList.contains('locked')) { tryBuyGun(d); return; } onClick(); for (const c of parent.children) c.classList.remove('sel'); d.classList.add('sel'); save(); });
   parent.appendChild(d); return d;
 }
 
@@ -97,7 +103,7 @@ function weaponCard(parent, id, key) {
 let net = null;
 // ---------------- progression: rank box + weapon unlocks ----------------
 function refreshProg() {
-  const pr = game.prog, i = pr.info, all = cfg.unlockAll !== false || MOD.unlockAll;
+  const pr = game.prog, i = pr.info, all = cfg.unlockAll === true || MOD.unlockAll;
   $('rankName').textContent = `LV ${i.level} ${rankName(i.level)}`;
   $('rankFill').style.width = `${Math.round(i.into / i.next * 100)}%`;
   $('landRankName').textContent = $('rankName').textContent; $('landRankFill').style.width = $('rankFill').style.width;
@@ -105,7 +111,7 @@ function refreshProg() {
   $('landRankTxt').textContent = $('rankTxt').textContent;
   for (const c of document.querySelectorAll('[data-wid]')) {
     const id = c.dataset.wid, lock = !pr.unlocked(id, all);
-    c.classList.toggle('locked', lock); c.querySelector('.lock').textContent = lock ? `LEVEL ${UNLOCK[id]}` : '';
+    c.classList.toggle('locked', lock); c.classList.toggle('buyable', lock && pr.canBuyGun(id)); c.querySelector('.lock').textContent = lock ? `LEVEL ${UNLOCK[id]}  -  or $${gunPrice(id).toLocaleString('en-US')}` : '';
   }
   for (const [key, list] of [['primary', PRIMARIES], ['secondary', SECONDARIES]]) {
     if (!pr.unlocked(cfg[key], all)) { cfg[key] = list.find((id) => pr.unlocked(id, all)); for (const c of document.querySelectorAll(`#${key === 'primary' ? 'primaries' : 'secondaries'} .card`)) c.classList.toggle('sel', c.dataset.wid === cfg[key]); }
@@ -174,7 +180,7 @@ try { wprev = new WeaponPreview($('wpCanvas')); } catch (e) { wprev = null; }
 initKeybinds();
 initSupermod({
   onOpen: () => { if (game.state === 'playing') { try { document.exitPointerLock(); } catch (e) { /* ignore */ } game.pause(); } },
-  onChange: () => { game.settings.unlockAll = cfg.unlockAll !== false || MOD.unlockAll; refreshProg(); refreshAtt(); },
+  onChange: () => { game.settings.unlockAll = cfg.unlockAll === true || MOD.unlockAll; refreshProg(); refreshAtt(); },
   maxRank: () => { game.prog.add(1e7); refreshProg(); refreshAtt(); },
 });
 gsm = new Gunsmith({ prog: game.prog, getMask: (id) => maskFor(id), setMask: (id, m) => { cfg.att[id] = m; save(); if (id === cfg.knife) syncKnife(); }, onBuy: () => refreshProg(), onClose: (id) => { renderClasses(); refreshAtt(); loadoutChanged(); showWeapon(cfg[curSlot], curSlot); for (const c of document.querySelectorAll('[data-wid]')) { const w = WEAPONS[c.dataset.wid], bx = c.querySelector('.bars'); if (bx && w) bx.innerHTML = barsHtml(withAtt(w, maskFor(w.id)), false); } } });
@@ -496,6 +502,6 @@ requestAnimationFrame(loop);
 // unlock-all toggle + initial rank display
 {
   const el = $('unlockAll');
-  if (el) { el.checked = cfg.unlockAll !== false; el.addEventListener('change', () => { cfg.unlockAll = el.checked; game.settings.unlockAll = el.checked; save(); refreshProg(); }); }
+  if (el) { el.checked = cfg.unlockAll === true; el.addEventListener('change', () => { cfg.unlockAll = el.checked; game.settings.unlockAll = el.checked; save(); refreshProg(); }); }
   refreshProg();
 }

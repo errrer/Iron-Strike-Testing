@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PROPS, PROP_TEX, imgTex } from './props.js?v=0.18.9';
+import { PROPS, PROP_TEX, imgTex } from './props.js?v=0.19.0';
 
 // ---- procedural textures (greyscale detail, tinted by material colour) ---------------------------
 const texCache = new Map();

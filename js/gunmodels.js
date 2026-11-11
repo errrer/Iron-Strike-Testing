@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf } from './weapons.js?v=0.18.9';
+import { getSlot, camoOf } from './weapons.js?v=0.19.0';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +11,7 @@ import { getSlot, camoOf } from './weapons.js?v=0.18.9';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.18.9';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.19.0';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
