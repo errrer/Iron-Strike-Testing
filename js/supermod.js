@@ -1,6 +1,6 @@
 // Secret mod menu: type "supermod" anywhere. Options can be applied for this session only (gone when the tab/game is closed)
 // or permanently (kept in localStorage). `MOD` is a live object the game reads every frame.
-const DEFAULTS = { unlockAll: false, god: false, infAmmo: false, noRecoil: false, noSpread: false, oneHit: false, fastReload: false, speed: 1, jump: 1, gravity: 1, fireRate: 1, dmgMul: 1 };
+const DEFAULTS = { unlockAll: false, infMoney: false, god: false, infAmmo: false, noRecoil: false, noSpread: false, oneHit: false, fastReload: false, speed: 1, jump: 1, gravity: 1, fireRate: 1, dmgMul: 1 };
 const KEY = 'ironstrike_supermod';
 const read = (store) => { try { const o = JSON.parse(store.getItem(KEY) || 'null'); return o && typeof o === 'object' ? o : null; } catch (e) { return null; } };
 const write = (store, o) => { try { if (o) store.setItem(KEY, JSON.stringify(o)); else store.removeItem(KEY); } catch (e) { /* ignore */ } };
@@ -10,6 +10,7 @@ export const modActive = () => Object.keys(DEFAULTS).some((k) => MOD[k] !== DEFA
 
 const TOGGLES = [
   ['unlockAll', 'Unlock everything', 'All weapons, attachments and every camo, rank-free'],
+  ['infMoney', 'Infinite money', 'Buy every skin for free - your balance never runs out'],
   ['god', 'God mode', 'You cannot be hurt (solo / host only)'],
   ['infAmmo', 'Infinite ammo', 'Your magazine never runs dry'],
   ['noRecoil', 'No recoil', 'The gun does not kick'],

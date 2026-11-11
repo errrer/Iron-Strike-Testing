@@ -1,21 +1,21 @@
-import { Game, MODES, mpMode } from './game.js?v=0.18.8';
-import { Net, cleanCode, cleanName } from './net.js?v=0.18.8';
-import { watchForEgg } from './easter.js?v=0.18.8';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.18.8';
-import { Sound } from './audio.js?v=0.18.8';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.18.8';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.18.8';
-import { loadProps } from './props.js?v=0.18.8';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.18.8';
-import { rankName, UNLOCK } from './progress.js?v=0.18.8';
-import { initMapMaker } from './mapmaker.js?v=0.18.8';
-import { RaceMode } from './race.js?v=0.18.8';
-import { initSupermod, MOD } from './supermod.js?v=0.18.8';
-import { initKeybinds } from './keybinds.js?v=0.18.8';
-import { Gunsmith } from './gunsmith.js?v=0.18.8';
-import { WeaponPreview } from './wpreview.js?v=0.18.8';
-import { initTouch, blockZoom } from './touch.js?v=0.18.8';
-import { initGamepad } from './gamepad.js?v=0.18.8';
+import { Game, MODES, mpMode } from './game.js?v=0.18.9';
+import { Net, cleanCode, cleanName } from './net.js?v=0.18.9';
+import { watchForEgg } from './easter.js?v=0.18.9';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.18.9';
+import { Sound } from './audio.js?v=0.18.9';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList } from './weapons.js?v=0.18.9';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.18.9';
+import { loadProps } from './props.js?v=0.18.9';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.18.9';
+import { rankName, UNLOCK } from './progress.js?v=0.18.9';
+import { initMapMaker } from './mapmaker.js?v=0.18.9';
+import { RaceMode } from './race.js?v=0.18.9';
+import { initSupermod, MOD } from './supermod.js?v=0.18.9';
+import { initKeybinds } from './keybinds.js?v=0.18.9';
+import { Gunsmith } from './gunsmith.js?v=0.18.9';
+import { WeaponPreview } from './wpreview.js?v=0.18.9';
+import { initTouch, blockZoom } from './touch.js?v=0.18.9';
+import { initGamepad } from './gamepad.js?v=0.18.9';
 
 const $ = (id) => document.getElementById(id);
 
@@ -101,7 +101,7 @@ function refreshProg() {
   $('rankName').textContent = `LV ${i.level} ${rankName(i.level)}`;
   $('rankFill').style.width = `${Math.round(i.into / i.next * 100)}%`;
   $('landRankName').textContent = $('rankName').textContent; $('landRankFill').style.width = $('rankFill').style.width;
-  $('rankTxt').textContent = `${i.into} / ${i.next} XP  -  ${pr.d.kills} kills  -  ${pr.d.wins}/${pr.d.matches} wins`;
+  $('rankTxt').textContent = `${i.into} / ${i.next} XP  -  ${pr.d.kills} kills  -  ${pr.d.wins}/${pr.d.matches} wins  -  ${pr.cash === Infinity ? '$\u221e' : '$' + pr.cash.toLocaleString('en-US')}`;
   $('landRankTxt').textContent = $('rankTxt').textContent;
   for (const c of document.querySelectorAll('[data-wid]')) {
     const id = c.dataset.wid, lock = !pr.unlocked(id, all);
@@ -116,11 +116,14 @@ for (const id of SECONDARIES) weaponCard($('secondaries'), id, 'secondary');
 if (!KNIVES.includes(cfg.knife)) cfg.knife = 'k_combat';
 for (const id of KNIVES) {
   const w = WEAPONS[id];
-  const el = card($('knives'), `<img class="wicon" alt="" draggable="false"><span class="cls">KNIFE</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars"><div class="bar num"><span>Slash</span><i><b style="width:${Math.round(w.dmg)}%"></b></i><em>${w.dmg}</em></div><div class="bar num"><span>Speed</span><i><b style="width:${Math.round(100 * 0.34 / w.cd)}%"></b></i><em>${Math.round(60 / w.cd)}/min</em></div><div class="bar num"><span>Reach</span><i><b style="width:${Math.round(w.maxD / 3.2 * 100)}%"></b></i><em>${w.maxD} m</em></div></div>`, cfg.knife === id, () => { cfg.knife = id; game.knifeId = id; });
+  const el = card($('knives'), `<img class="wicon" alt="" draggable="false"><span class="cls">KNIFE</span><h3>${w.name}</h3><p>${w.desc}</p><div class="bars"><div class="bar num"><span>Slash</span><i><b style="width:${Math.round(w.dmg)}%"></b></i><em>${w.dmg}</em></div><div class="bar num"><span>Speed</span><i><b style="width:${Math.round(100 * 0.34 / w.cd)}%"></b></i><em>${Math.round(60 / w.cd)}/min</em></div><div class="bar num"><span>Reach</span><i><b style="width:${Math.round(w.maxD / 3.2 * 100)}%"></b></i><em>${w.maxD} m</em></div></div>`, cfg.knife === id, () => { cfg.knife = id; game.knifeId = id; syncKnife(); });
   el.dataset.wid = id; el.insertAdjacentHTML('beforeend', '<span class="lock"></span>'); el.addEventListener('mouseenter', () => showWeapon(id, 'melee')); el.addEventListener('focus', () => showWeapon(id, 'melee'));
 }
 $('knives').onmouseleave = () => showWeapon(cfg[curSlot] || cfg.primary, curSlot);
 game.knifeId = cfg.knife;
+const syncKnife = () => { game.knifeMask = maskFor(cfg.knife); if (game.state === 'playing' && game.vm && game.knifeOut) game.setPlayerVm(); };
+syncKnife();
+$('knifeGs').addEventListener('click', () => { if (gsm) gsm.show(cfg.knife); });
 // ---------------- attachments (equipped per weapon, remembered between sessions) ----------------
 const MAX_DUMMIES_UI = 20;
 const mk = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
@@ -146,7 +149,7 @@ function loadoutChanged() {
 function applyClassCfg() {                                                                // load the selected class into the live config
   const c = cfg.classes[cfg.cls];
   if (PRIMARIES.includes(c.prim)) cfg.primary = c.prim; if (SECONDARIES.includes(c.sec)) cfg.secondary = c.sec; if (KNIVES.includes(c.knife)) cfg.knife = c.knife;
-  cfg.att[cfg.primary] = cleanMask(WEAPONS[cfg.primary], c.ap | 0); cfg.att[cfg.secondary] = cleanMask(WEAPONS[cfg.secondary], c.as | 0); game.knifeId = cfg.knife;
+  cfg.att[cfg.primary] = cleanMask(WEAPONS[cfg.primary], c.ap | 0); cfg.att[cfg.secondary] = cleanMask(WEAPONS[cfg.secondary], c.as | 0); game.knifeId = cfg.knife; game.knifeMask = maskFor(cfg.knife);
 }
 function renderClasses() {
   for (const id of ['classBar', 'pauseClasses']) {
@@ -174,7 +177,7 @@ initSupermod({
   onChange: () => { game.settings.unlockAll = cfg.unlockAll !== false || MOD.unlockAll; refreshProg(); refreshAtt(); },
   maxRank: () => { game.prog.add(1e7); refreshProg(); refreshAtt(); },
 });
-gsm = new Gunsmith({ prog: game.prog, getMask: (id) => maskFor(id), setMask: (id, m) => { cfg.att[id] = m; save(); }, onClose: (id) => { renderClasses(); refreshAtt(); loadoutChanged(); showWeapon(cfg[curSlot], curSlot); for (const c of document.querySelectorAll('[data-wid]')) { const w = WEAPONS[c.dataset.wid], bx = c.querySelector('.bars'); if (bx && w) bx.innerHTML = barsHtml(withAtt(w, maskFor(w.id)), false); } } });
+gsm = new Gunsmith({ prog: game.prog, getMask: (id) => maskFor(id), setMask: (id, m) => { cfg.att[id] = m; save(); if (id === cfg.knife) syncKnife(); }, onBuy: () => refreshProg(), onClose: (id) => { renderClasses(); refreshAtt(); loadoutChanged(); showWeapon(cfg[curSlot], curSlot); for (const c of document.querySelectorAll('[data-wid]')) { const w = WEAPONS[c.dataset.wid], bx = c.querySelector('.bars'); if (bx && w) bx.innerHTML = barsHtml(withAtt(w, maskFor(w.id)), false); } } });
 showWeapon(cfg.primary, 'primary');
 
 for (const d of ['easy', 'normal', 'hard']) {

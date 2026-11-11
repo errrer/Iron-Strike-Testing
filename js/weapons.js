@@ -127,12 +127,15 @@ variant('magnum', 'revolver44', '.44 Revolver', 'Slower, harder hitting cousin o
 variant('deagle', 'goldgun', 'Golden Gun', 'One bullet. One shot. One kill. Then a very slow reload.', 'special', { builder: 'goldgun', dmg: 500, hs: 1, rpm: 40, auto: false, mag: 1, reserve: 999, reload: 6.5, spread: 0.012, adsSpread: 0.0004, recoil: 0.022, recoilYaw: 0.002, range: [250, 250], minMul: 1, moveMul: 0.96, snd: { f: 900, len: 0.24, thump: 1.4 }, attach: [] }, 0xffd24a);
 
 // ---- melee: five knives. `dmg` is the damage of a slash (knife equipped); a quick-melee lunge (tap V) always does 100 and one-shots.
-export const KNIVES = ['k_combat', 'k_karambit', 'k_balisong', 'k_machete', 'k_tomahawk'];
+export const KNIVES = ['k_combat', 'k_karambit', 'k_balisong', 'k_machete', 'k_tomahawk', 'k_katana', 'k_kukri', 'k_dagger'];
 const knife = (id, name, desc, o) => { WEAPONS[id] = { id, name, slot: 'melee', cls: 'melee', desc, dmg: o.dmg, hs: 1, rpm: Math.round(60 / o.cd), auto: false, mag: 1, reserve: 0, reload: 1, spread: 0, adsSpread: 0, recoil: 0, recoilYaw: 0, range: [o.reach, o.reach], minMul: 1, pellets: 1, zoom: 1, scope: false, moveMul: o.speed, maxD: o.reach, cd: o.cd, snd: { f: 900, len: 0.06, thump: 0.05 }, builder: id, attach: [], opts: {} }; };
 knife('k_combat', 'Combat Knife', 'Standard issue. Balanced reach and speed.', { dmg: 60, cd: 0.5, reach: 2.6, speed: 1.1 });
 knife('k_karambit', 'Karambit', 'Curved claw blade. The fastest slash, short reach.', { dmg: 50, cd: 0.34, reach: 2.3, speed: 1.14 });
 knife('k_balisong', 'Balisong', 'Butterfly knife. Quick flips, light and agile.', { dmg: 52, cd: 0.38, reach: 2.4, speed: 1.15 });
 knife('k_machete', 'Machete', 'Long heavy blade. Great reach, slower swings.', { dmg: 78, cd: 0.72, reach: 3.1, speed: 1.06 });
+knife('k_katana', 'Katana', 'Long folded-steel blade. Huge reach and clean cuts, a slow recovery.', { dmg: 82, cd: 0.78, reach: 3.2, speed: 1.05 });
+knife('k_kukri', 'Kukri', 'Bent chopping blade. Heavy hits at a steady pace.', { dmg: 70, cd: 0.55, reach: 2.6, speed: 1.08 });
+knife('k_dagger', 'Dagger', 'Slim double-edged stiletto. Very quick, very short.', { dmg: 46, cd: 0.3, reach: 2.2, speed: 1.16 });
 knife('k_tomahawk', 'Tomahawk', 'Throwing axe. Hits hard, a bit slow.', { dmg: 72, cd: 0.62, reach: 2.8, speed: 1.08 });
 
 export const PRIMARIES = ['vmp', 'super46', 'mp5', 'ump', 'p90', 'm4a1', 'm16', 'ak47', 'scar', 'fal', 'lmg', 'rpk', 'dmr', 'sks', 'kar98k', 'm680', 'aa12'];
@@ -308,5 +311,15 @@ export const CAMOS = [
   { id: 15, name: 'Magma', req: { t: 'level', n: 20 } },
   { id: 16, name: 'Holo Prism', req: { t: 'heads', n: 200 } },
   { id: 17, name: 'Dragon Scale', req: { t: 'kills', n: 180 } },
+  // SKINS: bought with money (100 per win) - each costs SKIN_PRICE per weapon
+  { id: 18, name: 'Aurora', skin: true, req: { t: 'buy', price: 5000 } },
+  { id: 19, name: 'Crimson Lotus', skin: true, req: { t: 'buy', price: 5000 } },
+  { id: 20, name: 'Phantom', skin: true, req: { t: 'buy', price: 5000 } },
+  { id: 21, name: 'Solar Flare', skin: true, req: { t: 'buy', price: 5000 } },
+  { id: 22, name: 'Cyber Pulse', skin: true, req: { t: 'buy', price: 5000 } },
+  { id: 23, name: 'Ocean Glass', skin: true, req: { t: 'buy', price: 5000 } },
+  { id: 24, name: 'Voltage', skin: true, req: { t: 'buy', price: 5000 } },
+  { id: 25, name: 'Rose Gold', skin: true, req: { t: 'buy', price: 5000 } },
 ];
-export const camoReqText = (c) => ({ free: 'Unlocked', level: `Reach level ${c.req.n}`, kills: `${c.req.n} kills with this gun`, heads: `${c.req.n} headshots with this gun` })[c.req.t];
+export const SKIN_PRICE = 5000;
+export const camoReqText = (c) => ({ free: 'Unlocked', level: `Reach level ${c.req.n}`, kills: `${c.req.n} kills with this gun`, heads: `${c.req.n} headshots with this gun`, buy: `$${(c.req.price || 0).toLocaleString('en-US')} skin` })[c.req.t];

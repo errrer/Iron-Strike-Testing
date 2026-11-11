@@ -747,6 +747,70 @@ function quarry() {
   return m;
 }
 
+// ------------------------------------------------------------------------------------------
+// 13. CATACOMBS - concrete corridors and rooms around a central hall, dim and tight
+// ------------------------------------------------------------------------------------------
+function catacombs() {
+  const b = new Builder();
+  b.outerWalls(4.5, { tex: 'concrete', color: 0x6a6e74, tile: 3 });
+  const W = { tex: 'concrete', color: 0x7b7f86, tile: 3 };
+  // central hall ring with four doors
+  b.building(0, 0, 22, 18, 4.2, { doors: ['nz', 'pz', 'nx', 'px'], windows: [], tex: 'concrete', color: 0x8a8e95, tile: 3, roofColor: 0x4a4e55 });
+  for (const [x, z] of [[-4, -3], [4, 3], [-4, 3], [4, -3]]) b.box(x, z, 1.4, 1.4, 4.2, W);                 // pillars inside the hall
+  b.box(0, 0, 4, 2, 1.0, { tex: 'metal', color: 0x59616b, tile: 2 });                                      // low table in the middle
+  // side rooms
+  b.building(-26, -14, 14, 12, 3.8, { doors: ['px', 'pz'], windows: [], tex: 'concrete', color: 0x777b82, tile: 3, roofColor: 0x4a4e55 });
+  b.building(26, 14, 14, 12, 3.8, { doors: ['nx', 'nz'], windows: [], tex: 'concrete', color: 0x777b82, tile: 3, roofColor: 0x4a4e55 });
+  b.building(-26, 16, 12, 10, 3.8, { doors: ['px', 'nz'], windows: [], tex: 'concrete', color: 0x777b82, tile: 3, roofColor: 0x4a4e55 });
+  b.building(26, -16, 12, 10, 3.8, { doors: ['nx', 'pz'], windows: [], tex: 'concrete', color: 0x777b82, tile: 3, roofColor: 0x4a4e55 });
+  // yard barriers and cover
+  for (const [x, z, w, d] of [[-14, -2, 1.2, 8], [14, 2, 1.2, 8], [0, -22, 10, 1.2], [0, 22, 10, 1.2], [-12, 16, 6, 1.2], [12, -16, 6, 1.2]]) b.box(x, z, w, d, 1.5, W);
+  for (const [x, z] of [[-18, 6], [18, -6], [-8, -18], [8, 18], [-34, 0], [34, 0]]) b.solid('crate', x, z, 1.5, 1.5, 1.5, { tex: 'crate', color: 0x6a7258 });
+  for (const [x, z] of [[-16, -14], [16, 14], [-6, 12], [6, -12]]) b.solid('barrel', x, z, 0.9, 0.9, 1.0, { color: 0x4a5a3a, tint: 0x66784f });
+  return finish(b, { id: 'catacombs', navStep: 1.5, sky: [0x39414a, 0x6a727c], fog: [0x4a525c, 22, 100], hemi: [0xb8c4d0, 0x30343a, 0.95], sun: { color: 0xdfe8f2, intensity: 2.4, pos: [20, 40, 10] }, ground: { tex: 'concrete', color: 0x585c62, tile: 7 }, impact: 0x9a9a9a });
+}
+
+// ------------------------------------------------------------------------------------------
+// 14. RUINS - broken stone walls, collapsed arches and a raised temple platform in the open
+// ------------------------------------------------------------------------------------------
+function ruins() {
+  const b = new Builder();
+  b.outerWalls(5, { tex: 'sand', color: 0xa89878, tile: 4 });
+  const S = { tex: 'concrete', color: 0xb7a98a, tile: 3 };
+  // temple platform with stairs on all four sides
+  b.box(0, 0, 16, 16, 1.6, S);
+  b.stairs(0, 11.6, 'nz', 8, 3.6, 0.4, 0.8, S); b.stairs(0, -11.6, 'pz', 8, 3.6, 0.4, 0.8, S);
+  b.stairs(11.6, 0, 'nx', 8, 3.6, 0.4, 0.8, S); b.stairs(-11.6, 0, 'px', 8, 3.6, 0.4, 0.8, S);
+  for (const [x, z] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) b.box(x, z, 1.4, 1.4, 6.5, { y0: 1.6, ...S });   // pillars
+  b.box(0, 0, 3, 3, 0.9, { y0: 1.6, ...S });
+  // broken wall lines and arches
+  for (const [x, z, w, d, h] of [[-22, -10, 10, 1.2, 3.2], [22, 10, 10, 1.2, 3.2], [-20, 14, 1.2, 9, 2.6], [20, -14, 1.2, 9, 2.6], [-10, -24, 8, 1.2, 2.2], [10, 24, 8, 1.2, 2.2], [-32, 0, 1.2, 6, 3.4], [32, 0, 1.2, 6, 3.4]]) b.box(x, z, w, d, h, S);
+  for (const sg of [-1, 1]) { b.box(sg * 14, -22, 1.4, 1.4, 4.4, S); b.box(sg * 20, -22, 1.4, 1.4, 4.4, S); b.box(sg * 17, -22, 7.4, 1.4, 0.8, { y0: 3.6, ...S }); }   // archway beams
+  for (const [x, z, w, d] of [[-14, 6, 2.4, 2.4], [14, -6, 2.4, 2.4], [-4, 20, 3, 2], [4, -20, 3, 2], [-26, -22, 2, 3], [26, 22, 2, 3]]) b.box(x, z, w, d, 1.4, { tex: 'concrete', color: 0x8d7f64, tile: 2 });
+  for (const [x, z] of [[-9, 12], [9, -12], [-28, 8], [28, -8]]) b.solid('crate', x, z, 1.4, 1.4, 1.4, { tex: 'crate', color: 0xb48a56 });
+  return finish(b, { id: 'ruins', navStep: 1.5, sky: [0x5a9bd8, 0xf2e2bc], fog: [0xe8d8b0, 55, 175], hemi: [0xfff0d4, 0xa08a60, 1.0], sun: { color: 0xffe6b0, intensity: 3.3, pos: [30, 34, -28] }, ground: { tex: 'sand', color: 0xc4b080, tile: 7 }, impact: 0xcdb48a });
+}
+
+// ------------------------------------------------------------------------------------------
+// 15. PLAZA - city square: fountain in the middle, shopfronts on all sides, bus and market stalls
+// ------------------------------------------------------------------------------------------
+function plaza() {
+  const b = new Builder();
+  b.outerWalls(6, { tex: 'brick', color: 0xb48a6c, tile: 3 });
+  b.cyl(0, 0, 4.2, 0.7, { tex: 'concrete', color: 0x9aa0a8 }); b.cyl(0, 0, 1.2, 2.4, { tex: 'concrete', color: 0xb0b6be });          // fountain
+  // shopfront rows north and south, apartment blocks east and west
+  for (const x of [-26, -8, 12]) { b.building(x, -26, 14, 8, 6, { doors: ['pz'], windows: ['pz'], tex: 'brick', color: 0xc9a07a, tile: 3, roofColor: 0x6a4a3a }); }
+  for (const x of [-12, 8, 26]) { b.building(x, 26, 14, 8, 6, { doors: ['nz'], windows: ['nz'], tex: 'brick', color: 0xb98c6a, tile: 3, roofColor: 0x6a4a3a }); }
+  b.building(-36, 4, 8, 16, 7, { doors: ['px', 'nz'], windows: ['px'], tex: 'brick', color: 0xa98466, tile: 3, roofColor: 0x5a463a });
+  b.building(36, -4, 8, 16, 7, { doors: ['nx', 'pz'], windows: ['nx'], tex: 'brick', color: 0xa98466, tile: 3, roofColor: 0x5a463a });
+  // bus and market stalls and planters
+  b.box(-16, 6, 11, 2.8, 3.0, { tex: 'metal', color: 0xd9a11a, tile: 3 }); b.box(-16, 6, 11.1, 2.85, 0.8, { y0: 1.5, tex: 'windows', color: 0x2f5a7a, tile: 6, collide: false });
+  for (const [x, z] of [[14, 10], [20, 14], [14, -10], [20, -14]]) { b.box(x, z, 3, 2, 1.0, { tex: 'wood', color: 0x7a5a3a, tile: 2 }); b.deco(x, z, 3.4, 2.4, 0.2, { tex: 'plain', color: [0xb23a2f, 0x2f5fa6, 0x3f8a4a, 0xc7842b][(x + z) & 3], y0: 2.4 }); }
+  for (const [x, z] of [[-8, -12], [8, 12], [-24, -14], [24, 14], [0, -14], [0, 14]]) b.box(x, z, 2.4, 1.2, 0.8, { tex: 'plain', color: 0x2f6a34, tile: 2 });
+  for (const [x, z] of [[-10, 18], [10, -18], [28, 2], [-28, -2]]) b.solid('crate', x, z, 1.4, 1.4, 1.4, { tex: 'crate', color: 0xb48a56 });
+  return finish(b, { id: 'plaza', navStep: 1.5, sky: [0x5aa0e0, 0xf4eadc], fog: [0xe8e2d8, 55, 175], hemi: [0xffffff, 0x8a8478, 1.0], sun: { color: 0xfff2dc, intensity: 3.1, pos: [-28, 40, 24] }, ground: { tex: 'concrete', color: 0x8c8e92, tile: 8 }, impact: 0xb4b0a4 });
+}
+
 function finish(b, theme) {
   return { ...theme, bounds: BOUNDS, boxes: b.boxes, visuals: b.visuals, spawns: SPAWNS };
 }
@@ -763,10 +827,13 @@ export const MAP_INFO = {
   villa: { name: 'Villa', desc: 'Walled courtyard around a two-storey house. Doorways, hedges and a balcony floor.', thumb: 'linear-gradient(135deg,#4f8fd0,#e6d2ae 55%,#9c5b3c)' },
   metro: { name: 'Metro', desc: 'Underground station. Platforms, parked trains and pillar rows in dim light.', thumb: 'linear-gradient(135deg,#1a1d22,#aab4b4 55%,#b23a2f)' },
   quarry: { name: 'Quarry', desc: 'Terraced pit with rock stacks, a central tower and a mine hut.', thumb: 'linear-gradient(135deg,#4a86c4,#b89a68 55%,#8d7e68)' },
+  catacombs: { name: 'Catacombs', desc: 'Tight concrete rooms around a central hall. Close fights in dim light.', thumb: 'linear-gradient(135deg,#39414a,#8a8e95 55%,#4a4e55)' },
+  ruins: { name: 'Ruins', desc: 'Broken stone walls, archways and a raised temple platform in the open.', thumb: 'linear-gradient(135deg,#5a9bd8,#f2e2bc 55%,#a89878)' },
+  plaza: { name: 'Plaza', desc: 'City square with a fountain, shopfronts, a parked bus and market stalls.', thumb: 'linear-gradient(135deg,#5aa0e0,#c9a07a 55%,#8c8e92)' },
   frostbite: { name: 'Frostbite', desc: 'Snow compound with watchtowers for long-range duels.', thumb: 'linear-gradient(135deg,#4f6f93,#dfe9f2 60%,#8a6a45)' },
 };
 
-export const MAP_BUILDERS = { warehouse, dust, skyline, container, frostbite, docks, villa, metro, quarry, outpost, bunker, farm };
+export const MAP_BUILDERS = { warehouse, dust, skyline, container, frostbite, docks, villa, metro, quarry, catacombs, ruins, plaza, outpost, bunker, farm };
 export const ZM_MAPS = ['outpost', 'bunker', 'farm'];                                    // zombies-only maps (not offered in the normal map list)
 export const MAP_IDS = Object.keys(MAP_BUILDERS).filter((id) => !ZM_MAPS.includes(id));
 export function buildMap(id) { return MAP_BUILDERS[id](); }

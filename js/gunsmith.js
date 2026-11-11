@@ -1,8 +1,8 @@
 // COD-style Gunsmith: a full-screen overlay with the gun in the middle, one box per attachment slot around it, a pick list with the
 // trade-offs of every option, and the weapon stats (with numbers) updating live as you swap parts.
-import { WEAPONS, SLOTS, ATT, CAMOS, camoReqText, withAtt, weaponStats, cleanMask, getSlot, setSlot, setCamo, camoOf, attList } from './weapons.js?v=0.18.8';
-import { WeaponPreview } from './wpreview.js?v=0.18.8';
-import { camoSwatch, decal } from './gunmodels.js?v=0.18.8';
+import { WEAPONS, SLOTS, ATT, CAMOS, camoReqText, withAtt, weaponStats, cleanMask, getSlot, setSlot, setCamo, camoOf, attList } from './weapons.js?v=0.18.9';
+import { WeaponPreview } from './wpreview.js?v=0.18.9';
+import { camoSwatch, decal } from './gunmodels.js?v=0.18.9';
 
 const $ = (id) => document.getElementById(id);
 const mk = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
@@ -99,17 +99,26 @@ export class Gunsmith {
   }
 
   renderCamos(pick, mask) {
-    const id = this.id, prog = this.o.prog, grid = mk('div', 'gs-camos');
-    for (const c of CAMOS) {
-      const open = prog.camoUnlocked(id, c.id), b = mk('button', 'camo' + (camoOf(mask) === c.id ? ' sel' : '') + (open ? '' : ' locked')); b.type = 'button';
-      const sw = mk('i', 'sw'); const url = c.id ? camoSwatch(c.id, 120, 64) : ''; if (url) sw.style.backgroundImage = `url(${url})`; else if (!c.id) sw.classList.add('factory'); if (!open) sw.appendChild(mk('s', null, '\u{1F512}'));
+    const id = this.id, prog = this.o.prog, grid = mk('div', 'gs-camos'), cash = prog.cash;
+    const bal = mk('div', 'gs-cash', `Balance: ${cash === Infinity ? '$\u221e (supermod)' : '$' + cash.toLocaleString('en-US')}  -  skins cost $5,000 each, +$100 for every win`); pick.appendChild(bal);
+    const tile = (c) => {
+      const open = prog.camoUnlocked(id, c.id), buy = c.req.t === 'buy', b = mk('button', 'camo' + (camoOf(mask) === c.id ? ' sel' : '') + (open ? '' : ' locked') + (buy ? ' skin' : '')); b.type = 'button';
+      const sw = mk('i', 'sw'); const url = c.id ? camoSwatch(c.id, 120, 64) : ''; if (url) sw.style.backgroundImage = `url(${url})`; else if (!c.id) sw.classList.add('factory'); if (!open && !buy) sw.appendChild(mk('s', null, '\u{1F512}'));
       b.appendChild(sw); b.appendChild(mk('b', null, c.name));
-      const n = prog.camoProgress(id, c.id), need = c.req.n;
-      b.appendChild(mk('span', null, open ? (c.id ? 'Unlocked' : 'Default') : `${camoReqText(c)}${c.req.t === 'level' ? '' : ` (${Math.min(n, need)}/${need})`}`));
-      if (!open && c.req.t !== 'level') { const p = mk('div', 'prog'), f = mk('b'); f.style.width = Math.min(100, Math.round(100 * n / need)) + '%'; p.appendChild(f); b.appendChild(p); }
-      if (open) b.addEventListener('click', () => this.apply(setCamo(mask, c.id))); else b.title = camoReqText(c);
-      grid.appendChild(b);
-    }
+      if (buy && !open) b.appendChild(mk('span', 'price' + (prog.canBuy(c.id) ? ' ok' : ''), `$${c.req.price.toLocaleString('en-US')}`));
+      else { const n = prog.camoProgress(id, c.id), need = c.req.n; b.appendChild(mk('span', null, open ? (c.id ? (buy ? 'Owned' : 'Unlocked') : 'Default') : `${camoReqText(c)}${c.req.t === 'level' ? '' : ` (${Math.min(n, need)}/${need})`}`));
+        if (!open && !buy && c.req.t !== 'level') { const p = mk('div', 'prog'), f = mk('b'); f.style.width = Math.min(100, Math.round(100 * n / need)) + '%'; p.appendChild(f); b.appendChild(p); } }
+      if (open) b.addEventListener('click', () => this.apply(setCamo(mask, c.id)));
+      else if (buy) b.addEventListener('click', () => {
+        if (!prog.canBuy(c.id)) { b.classList.add('nope'); b.querySelector('.price').textContent = 'Not enough money'; setTimeout(() => this.render(true), 1100); return; }
+        if (prog.buy(id, c.id)) { if (this.o.onBuy) this.o.onBuy(); this.apply(setCamo(mask, c.id)); }
+      });
+      else b.title = camoReqText(c);
+      return b;
+    };
+    for (const c of CAMOS) if (!c.skin) grid.appendChild(tile(c));
     pick.appendChild(grid);
+    pick.appendChild(mk('div', 'gs-sub', 'SKINS'));
+    const sg = mk('div', 'gs-camos'); for (const c of CAMOS) if (c.skin) sg.appendChild(tile(c)); pick.appendChild(sg);
   }
 }

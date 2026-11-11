@@ -64,6 +64,9 @@ export const INSPECTS = {
   k_karambit: A(3.0, ['tilt', 0.0, 0.2, { k: 0.5 }], ['roll', 0.2, 0.6, { n: 2, dir: 1 }], ['twirl', 0.6, 0.9, { n: 1, dir: 1 }]),
   k_balisong: A(3.4, ['raise', 0.0, 0.2, { k: 0.5 }], ['twirl', 0.2, 0.4, { n: 1, dir: 1 }], ['roll', 0.4, 0.62, { n: 1, dir: -1 }], ['twirl', 0.62, 0.84, { n: 1, dir: -1 }], ['shake', 0.84, 1]),
   k_machete:  A(3.2, ['raise', 0.0, 0.28, { k: 0.9 }], ['show', 0.28, 0.6, { side: -1 }], ['twist', 0.6, 0.92, { k: 0.5 }]),
+  k_katana:   A(3.6, ['raise', 0.0, 0.22, { k: 0.8 }], ['show', 0.22, 0.5, { side: 1 }], ['tilt', 0.5, 0.78, { k: 0.7 }], ['nod', 0.78, 1, { k: 0.2 }]),
+  k_kukri:    A(3.0, ['raise', 0.0, 0.2, { k: 0.6 }], ['roll', 0.2, 0.55, { dir: -1 }], ['wobble', 0.55, 0.8, { k: 0.1 }], ['show', 0.8, 1, { side: -1 }]),
+  k_dagger:   A(2.6, ['tilt', 0.0, 0.2, { k: 0.5 }], ['twirl', 0.2, 0.5, { n: 1, dir: 1 }], ['roll', 0.5, 0.8, { dir: -1 }], ['shake', 0.8, 1]),
   k_tomahawk: A(3.0, ['raise', 0.0, 0.18, { k: 0.5 }], ['toss', 0.18, 0.62, { h: 0.16, n: 1, dir: 1 }], ['wobble', 0.62, 0.9, { k: 0.1 }]),
 };
 const FALLBACK = A(2.8, ['show', 0.0, 0.5, { side: -1 }], ['roll', 0.5, 0.9, { dir: 1 }]);

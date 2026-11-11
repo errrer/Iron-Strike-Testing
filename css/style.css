@@ -721,3 +721,11 @@ body.ultra #sunRays { display: block; }
 #endPlays li i { font-style: normal; opacity: .6; }
 #dead.killcam { background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,0) 22%, rgba(0,0,0,0) 78%, rgba(0,0,0,.55)); }
 #dead.killcam #deadTxt { font-size: 22px; letter-spacing: 6px; }
+
+.gs-cash { margin: 0 0 8px; padding: 6px 10px; font-size: 12px; letter-spacing: 1px; color: #ffd36a; background: rgba(255,200,60,.08); border-left: 3px solid #ffb02e; }
+.gs-sub { margin: 14px 0 6px; font-size: 12px; letter-spacing: 3px; color: #ffb02e; }
+.camo.skin .price { color: #ffd36a; font-weight: 700; }
+.camo.skin .price.ok { color: #7dff9a; }
+.camo.skin.locked .sw { filter: saturate(.75) brightness(.8); }
+.camo.nope .price { color: #ff6b6b; }
+#knifeGs { margin-top: 10px; }

@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.18.8';
-import { canon } from './keybinds.js?v=0.18.8';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.8';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.8';
-import { buildMap } from './maps.js?v=0.18.8';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.8';
-import { buildWorld } from './world.js?v=0.18.8';
-import { Bot } from './bots.js?v=0.18.8';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.8';
-import { buildSoldier, SKIN } from './soldier.js?v=0.18.8';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.8';
-import { Zombies, PERKS } from './zombies.js?v=0.18.8';
-import { inspectFor, inspectPose } from './inspect.js?v=0.18.8';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.8';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.8';
-import { Objectives } from './objectives.js?v=0.18.8';
-import { Streaks, STREAKS } from './streaks.js?v=0.18.8';
-import { Gore } from './gore.js?v=0.18.8';
+import { MOD } from './supermod.js?v=0.18.9';
+import { canon } from './keybinds.js?v=0.18.9';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.18.9';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.18.9';
+import { buildMap } from './maps.js?v=0.18.9';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.18.9';
+import { buildWorld } from './world.js?v=0.18.9';
+import { Bot } from './bots.js?v=0.18.9';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.18.9';
+import { buildSoldier, SKIN } from './soldier.js?v=0.18.9';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.18.9';
+import { Zombies, PERKS } from './zombies.js?v=0.18.9';
+import { inspectFor, inspectPose } from './inspect.js?v=0.18.9';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.18.9';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.18.9';
+import { Objectives } from './objectives.js?v=0.18.9';
+import { Streaks, STREAKS } from './streaks.js?v=0.18.9';
+import { Gore } from './gore.js?v=0.18.9';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -27,6 +27,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const KNIFE_SWING = {
   k_combat: { arc: 1, reach: 1, roll: 0.15, chop: 0 }, k_karambit: { arc: 0.8, reach: 0.8, roll: 1.4, chop: 0 }, k_balisong: { arc: 0.9, reach: 0.9, roll: 0.7, chop: 0.1 },
   k_machete: { arc: 1.3, reach: 1.1, roll: 0.1, chop: 0.2 }, k_tomahawk: { arc: 0.7, reach: 1, roll: 0, chop: 0.9 },
+  k_katana: { arc: 1.5, reach: 1.2, roll: 0.05, chop: 0.1 }, k_kukri: { arc: 0.9, reach: 1, roll: 0.1, chop: 0.55 }, k_dagger: { arc: 0.6, reach: 0.8, roll: 0.5, chop: 0 },
 };
 export const MODES = {
   tdm: { id: 'tdm', name: 'Team Deathmatch', team: true, perSide: 5, scoreLimit: 30, time: 420, blurb: '5v5 - first team to 30 kills' },
@@ -59,6 +60,9 @@ const DUMMY_COLOR = 0x8a8f94;
 const FFA_COLORS = [0xc0392b, 0xd68910, 0x1e8449, 0x7d3c98, 0x148f77, 0xb7950b, 0xa04000, 0x2e86c1];
 const TEAM_COLORS = [0x2e6fbd, 0xc0392b];
 const BOT_PRIMARY_POOL = ['vmp', 'super46', 'vmp', 'mp5', 'p90', 'm4a1', 'm4a1', 'm4a1', 'ak47', 'ak47', 'scar', 'lmg', 'm680', 'aa12', 'dmr', 'kar98k'];
+
+// how many metres of wall each weapon class can shoot through (a wall-bang loses damage per metre)
+const PEN = { pistol: 0.2, smg: 0.3, shotgun: 0.12, ar: 0.5, dmr: 0.8, lmg: 0.7, sniper: 1.4 };
 
 export class Game {
   constructor(canvas, hud, sound, settings) {
@@ -1122,7 +1126,12 @@ export class Game {
   canFire(a) { return a.alive && this.matchT >= 0 && a.switchT <= 0 && !a.reloading && !a.mantle && a.fireCd <= 0 && a.ammo[a.cur].mag > 0; }
 
   // ---- melee: tap V = quick lunge with your knife (one hit kills), hold V = take the knife out (LMB slashes), tap/1/2 to put it away
-  knifeW() { return WEAPONS[this.knifeId] || WEAPONS.k_combat; }
+  knifeW() {                                               // the equipped knife (with its camo / skin, if any, as an attachment mask the model builder paints)
+    const base = WEAPONS[this.knifeId] || WEAPONS.k_combat, m = (this.knifeMask | 0) & (63 << 18);
+    if (!m) return base;
+    const kv = this._kv || (this._kv = {}), key = base.id + ':' + m;
+    return kv[key] || (kv[key] = { ...base, attMask: m });
+  }
   startInspect() {                                    // F: this weapon's own inspect sequence (see inspect.js)
     const p = this.player, S = this.vmS; if (!p || !this.vm || !p.alive || p.reloading || p.sprint || S.inspectT > 0 || p.switchT > 0) return;
     S.inspectT = S.inspectDur = inspectFor(this.vm.id).dur;
@@ -1233,25 +1242,38 @@ export class Game {
     if (am.mag <= 0 && a.isPlayer) this.hud.center('RELOAD', 0.8);
   }
 
+  // Bullets: hit the first thing along the ray. Thin walls and crates can be shot through ("wall-bang"): the bullet loses damage for every
+  // metre of material it passes (more for pistols/shotguns, less for rifles and snipers), up to 2 surfaces, and can still kill whoever stands behind.
   hitscan(a, ox, oy, oz, d, w, mul, rew = 0) {
-    const MAXD = w.maxD || 160;
-    let best = this.col.ray(ox, oy, oz, d.x, d.y, d.z, MAXD), victim = null, head = false;
-    for (const e of this.actors) {
-      if (!e.alive || e === a || e.team === a.team) continue;
-      const ep = rew ? this.posAt(e, rew) : { x: e.pos.x, y: e.pos.y, z: e.pos.z, h: e.h };
-      const th = raySphere(ox, oy, oz, d.x, d.y, d.z, ep.x, ep.y + ep.h - 0.2, ep.z, 0.21);
-      const tb = rayAABB(ox, oy, oz, d.x, d.y, d.z, ep.x - 0.32, ep.y, ep.z - 0.32, ep.x + 0.32, ep.y + ep.h - 0.4, ep.z + 0.32);
-      let t = tb, hd = false;
-      if (th < tb) { t = th; hd = true; }
-      if (t < best) { best = t; victim = e; head = hd; }
+    const MAXD = w.maxD || 160, pen = w.pen !== undefined ? w.pen : (PEN[w.cls] !== undefined ? PEN[w.cls] : 0.35), feet = this.map && this.map.bounds;
+    let ax = ox, ay = oy, az = oz, travelled = 0, pm = 1, walls = 0, victim = null, head = false, best = 0, hitWall = false;
+    for (let seg = 0; seg < 3; seg++) {
+      const room = MAXD - travelled; if (room <= 0) break;
+      const wall = this.col.rayThrough(ax, ay, az, d.x, d.y, d.z, room); best = wall ? wall.t : room; victim = null; head = false;
+      for (const e of this.actors) {
+        if (!e.alive || e === a || e.team === a.team) continue;
+        const ep = rew ? this.posAt(e, rew) : { x: e.pos.x, y: e.pos.y, z: e.pos.z, h: e.h };
+        const th = raySphere(ax, ay, az, d.x, d.y, d.z, ep.x, ep.y + ep.h - 0.2, ep.z, 0.21);
+        const tb = rayAABB(ax, ay, az, d.x, d.y, d.z, ep.x - 0.32, ep.y, ep.z - 0.32, ep.x + 0.32, ep.y + ep.h - 0.4, ep.z + 0.32);
+        let t = tb, hd = false; if (th < tb) { t = th; hd = true; }
+        if (t < best) { best = t; victim = e; head = hd; }
+      }
+      hitWall = !victim && !!wall;
+      if (victim || !wall) break;
+      // wall hit: can the bullet get through?
+      const thick = wall.out - wall.t, ex = ax + d.x * wall.out, ey = ay + d.y * wall.out, ez = az + d.z * wall.out;
+      this.burst(ax + d.x * best - d.x * 0.05, ay + d.y * best - d.y * 0.05, az + d.z * best - d.z * 0.05, ay + d.y * best < 0.08 ? this.map.impact : 0xd8d2c4, 4, 2.2);
+      if (thick > pen || walls >= 2 || ey < 0.05 || (feet && (ex < feet.x0 + 0.6 || ex > feet.x1 - 0.6 || ez < feet.z0 + 0.6 || ez > feet.z1 - 0.6))) break;
+      pm *= Math.max(0.25, 0.72 - thick * 0.55); walls++; travelled += wall.out; ax = ex + d.x * 0.02; ay = ey + d.y * 0.02; az = ez + d.z * 0.02; travelled += 0.02;
+      this.burst(ex, ey, ez, 0xd8d2c4, 3, 1.6);
     }
-    const px = ox + d.x * best, py = oy + d.y * best, pz = oz + d.z * best;
+    const px = ax + d.x * best, py = ay + d.y * best, pz = az + d.z * best, tot = travelled + best;
     if (victim) {
       const r0 = w.range[0], r1 = w.range[1];
-      const f = best <= r0 ? 1 : best >= r1 ? w.minMul : lerp(1, w.minMul, (best - r0) / (r1 - r0));
+      const f = tot <= r0 ? 1 : tot >= r1 ? w.minMul : lerp(1, w.minMul, (tot - r0) / (r1 - r0));
       this.burst(px, py, pz, 0xb01010, 4, 2.5);
-      if (!this.isClient) this.damage(victim, a, w.dmg * mul * f * (head ? w.hs : 1), w, head);
-    } else if (best < MAXD) {
+      if (!this.isClient) { this._wb = walls > 0 && a.isPlayer; this.damage(victim, a, w.dmg * mul * f * pm * (head ? w.hs : 1), w, head); this._wb = false; }
+    } else if (hitWall) {
       this.burst(px - d.x * 0.05, py - d.y * 0.05, pz - d.z * 0.05, py < 0.08 ? this.map.impact : 0xd8d2c4, 4, 2.2);
     }
     return { x: px, y: py, z: pz };
@@ -1300,6 +1322,7 @@ export class Game {
     if (this._mk >= 2) add(30 + this._mk * 30, ['', '', 'Double kill', 'Triple kill', 'Quad kill', 'Rampage'][Math.min(5, this._mk)] || `${this._mk}x multi-kill`);
     if (d >= 45) add(d * 1.1, `${Math.round(d)} m ${head ? 'headshot' : 'long shot'}`);
     if (w.cls === 'sniper' && k.ads < 0.4) add(70, 'No-scope sniper kill');
+    if (this._wb) add(55, `Wallbang with the ${w.name}`);
     if (w.cls === 'melee') add(45, `Knife kill (${w.name})`);
     if (!k.onGround && !k.noclip) add(40, `Airborne kill with the ${w.name}`);
     if (k.hp > 0 && k.hp <= 20) add(50, `Clutch kill at ${Math.ceil(k.hp)} HP`);
@@ -1346,7 +1369,7 @@ export class Game {
     const p = this.player; this.prog.stat('matches');
     this.award(XP_REWARD.played, 'MATCH COMPLETE');
     if (this.mode.zm) { this.award(Math.min(1500, Math.max(0, this.teamScore[0] - 1) * 40), `ROUND ${this.teamScore[0]} REACHED`); this.endXp = this.matchXp; return; }
-    if (win !== null && win === p.team) { this.prog.stat('wins'); this.award(XP_REWARD.win, 'VICTORY'); }
+    if (win !== null && win === p.team) { this.prog.stat('wins'); this.award(XP_REWARD.win, 'VICTORY'); this.prog.addCash(100); this.hud.xp('+$100 VICTORY BONUS', true); this.endCash = 100; }
     this.endXp = this.matchXp;
   }
 

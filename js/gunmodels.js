@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf } from './weapons.js?v=0.18.8';
+import { getSlot, camoOf } from './weapons.js?v=0.18.9';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +11,7 @@ import { getSlot, camoOf } from './weapons.js?v=0.18.8';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.18.8';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.18.9';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -575,8 +575,41 @@ function buildKTomahawk() {                                    // tactical axe: 
   fuller(b, -0.25, -0.3, 0.016, 0.0058, 0.0014);
   return kdone(b, V(0, -0.004, 0.065), -0.34);
 }
+function buildKKatana() {                                      // long, gently curved single-edge blade with a round guard and wrapped handle
+  const b = new B();
+  b.box(0.026, 0.03, 0.2, 0, -0.004, 0.06, M.black());                                        // wrapped tsuka
+  for (let i = 0; i < 9; i++) b.box(0.0285, 0.0315, 0.006, 0, -0.004, -0.02 + i * 0.02, M.blued());   // wrap ridges
+  b.ball(0.0165, 0, -0.004, 0.168, M.steel());                                                // kashira
+  b._add(new THREE.CylinderGeometry(0.036, 0.036, 0.008, 18), M.steel(), 0, 0, -0.056, Math.PI / 2, 0, 0);   // round tsuba
+  b.box(0.012, 0.024, 0.016, 0, 0, -0.07, M.steel());                                         // habaki collar
+  const pts = [], N = 12; for (let k = 0; k <= N; k++) { const t = k / N, z = -0.076 - 0.58 * t, y = 0.014 - 0.012 * t * t * 3; pts.push([z, y + 0.014 * (1 - 0.35 * t)]); }
+  const back = pts.map((p, k) => [p[0], p[1] - (0.03 - 0.006 * (k / N))]).reverse();
+  blade(b, [...pts, [-0.69, 0.0], ...back], 0.0058, M.silver());
+  fuller(b, -0.1, -0.5, 0.008, 0.0032);
+  return kdone(b, V(0, -0.004, 0.06), -0.69);
+}
+function buildKKukri() {                                       // forward-weighted bent blade, wooden handle with a flared butt
+  const b = new B();
+  b.box(0.028, 0.04, 0.12, 0, -0.004, 0.02, M.wood());
+  b.box(0.032, 0.05, 0.026, 0, -0.004, 0.09, M.wood());                                       // butt flare
+  for (const z of [-0.01, 0.03, 0.06]) b.rod(0.0044, 0.04, 0, -0.004, z, M.steel());
+  b.box(0.012, 0.05, 0.012, 0, 0.0, -0.052, M.steel());                                       // bolster
+  blade(b, [[-0.056, 0.016], [-0.18, 0.02], [-0.3, 0.032], [-0.37, 0.052], [-0.43, 0.058], [-0.44, 0.02], [-0.4, -0.02], [-0.3, -0.046], [-0.2, -0.05], [-0.056, -0.02]], 0.0066, M.silver());
+  fuller(b, -0.09, -0.3, 0.008, 0.0034);
+  return kdone(b, V(0, -0.004, 0.02), -0.44);
+}
+function buildKDagger() {                                      // double-edged stiletto with a swept crossguard
+  const b = new B();
+  b.box(0.022, 0.028, 0.1, 0, -0.004, 0.02, M.poly());
+  for (let i = 0; i < 5; i++) b.box(0.0245, 0.03, 0.006, 0, -0.004, -0.015 + i * 0.016, M.black());
+  b.ball(0.0155, 0, -0.004, 0.078, M.steel());
+  b.box(0.012, 0.074, 0.01, 0, 0.0, -0.036, M.steel()); b.box(0.012, 0.016, 0.014, 0, 0.034, -0.04, M.steel(), 0.35); b.box(0.012, 0.016, 0.014, 0, -0.034, -0.04, M.steel(), -0.35);
+  blade(b, [[-0.044, 0.018], [-0.16, 0.018], [-0.25, 0.008], [-0.285, 0.0], [-0.25, -0.008], [-0.16, -0.018], [-0.044, -0.018]], 0.0062, M.silver());
+  fuller(b, -0.06, -0.2, 0.0, 0.0032);
+  return kdone(b, V(0, -0.004, 0.02), -0.285);
+}
 const BUILDERS = { ak: buildAK, bolt: buildBolt, pump: buildPump, glock: buildGlock, m1911: build1911, revolver: buildRevolver,
-  mp5: buildMp5, p90: buildP90, scar: buildScar, super46: buildSuper46, lmg: buildLmg, dmr: buildDmr, aa12: buildAa12, deagle: buildDeagle, skorp: buildSkorp, k_combat: buildKCombat, k_karambit: buildKKarambit, k_balisong: buildKBalisong, k_machete: buildKMachete, k_tomahawk: buildKTomahawk,
+  mp5: buildMp5, p90: buildP90, scar: buildScar, super46: buildSuper46, lmg: buildLmg, dmr: buildDmr, aa12: buildAa12, deagle: buildDeagle, skorp: buildSkorp, k_combat: buildKCombat, k_karambit: buildKKarambit, k_balisong: buildKBalisong, k_machete: buildKMachete, k_tomahawk: buildKTomahawk, k_katana: buildKKatana, k_kukri: buildKKukri, k_dagger: buildKDagger,
   goldgun: () => { const g = buildDeagle(), gold = mat(0xffd24a, 1, 0.16, { emissive: 0x3a2400, emissiveIntensity: 0.35 }); g.traverse((o) => { if (o.isMesh && !(o.userData && o.userData.iron)) o.material = gold; }); return g; } };
 
 // ------------------------------------------------------------------------------------------------
@@ -714,12 +747,40 @@ CAMO_PAINT[16] = () => { const [c, g] = canvasOf(), r = seeded(161); const gr = 
 CAMO_PAINT[17] = () => { const [c, g] = canvasOf(); const R = 32, H = 28; g.fillStyle = '#04140c'; g.fillRect(0, 0, CS, CS);                    // dragon scales
   for (let row = -1; row < CS / H + 2; row++) for (let col = -1; col < CS / (R * 2) + 2; col++) { const x = col * R * 2 + (row % 2 ? R : 0), y = row * H, gr = g.createRadialGradient(x, y - R * 0.3, 2, x, y, R); gr.addColorStop(0, '#d9ff9a'); gr.addColorStop(0.35, '#2fbf5a'); gr.addColorStop(0.8, '#0b5a2e'); gr.addColorStop(1, '#03180d'); g.fillStyle = gr; g.strokeStyle = 'rgba(255,214,90,0.7)'; g.lineWidth = 1.5;
     for (const dx of [-CS, 0, CS]) for (const dy of [-CS, 0, CS]) { g.beginPath(); g.arc(x + dx, y + dy, R - 1, 0, Math.PI); g.fill(); g.stroke(); } } return [c]; };
+// ---- SKINS (bought with money): ids 18-25
+CAMO_PAINT[18] = () => { const [c, g] = canvasOf(), r = seeded(181); const gr = g.createLinearGradient(0, 0, CS, 0); ['#0b2a3a', '#16c79a', '#3ad7ff', '#8a5bff', '#0b2a3a'].forEach((col, i, a) => gr.addColorStop(i / (a.length - 1), col)); g.fillStyle = gr; g.fillRect(0, 0, CS, CS);   // aurora curtains
+  for (let i = 0; i < 26; i++) { const x = r() * CS, w = 10 + r() * 40; wrapped(g, () => { const lg = g.createLinearGradient(0, 0, 0, CS); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(0.5, `rgba(${r() > 0.5 ? '120,255,200' : '170,120,255'},0.22)`); lg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = lg; g.fillRect(x, 0, w, CS); }); }
+  for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(255,255,255,${0.2 + r() * 0.6})`; g.fillRect(r() * CS, r() * CS, 1.6, 1.6); } return [c]; };
+CAMO_PAINT[19] = () => { const [c, g] = canvasOf(), r = seeded(191); g.fillStyle = '#12050a'; g.fillRect(0, 0, CS, CS);                                         // lotus petals
+  for (let row = 0; row < 4; row++) for (let col = 0; col < 4; col++) { const cx = col * 128 + 64, cy = row * 128 + 64; for (let k = 0; k < 8; k++) { wrapped(g, () => { g.save(); g.translate(cx, cy); g.rotate(k * Math.PI / 4 + (row + col) * 0.2); const lg = g.createLinearGradient(0, 0, 0, -56); lg.addColorStop(0, '#ff4f87'); lg.addColorStop(1, '#6a0a2c'); g.fillStyle = lg; g.strokeStyle = 'rgba(255,200,220,0.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(22, -26, 0, -56); g.quadraticCurveTo(-22, -26, 0, 0); g.fill(); g.stroke(); g.restore(); }); } }
+  for (let i = 0; i < 120; i++) { g.fillStyle = `rgba(255,170,200,${r() * 0.35})`; g.fillRect(r() * CS, r() * CS, 2, 2); } return [c]; };
+CAMO_PAINT[20] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(201); g.fillStyle = '#08090c'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // phantom: ghost swirls + cyan edge lines
+  for (let i = 0; i < 18; i++) { const x = r() * CS, y = r() * CS, rad = 40 + r() * 80; wrapped(g, () => { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, 'rgba(180,200,230,0.20)'); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); }); }
+  veins(g, seeded(23), ['#35f0ff'], 14); veins(ge, seeded(23), ['#35f0ff'], 14); return [c, e]; };
+CAMO_PAINT[21] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(); const bg = g.createRadialGradient(CS / 2, CS / 2, 10, CS / 2, CS / 2, CS * 0.75); bg.addColorStop(0, '#ffe36a'); bg.addColorStop(0.35, '#ff8a1a'); bg.addColorStop(1, '#6a1208'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // solar flare rays
+  for (const q of [g, ge]) for (let k = 0; k < 28; k++) { wrapped(q, () => { q.save(); q.translate(CS / 2, CS / 2); q.rotate(k * Math.PI * 2 / 28); q.fillStyle = k % 2 ? 'rgba(255,240,150,0.28)' : 'rgba(255,90,20,0.2)'; q.beginPath(); q.moveTo(0, 0); q.lineTo(-9, -CS); q.lineTo(9, -CS); q.fill(); q.restore(); }); }
+  return [c, e]; };
+CAMO_PAINT[22] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(); g.fillStyle = '#05070f'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS); const R = 32, H = R * 1.5;        // neon hex grid
+  for (const q of [g, ge]) { q.lineWidth = 2.4; for (let row = -1; row < CS / H + 2; row++) for (let col = -1; col < CS / (R * 1.732) + 2; col++) { const x = col * R * 1.732 + (row % 2 ? R * 0.866 : 0), y = row * H; q.strokeStyle = (row + col) % 5 === 0 ? '#ff35d6' : '#25e8ff'; q.shadowColor = q.strokeStyle; q.shadowBlur = 8; q.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; q[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * (R - 3), y + Math.sin(a) * (R - 3)); } q.closePath(); q.stroke(); } q.shadowBlur = 0; }
+  return [c, e]; };
+CAMO_PAINT[23] = () => { const [c, g] = canvasOf(), r = seeded(231); const bg = g.createLinearGradient(0, 0, 0, CS); bg.addColorStop(0, '#6fe0ff'); bg.addColorStop(0.5, '#1c7fd6'); bg.addColorStop(1, '#06265a'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS);   // glass waves
+  for (let k = 0; k < 14; k++) { const y0 = k * CS / 14, amp = 8 + r() * 14, ph = r() * 6.28; g.strokeStyle = `rgba(255,255,255,${0.12 + r() * 0.22})`; g.lineWidth = 1.5 + r() * 2.5; g.beginPath(); for (let x = 0; x <= CS; x += 8) { const y = y0 + Math.sin(x / CS * 6.283 * 2 + ph) * amp; x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+  for (let i = 0; i < 70; i++) { const x = r() * CS, y = r() * CS, rad = 2 + r() * 8; g.strokeStyle = 'rgba(255,255,255,0.45)'; g.beginPath(); g.arc(x, y, rad, 0, 6.28); g.stroke(); } return [c]; };
+CAMO_PAINT[24] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(); g.fillStyle = '#f2c500'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);                    // voltage: hazard stripes + lightning
+  g.fillStyle = '#16140a'; for (let k = -8; k < 16; k++) { g.save(); g.translate(k * 64, 0); g.rotate(0.6); g.fillRect(0, -CS, 28, CS * 3); g.restore(); }
+  veins(g, seeded(41), ['#ffffff', '#7ad7ff'], 16); veins(ge, seeded(41), ['#ffffff', '#7ad7ff'], 16); return [c, e]; };
+CAMO_PAINT[25] = () => { const [c, g] = canvasOf(), r = seeded(251); const gr = g.createLinearGradient(0, 0, CS, CS); ['#b76e79', '#f6c9c0', '#d8939b', '#fbe0d6', '#b76e79'].forEach((col, i, a) => gr.addColorStop(i / (a.length - 1), col)); g.fillStyle = gr; g.fillRect(0, 0, CS, CS);   // brushed rose gold
+  for (let i = 0; i < 700; i++) { const y = r() * CS, x = r() * CS, l = 40 + r() * 180; g.fillStyle = r() > 0.5 ? 'rgba(255,255,255,0.10)' : 'rgba(90,30,40,0.10)'; wrapped(g, () => g.fillRect(x, y, l, 1 + r() * 1.4)); } return [c]; };
 // look per camo: metalness / roughness / env reflection / clearcoat; `em` glows, `pulse` breathes, `hue` shifts colour over time
 const CAMO_LOOK = {
   1: { m: 0.12, r: 0.6, env: 0.8, cc: 0.35 }, 2: { m: 0.12, r: 0.6, env: 0.8, cc: 0.35 }, 3: { m: 0.12, r: 0.55, env: 0.9, cc: 0.4 }, 4: { m: 0.15, r: 0.5, env: 0.9, cc: 0.45 },
   5: { m: 0.2, r: 0.4, env: 1.1, cc: 0.7 }, 6: { m: 0.2, r: 0.4, env: 1.1, cc: 0.7 }, 7: { m: 0.25, r: 0.38, env: 1.1, cc: 0.7 },
   8: { m: 1.0, r: 0.2, env: 1.7, cc: 0.5, deep: 0.35, sweep: 1, rim: [1, 0.8, 0.3] }, 9: { m: 0.9, r: 0.1, env: 1.8, cc: 1.0, flake: 1, deep: 0.6, sweep: 1, rim: [0.6, 0.9, 1] }, 10: { m: 0.6, r: 0.12, env: 1.5, cc: 1.0, em: 1.9, pulse: 1, deep: 0.7, rim: [0.5, 0.2, 1], flow: [0.0, 0.02, 0.04] }, 11: { m: 0.5, r: 0.2, env: 1.2, cc: 1.0, em: 1.5, pulse: 1, deep: 1.0, rim: [0.4, 0.6, 1], flow: [0.02, 0.0, 0.03] },
   12: { m: 0.35, r: 0.28, env: 1.3, cc: 1.0 }, 13: { m: 0.3, r: 0.3, env: 1.0, cc: 0.6, em: 2.2, pulse: 1, deep: 0.8, rim: [0.1, 1, 0.9], flow: [0.0, 0.0, 0.08] }, 14: { m: 0.3, r: 0.3, env: 1.0, cc: 0.9, em: 1.7, pulse: 1 }, 15: { m: 0.3, r: 0.45, env: 0.9, cc: 0.4, em: 2.4, pulse: 1, deep: 0.9, rim: [1, 0.35, 0.05], flow: [0.0, -0.06, 0.02] },
+  18: { m: 0.7, r: 0.15, env: 1.6, cc: 1.0, hue: 1, deep: 0.55, sweep: 1, rim: [0.5, 1, 0.9] }, 19: { m: 0.5, r: 0.22, env: 1.4, cc: 1.0, deep: 0.5, sweep: 1, rim: [1, 0.4, 0.6] },
+  20: { m: 0.8, r: 0.2, env: 1.5, cc: 1.0, em: 2.2, pulse: 1, deep: 0.6, rim: [0.3, 0.95, 1] }, 21: { m: 0.6, r: 0.2, env: 1.5, cc: 1.0, em: 1.8, pulse: 1, deep: 0.6, sweep: 1, rim: [1, 0.7, 0.2] },
+  22: { m: 0.6, r: 0.18, env: 1.5, cc: 1.0, em: 2.4, pulse: 1, deep: 0.7, rim: [0.2, 0.9, 1], flow: [0.0, 0.0, 0.1] }, 23: { m: 0.7, r: 0.08, env: 2.0, cc: 1.0, flake: 1, deep: 0.55, sweep: 1, rim: [0.7, 0.95, 1], flow: [0.04, 0.0, 0.0] },
+  24: { m: 0.5, r: 0.28, env: 1.3, cc: 0.9, em: 2.0, pulse: 1, deep: 0.5, rim: [1, 1, 0.5] }, 25: { m: 1.0, r: 0.14, env: 1.9, cc: 1.0, flake: 1, deep: 0.5, sweep: 1, rim: [1, 0.8, 0.75] },
   16: { m: 1.0, r: 0.14, env: 1.9, cc: 1.0, hue: 1, deep: 0.6, sweep: 1, rim: [0.8, 0.5, 1] }, 17: { m: 0.55, r: 0.3, env: 1.4, cc: 0.9, deep: 0.55, sweep: 1, rim: [0.4, 1, 0.5] },
 };
 const camoCache = new Map();
