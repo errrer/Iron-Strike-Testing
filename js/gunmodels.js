@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.19.2';
+import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.19.3';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +11,7 @@ import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.19.2';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.19.2';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.19.3';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -771,6 +771,66 @@ CAMO_PAINT[24] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(); g.fill
   veins(g, seeded(41), ['#ffffff', '#7ad7ff'], 16); veins(ge, seeded(41), ['#ffffff', '#7ad7ff'], 16); return [c, e]; };
 CAMO_PAINT[25] = () => { const [c, g] = canvasOf(), r = seeded(251); const gr = g.createLinearGradient(0, 0, CS, CS); ['#b76e79', '#f6c9c0', '#d8939b', '#fbe0d6', '#b76e79'].forEach((col, i, a) => gr.addColorStop(i / (a.length - 1), col)); g.fillStyle = gr; g.fillRect(0, 0, CS, CS);   // brushed rose gold
   for (let i = 0; i < 700; i++) { const y = r() * CS, x = r() * CS, l = 40 + r() * 180; g.fillStyle = r() > 0.5 ? 'rgba(255,255,255,0.10)' : 'rgba(90,30,40,0.10)'; wrapped(g, () => g.fillRect(x, y, l, 1 + r() * 1.4)); } return [c]; };
+
+// ---- SKIN PAINTS (ids 40+): richer patterns used by the model skins (not in the camo list)
+const marbleP = (bg, blob, vein, seed) => () => { const [c, g] = canvasOf(), r = seeded(seed); g.fillStyle = bg; g.fillRect(0, 0, CS, CS); blobs(g, r, blob, 16, 50, 120); veins(g, seeded(seed + 7), vein, 22); return [c]; };
+CAMO_PAINT[40] = marbleP('#ecebf0', 'rgba(170,175,190,0.35)', ['#d9a93a', '#f3d98a'], 401);
+CAMO_PAINT[56] = marbleP('#4a0a14', 'rgba(20,0,6,0.45)', ['#e9edf2', '#c8ced6'], 561);
+CAMO_PAINT[41] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(); g.fillStyle = '#0b0c10'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);          // carbon weave + neon lines
+  for (let y = 0; y < CS; y += 16) for (let x = 0; x < CS; x += 16) { g.fillStyle = ((x + y) / 16) % 2 ? '#15181f' : '#232832'; g.fillRect(x, y, 15, 15); }
+  for (const q of [g, ge]) { q.shadowBlur = 10; for (let i = 0; i < 4; i++) { q.strokeStyle = i % 2 ? '#2ff0ff' : '#ff2fd0'; q.shadowColor = q.strokeStyle; q.lineWidth = 3; q.beginPath(); q.moveTo(0, 60 + i * 128); q.lineTo(CS, 60 + i * 128); q.stroke(); } q.shadowBlur = 0; } return [c, e]; };
+CAMO_PAINT[42] = () => { const [c, g] = canvasOf(); const bg = g.createLinearGradient(0, 0, CS, CS); bg.addColorStop(0, '#0b3a22'); bg.addColorStop(1, '#1d5a2e'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS);   // dragon scales
+  for (let row = -1; row < 24; row++) for (let col = -1; col < 19; col++) { const x = col * 28 + (row % 2 ? 14 : 0), y = row * 22; const rg = g.createRadialGradient(x, y - 4, 2, x, y, 18); rg.addColorStop(0, '#3fae5a'); rg.addColorStop(0.7, '#14532d'); rg.addColorStop(1, '#d9b23a'); g.fillStyle = rg; g.strokeStyle = 'rgba(230,190,70,0.75)'; g.lineWidth = 1.4; g.beginPath(); g.arc(x, y, 17, 0, Math.PI); g.fill(); g.stroke(); }
+  return [c]; };
+CAMO_PAINT[43] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(431); g.fillStyle = '#05030f'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // galaxy
+  for (let i = 0; i < 16; i++) { const x = r() * CS, y = r() * CS, rad = 70 + r() * 150, col = ['120,60,255', '60,140,255', '255,80,200', '60,220,255'][i % 4]; wrapped(g, () => { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, `rgba(${col},0.42)`); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); }); }
+  for (let i = 0; i < 520; i++) { const x = r() * CS, y = r() * CS, a = 0.3 + r() * 0.7, z = r() > 0.97 ? 3 : 1.4; for (const q of [g, ge]) { q.fillStyle = `rgba(255,255,255,${a})`; q.fillRect(x, y, z, z); } }
+  return [c, e]; };
+CAMO_PAINT[44] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(441); g.fillStyle = '#0a0606'; g.fillRect(0, 0, CS, CS); blobs(g, r, '#1c0f0c', 18, 40, 90); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // lava cracks
+  veins(g, seeded(9), ['#ff6a1a', '#ffd23a'], 26); veins(ge, seeded(9), ['#ff6a1a', '#ffd23a'], 26); return [c, e]; };
+CAMO_PAINT[45] = () => { const [c, g] = canvasOf(), r = seeded(451); g.fillStyle = '#cfe6f2'; g.fillRect(0, 0, CS, CS);                           // frost crystal facets
+  for (let i = 0; i < 90; i++) { const x = r() * CS, y = r() * CS, s = 30 + r() * 80, a = r() * 6.28; wrapped(g, () => { g.fillStyle = `rgba(${r() > 0.5 ? '255,255,255' : '120,170,215'},${0.18 + r() * 0.35})`; g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 1.2; g.beginPath(); for (let k = 0; k < 3; k++) { const aa = a + k * 2.1 + r() * 0.5; g.lineTo(x + Math.cos(aa) * s, y + Math.sin(aa) * s); } g.closePath(); g.fill(); g.stroke(); }); }
+  for (let i = 0; i < 90; i++) { g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(r() * CS, r() * CS, 2, 2); } return [c]; };
+CAMO_PAINT[46] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(461); g.fillStyle = '#06130f'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // circuit board
+  for (let i = 0; i < 70; i++) { let x = Math.floor(r() * 32) * 16, y = Math.floor(r() * 32) * 16; g.strokeStyle = i % 3 ? '#b8932f' : '#2fe8b0'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { if (r() > 0.5) x += (r() > 0.5 ? 1 : -1) * 16 * (1 + Math.floor(r() * 4)); else y += (r() > 0.5 ? 1 : -1) * 16 * (1 + Math.floor(r() * 4)); g.lineTo(x, y); } g.stroke(); g.fillStyle = '#e8c96a'; g.beginPath(); g.arc(x, y, 5, 0, 6.28); g.fill(); ge.fillStyle = '#35ffd0'; ge.beginPath(); ge.arc(x, y, 5, 0, 6.28); ge.fill(); }
+  return [c, e]; };
+CAMO_PAINT[47] = () => { const [c, g] = canvasOf(), r = seeded(471), pal = ['#d12b3a', '#2f6ad8', '#e8b52a', '#2fa86a', '#8a3ad0', '#e87a2a']; g.fillStyle = '#111'; g.fillRect(0, 0, CS, CS);   // stained glass
+  for (let y = 0; y < CS; y += 64) for (let x = 0; x < CS; x += 64) for (let k = 0; k < 2; k++) { g.fillStyle = pal[Math.floor(r() * pal.length)]; g.strokeStyle = '#080808'; g.lineWidth = 5; g.beginPath(); if (k) { g.moveTo(x, y); g.lineTo(x + 64, y); g.lineTo(x + 64, y + 64); } else { g.moveTo(x, y); g.lineTo(x, y + 64); g.lineTo(x + 64, y + 64); } g.closePath(); g.fill(); g.stroke(); }
+  return [c]; };
+CAMO_PAINT[48] = () => { const [c, g] = canvasOf(), r = seeded(481); g.fillStyle = '#ddd'; g.fillRect(0, 0, CS, CS);                              // holographic prism
+  for (let k = -8; k < 22; k++) { g.save(); g.translate(k * 40, 0); g.rotate(0.5); g.fillStyle = `hsla(${(k * 38) % 360},90%,62%,0.8)`; g.fillRect(0, -CS, 36, CS * 3); g.restore(); }
+  for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(255,255,255,0.7)'; const x = r() * CS, y = r() * CS; g.fillRect(x, y, 14, 2); } return [c]; };
+CAMO_PAINT[49] = () => { const [c, g] = canvasOf(); g.fillStyle = '#2a0f3d'; g.fillRect(0, 0, CS, CS); g.strokeStyle = '#d9b23a'; g.lineWidth = 2;               // royal damask
+  for (let y = 0; y < CS; y += 64) for (let x = 0; x < CS; x += 64) { g.beginPath(); g.moveTo(x + 32, y); g.lineTo(x + 64, y + 32); g.lineTo(x + 32, y + 64); g.lineTo(x, y + 32); g.closePath(); g.stroke(); g.fillStyle = '#d9b23a'; g.beginPath(); g.arc(x + 32, y + 32, 6, 0, 6.28); g.fill(); g.fillStyle = 'rgba(160,80,210,0.4)'; g.beginPath(); g.arc(x, y, 14, 0, 6.28); g.fill(); }
+  return [c]; };
+CAMO_PAINT[50] = () => { const [c, g] = canvasOf(), r = seeded(501); const bg = g.createLinearGradient(0, 0, 0, CS); bg.addColorStop(0, '#ffe4ee'); bg.addColorStop(1, '#ff9ec0'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS);   // sakura petals
+  for (let i = 0; i < 120; i++) { const x = r() * CS, y = r() * CS, a = r() * 6.28; wrapped(g, () => { g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = r() > 0.5 ? 'rgba(255,255,255,0.85)' : 'rgba(255,110,160,0.7)'; g.beginPath(); g.ellipse(0, 0, 14, 7, 0, 0, 6.28); g.fill(); g.restore(); }); } return [c]; };
+CAMO_PAINT[51] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(511); g.fillStyle = '#0b130a'; g.fillRect(0, 0, CS, CS); blobs(g, r, '#16260f', 14, 40, 90); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // toxic drips
+  for (let i = 0; i < 36; i++) { const x = r() * CS, len = 30 + r() * 200; for (const q of [g, ge]) { q.strokeStyle = '#6bff1e'; q.shadowColor = '#6bff1e'; q.shadowBlur = 10; q.lineWidth = 6 + r() * 6; q.lineCap = 'round'; q.beginPath(); q.moveTo(x, 0); q.lineTo(x, len); q.stroke(); q.beginPath(); q.arc(x, len, q.lineWidth * 0.8, 0, 6.28); q.fillStyle = '#6bff1e'; q.fill(); q.shadowBlur = 0; } }
+  return [c, e]; };
+CAMO_PAINT[52] = () => { const [c, g] = canvasOf(), r = seeded(521); const bg = g.createLinearGradient(0, 0, CS, CS); bg.addColorStop(0, '#060a2a'); bg.addColorStop(1, '#2a1a6a'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS);   // starlight navy + gold stars
+  for (let i = 0; i < 70; i++) { const x = r() * CS, y = r() * CS, R = 4 + r() * 9; wrapped(g, () => { g.fillStyle = '#f2cf6a'; g.beginPath(); for (let k = 0; k < 10; k++) { const rr = k % 2 ? R * 0.42 : R, a = k * Math.PI / 5 - Math.PI / 2; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); g.fill(); }); }
+  g.strokeStyle = 'rgba(242,207,106,0.35)'; g.lineWidth = 1; for (let i = 0; i < 14; i++) { g.beginPath(); g.moveTo(r() * CS, r() * CS); g.lineTo(r() * CS, r() * CS); g.stroke(); } return [c]; };
+CAMO_PAINT[53] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(531); g.fillStyle = '#09090e'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // glitch bars
+  for (let i = 0; i < 46; i++) { const y = r() * CS, h = 3 + r() * 22, x = r() * CS, w = 40 + r() * 260, col = ['#2ff0ff', '#ff2fd0', '#ffffff', '#3a3f4a'][Math.floor(r() * 4)]; wrapped(g, () => { g.fillStyle = col; g.fillRect(x, y, w, h); }); if (col !== '#3a3f4a') { ge.fillStyle = col; ge.fillRect(x, y, w, h); } }
+  return [c, e]; };
+CAMO_PAINT[54] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(541); g.fillStyle = '#08080a'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // obsidian shards with red edges
+  for (let i = 0; i < 80; i++) { const x = r() * CS, y = r() * CS, s = 24 + r() * 70, a = r() * 6.28, sh = 16 + Math.floor(r() * 30); wrapped(g, () => { g.fillStyle = `rgb(${sh},${sh},${sh + 4})`; g.strokeStyle = '#ff2a2a'; g.lineWidth = 1.6; g.shadowColor = '#ff2a2a'; g.shadowBlur = 6; g.beginPath(); for (let k = 0; k < 3; k++) { const aa = a + k * 2.1 + r() * 0.4; g.lineTo(x + Math.cos(aa) * s, y + Math.sin(aa) * s); } g.closePath(); g.fill(); g.stroke(); g.shadowBlur = 0; }); }
+  ge.strokeStyle = '#ff2a2a'; ge.lineWidth = 2; for (let i = 0; i < 60; i++) { const x = r() * CS, y = r() * CS; ge.beginPath(); ge.moveTo(x, y); ge.lineTo(x + (r() - 0.5) * 90, y + (r() - 0.5) * 90); ge.stroke(); } return [c, e]; };
+CAMO_PAINT[55] = () => { const [c, g] = canvasOf(), r = seeded(551); const bg = g.createLinearGradient(0, 0, CS, CS); ['#f6eaf4', '#d8f2ee', '#eadcf8', '#fbe6dc', '#f6eaf4'].forEach((col, i, a) => bg.addColorStop(i / (a.length - 1), col)); g.fillStyle = bg; g.fillRect(0, 0, CS, CS);   // pearl opal
+  for (let i = 0; i < 14; i++) { const x = r() * CS, y = r() * CS, rad = 60 + r() * 120; wrapped(g, () => { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, `hsla(${Math.floor(r() * 360)},80%,78%,0.45)`); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); }); } return [c]; };
+CAMO_PAINT[57] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(571); const bg = g.createLinearGradient(0, 0, 0, CS); bg.addColorStop(0, '#04222c'); bg.addColorStop(1, '#021015'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // abyss: bioluminescence
+  veins(g, seeded(13), ['#20e0c0', '#6affea'], 20); veins(ge, seeded(13), ['#20e0c0', '#6affea'], 20);
+  for (let i = 0; i < 160; i++) { const x = r() * CS, y = r() * CS; for (const q of [g, ge]) { q.fillStyle = `rgba(120,255,230,${0.3 + r() * 0.6})`; q.beginPath(); q.arc(x, y, 1 + r() * 2.6, 0, 6.28); q.fill(); } } return [c, e]; };
+CAMO_PAINT[58] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(); const bg = g.createRadialGradient(CS / 2, CS / 2, 8, CS / 2, CS / 2, CS * 0.7); bg.addColorStop(0, '#fff4b8'); bg.addColorStop(0.4, '#e8b83a'); bg.addColorStop(1, '#7a4c0a'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // sun gold with etched rays
+  for (const q of [g, ge]) for (let k = 0; k < 36; k++) { q.save(); q.translate(CS / 2, CS / 2); q.rotate(k * Math.PI * 2 / 36); q.strokeStyle = k % 2 ? 'rgba(255,250,200,0.55)' : 'rgba(120,70,10,0.5)'; q.lineWidth = k % 2 ? 3 : 2; q.beginPath(); q.moveTo(0, 0); q.lineTo(0, -CS); q.stroke(); q.restore(); }
+  return [c, e]; };
+CAMO_PAINT[59] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(), r = seeded(591); g.fillStyle = '#020204'; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // singularity: accretion swirls
+  for (const q of [g, ge]) for (let i = 0; i < 26; i++) { const rad = 30 + i * 9, a0 = r() * 6.28; q.strokeStyle = `hsla(${[20, 280, 200][i % 3]},100%,${50 + r() * 20}%,${0.35 + r() * 0.45})`; q.lineWidth = 1 + r() * 3; q.shadowColor = q.strokeStyle; q.shadowBlur = 8; q.beginPath(); q.ellipse(CS / 2, CS / 2, rad, rad * 0.45, a0, 0, 4 + r() * 2); q.stroke(); q.shadowBlur = 0; }
+  for (let i = 0; i < 200; i++) { g.fillStyle = `rgba(255,255,255,${r() * 0.7})`; g.fillRect(r() * CS, r() * CS, 1.5, 1.5); } return [c, e]; };
+CAMO_PAINT[60] = () => { const [c, g] = canvasOf(), [e, ge] = canvasOf(); const bg = g.createLinearGradient(0, 0, 0, CS); bg.addColorStop(0, '#7a0a0a'); bg.addColorStop(0.5, '#e8541a'); bg.addColorStop(1, '#ffd23a'); g.fillStyle = bg; g.fillRect(0, 0, CS, CS); ge.fillStyle = '#000'; ge.fillRect(0, 0, CS, CS);   // phoenix feathers
+  for (const q of [g, ge]) for (let row = 0; row < 18; row++) for (let col = -1; col < 10; col++) { const x = col * 56 + (row % 2 ? 28 : 0), y = row * 30; q.strokeStyle = row % 3 ? 'rgba(255,230,120,0.7)' : 'rgba(120,10,10,0.7)'; q.lineWidth = 2.2; q.beginPath(); q.moveTo(x - 24, y); q.lineTo(x, y + 26); q.lineTo(x + 24, y); q.stroke(); }
+  return [c, e]; };
 // look per camo: metalness / roughness / env reflection / clearcoat; `em` glows, `pulse` breathes, `hue` shifts colour over time
 const CAMO_LOOK = {
   1: { m: 0.12, r: 0.6, env: 0.8, cc: 0.35 }, 2: { m: 0.12, r: 0.6, env: 0.8, cc: 0.35 }, 3: { m: 0.12, r: 0.55, env: 0.9, cc: 0.4 }, 4: { m: 0.15, r: 0.5, env: 0.9, cc: 0.45 },
@@ -781,6 +841,17 @@ const CAMO_LOOK = {
   20: { m: 0.8, r: 0.2, env: 1.5, cc: 1.0, em: 2.2, pulse: 1, deep: 0.6, rim: [0.3, 0.95, 1] }, 21: { m: 0.6, r: 0.2, env: 1.5, cc: 1.0, em: 1.8, pulse: 1, deep: 0.6, sweep: 1, rim: [1, 0.7, 0.2] },
   22: { m: 0.6, r: 0.18, env: 1.5, cc: 1.0, em: 2.4, pulse: 1, deep: 0.7, rim: [0.2, 0.9, 1], flow: [0.0, 0.0, 0.1] }, 23: { m: 0.7, r: 0.08, env: 2.0, cc: 1.0, flake: 1, deep: 0.55, sweep: 1, rim: [0.7, 0.95, 1], flow: [0.04, 0.0, 0.0] },
   24: { m: 0.5, r: 0.28, env: 1.3, cc: 0.9, em: 2.0, pulse: 1, deep: 0.5, rim: [1, 1, 0.5] }, 25: { m: 1.0, r: 0.14, env: 1.9, cc: 1.0, flake: 1, deep: 0.5, sweep: 1, rim: [1, 0.8, 0.75] },
+  40: { m: 0.9, r: 0.1, env: 1.9, cc: 1.0, deep: 0.35, sweep: 1, rim: [1, 0.9, 0.6] }, 56: { m: 0.9, r: 0.1, env: 1.9, cc: 1.0, deep: 0.35, sweep: 1, rim: [1, 0.5, 0.6] },
+  41: { m: 0.6, r: 0.25, env: 1.4, cc: 1.0, em: 2.4, pulse: 1, deep: 0.4, rim: [0.3, 0.95, 1] }, 42: { m: 0.7, r: 0.2, env: 1.6, cc: 1.0, deep: 0.5, sweep: 1, rim: [0.9, 0.8, 0.3] },
+  43: { m: 0.5, r: 0.2, env: 1.5, cc: 1.0, em: 1.8, pulse: 1, deep: 0.8, rim: [0.6, 0.4, 1], flow: [0.01, 0.0, 0.02] }, 44: { m: 0.3, r: 0.4, env: 1.0, cc: 0.6, em: 2.6, pulse: 1, deep: 0.6, rim: [1, 0.5, 0.1], flow: [0.0, 0.01, 0.0] },
+  45: { m: 0.6, r: 0.1, env: 2.0, cc: 1.0, flake: 1, deep: 0.5, sweep: 1, rim: [0.8, 0.95, 1] }, 46: { m: 0.5, r: 0.3, env: 1.2, cc: 0.9, em: 2.2, pulse: 1, deep: 0.45, rim: [0.2, 1, 0.8] },
+  47: { m: 0.2, r: 0.12, env: 1.8, cc: 1.0, deep: 0.5, sweep: 1, rim: [1, 1, 1] }, 48: { m: 0.8, r: 0.08, env: 2.0, cc: 1.0, hue: 1, deep: 0.7, sweep: 1, rim: [1, 1, 1] },
+  49: { m: 0.7, r: 0.2, env: 1.5, cc: 1.0, deep: 0.4, sweep: 1, rim: [0.8, 0.5, 1] }, 50: { m: 0.2, r: 0.3, env: 1.2, cc: 0.9, deep: 0.35, rim: [1, 0.7, 0.8] },
+  51: { m: 0.3, r: 0.35, env: 1.0, cc: 0.7, em: 2.4, pulse: 1, deep: 0.5, rim: [0.4, 1, 0.2], flow: [0.0, 0.02, 0.0] }, 52: { m: 0.7, r: 0.15, env: 1.6, cc: 1.0, flake: 1, deep: 0.5, sweep: 1, rim: [1, 0.85, 0.4] },
+  53: { m: 0.4, r: 0.25, env: 1.2, cc: 0.8, em: 2.2, pulse: 1, deep: 0.4, rim: [1, 0.3, 0.9], flow: [0.03, 0.0, 0.0] }, 54: { m: 0.8, r: 0.12, env: 1.8, cc: 1.0, em: 1.8, pulse: 1, deep: 0.55, rim: [1, 0.2, 0.2] },
+  55: { m: 0.8, r: 0.1, env: 2.0, cc: 1.0, hue: 1, flake: 1, deep: 0.6, sweep: 1, rim: [1, 1, 1] }, 57: { m: 0.7, r: 0.1, env: 1.8, cc: 1.0, em: 2.4, pulse: 1, deep: 0.8, rim: [0.2, 1, 0.9], flow: [0.0, 0.02, 0.0] },
+  58: { m: 1.0, r: 0.1, env: 2.0, cc: 1.0, em: 1.6, pulse: 1, deep: 0.5, sweep: 1, rim: [1, 0.85, 0.4] }, 59: { m: 0.5, r: 0.2, env: 1.4, cc: 1.0, em: 2.4, pulse: 1, deep: 0.9, rim: [0.8, 0.4, 1], flow: [0.0, 0.0, 0.05] },
+  60: { m: 0.6, r: 0.2, env: 1.5, cc: 1.0, em: 2.2, pulse: 1, deep: 0.6, sweep: 1, rim: [1, 0.6, 0.2], flow: [0.0, 0.03, 0.0] },
   16: { m: 1.0, r: 0.14, env: 1.9, cc: 1.0, hue: 1, deep: 0.6, sweep: 1, rim: [0.8, 0.5, 1] }, 17: { m: 0.55, r: 0.3, env: 1.4, cc: 0.9, deep: 0.55, sweep: 1, rim: [0.4, 1, 0.5] },
 };
 const camoCache = new Map();
@@ -1117,6 +1188,45 @@ function applySkin(g, sk) {
   }
   g.userData.skin = sk.id;
 }
+
+// ---- per-gun silhouette mods: extra geometry so variants of one base model don't look like recolours ----
+const GUN_MODS = {
+  ump: ['shroud', 'ribs'], m16: ['carry', 'longbarrel'], fal: ['carry', 'brake3'], rpk: ['drum', 'bipod'], sks: ['bayonet', 'longbarrel'], mac10: ['stockwire', 'shroud'], revolver44: ['longbarrel', 'rib'],
+  mp7: ['stockwire', 'foregrip'], pp19: ['drum', 'shroud'], kriss: ['block', 'foregrip', 'vents'], aug: ['carry', 'block'], famas: ['carry', 'ribs'], ak74: ['brake3', 'vents'], g36: ['carry', 'foregrip'],
+  hk417: ['shroud', 'bipod'], mk14: ['cheek', 'bipod', 'longbarrel'], m60: ['shroud', 'bipod', 'ammobox'], pkm: ['vents', 'ammobox', 'bipod'], r700: ['cheek', 'brake3'], awp: ['cheek', 'longbarrel', 'bipod'],
+  barrett: ['brake2', 'bipod', 'shroud', 'cheek'], reaper: ['longbarrel', 'ribs', 'cheek'], spas12: ['shroud', 'foregrip'], ksg: ['block', 'ribs'], saiga: ['drum', 'brake3'],
+  usp: ['shroud', 'rib'], five7: ['rib', 'vents'], tec9: ['shroud', 'foregrip', 'vents'], cz75: ['rib', 'ribs'], python: ['longbarrel', 'rib'], judge: ['shroud', 'block'],
+};
+function applyMods(g, id) {
+  const mods = GUN_MODS[id]; if (!mods || !THREE.Box3 || !THREE.SphereGeometry) return;
+  let mn, mx;
+  try { const b = new THREE.Box3().setFromObject(g); mn = b.min.clone(); mx = b.max.clone(); } catch (e) { return; }
+  if (!isFinite(mn.z) || !isFinite(mx.z) || mx.z - mn.z < 0.05) return;
+  const L = mx.z - mn.z, H = mx.y - mn.y, cx = (mn.x + mx.x) / 2, cz = (mn.z + mx.z) / 2, hw = Math.max(0.03, (mx.x - mn.x) / 2);
+  const yb = mn.y + H * 0.64, yt = mn.y + H * 0.8, zf = mn.z, yl = mn.y + H * 0.3;
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1b1d20, metalness: 0.7, roughness: 0.4 }), steel = new THREE.MeshStandardMaterial({ color: 0x70757c, metalness: 0.85, roughness: 0.3 });
+  const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.userData.modPart = true; g.add(m); return m; };
+  const cyl = (r, l) => new THREE.CylinderGeometry(r, r, l, 14), box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  for (const m of mods) {
+    if (m === 'shroud') add(cyl(0.017, L * 0.3), dark, cx, yb, zf + L * 0.22, Math.PI / 2);
+    else if (m === 'ribs') for (let i = 0; i < 4; i++) add(box(hw * 2 + 0.006, 0.004, 0.006), steel, cx, yb + 0.018, zf + L * (0.12 + i * 0.06));
+    else if (m === 'carry') { add(box(0.008, 0.026, 0.05), dark, cx, yt + 0.014, cz + L * 0.02); add(box(0.01, 0.006, 0.07), dark, cx, yt + 0.028, cz + L * 0.02); }
+    else if (m === 'longbarrel') add(cyl(0.006, L * 0.16), steel, cx, yb, zf - L * 0.07, Math.PI / 2);
+    else if (m === 'brake3') for (let i = 0; i < 3; i++) add(cyl(0.012, 0.005), steel, cx, yb, zf - 0.004 + i * 0.011, Math.PI / 2);
+    else if (m === 'brake2') { add(box(0.034, 0.03, 0.05), steel, cx, yb, zf + 0.0); for (const sd of [-1, 1]) add(box(0.004, 0.02, 0.03), dark, cx + sd * 0.019, yb, zf); }
+    else if (m === 'drum') add(cyl(0.04, 0.05), dark, cx, mn.y + H * 0.2, cz - L * 0.02, 0, 0, Math.PI / 2);
+    else if (m === 'bipod') for (const sd of [-1, 1]) add(box(0.004, 0.06, 0.004), steel, cx + sd * 0.02, yb - 0.035, zf + L * 0.2, 0, 0, sd * 0.35);
+    else if (m === 'bayonet') add(box(0.006, 0.012, L * 0.2), steel, cx, yb - 0.01, zf - L * 0.08);
+    else if (m === 'stockwire') for (const sd of [-1, 1]) add(box(0.003, 0.003, L * 0.22), steel, cx + sd * 0.016, yb - 0.01, mx.z - L * 0.1);
+    else if (m === 'foregrip') add(box(0.016, 0.05, 0.02), dark, cx, yl - 0.02, zf + L * 0.24);
+    else if (m === 'block') add(box(0.04, 0.034, L * 0.12), dark, cx, yb - 0.004, zf + L * 0.18);
+    else if (m === 'vents') for (let i = 0; i < 5; i++) for (const sd of [-1, 1]) add(box(0.002, 0.008, 0.008), steel, cx + sd * (hw + 0.001), yb, zf + L * (0.14 + i * 0.025));
+    else if (m === 'cheek') add(box(0.026, 0.018, L * 0.1), dark, cx, yt + 0.006, mx.z - L * 0.18);
+    else if (m === 'ammobox') add(box(0.05, 0.05, 0.07), dark, cx - hw - 0.03, yl, cz);
+    else if (m === 'rib') add(box(0.006, 0.006, L * 0.26), steel, cx, yt + 0.004, zf + L * 0.14);
+  }
+}
+
 export function buildGun(w) {
   const data = w.asset && MODEL_DATA[w.asset.id];
   const g = data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || (() => new THREE.Group()))();
@@ -1125,7 +1235,9 @@ export function buildGun(w) {
     const c = o.material.color; if ((c.r + c.g + c.b) / 3 > 0.45) return;
     o.material = o.material.clone(); o.material.color.lerp(new THREE.Color(w.tint), 0.55);
   });
+  try { applyMods(g, w.id); } catch (e) { /* headless */ }
   const skinId = skinOf(w.attMask); if (skinId && SKINS[skinId] && w.slot !== 'melee' && THREE.Box3 && THREE.SphereGeometry) { try { applySkin(g, SKINS[skinId]); } catch (e) { /* headless test environment */ } }
+  if (skinId && SKINS[skinId] && SKINS[skinId].paint && w.slot !== 'melee' && !camoOf(w.attMask)) { try { applyCamo(g, SKINS[skinId].paint); } catch (e) { /* headless */ } }
   if (w.attMask) {
     addAttachments(g, w); addMuzzleAttachments(g, w);
     const c = camoOf(w.attMask);

@@ -1,22 +1,22 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.19.2';
-import { canon } from './keybinds.js?v=0.19.2';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.19.2';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.19.2';
-import { buildMap } from './maps.js?v=0.19.2';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.19.2';
-import { buildWorld } from './world.js?v=0.19.2';
-import { Bot } from './bots.js?v=0.19.2';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.19.2';
-import { buildSoldier, SKIN } from './soldier.js?v=0.19.2';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.19.2';
-import { Zombies, PERKS } from './zombies.js?v=0.19.2';
-import { inspectFor, inspectPose } from './inspect.js?v=0.19.2';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.19.2';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.19.2';
-import { Objectives } from './objectives.js?v=0.19.2';
-import { Streaks, STREAKS } from './streaks.js?v=0.19.2';
-import { Gore } from './gore.js?v=0.19.2';
+import { MOD } from './supermod.js?v=0.19.3';
+import { canon } from './keybinds.js?v=0.19.3';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.19.3';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.19.3';
+import { buildMap } from './maps.js?v=0.19.3';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.19.3';
+import { buildWorld } from './world.js?v=0.19.3';
+import { Bot } from './bots.js?v=0.19.3';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.19.3';
+import { buildSoldier, SKIN } from './soldier.js?v=0.19.3';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.19.3';
+import { Zombies, PERKS } from './zombies.js?v=0.19.3';
+import { inspectFor, inspectPose } from './inspect.js?v=0.19.3';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.19.3';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.19.3';
+import { Objectives } from './objectives.js?v=0.19.3';
+import { Streaks, STREAKS } from './streaks.js?v=0.19.3';
+import { Gore } from './gore.js?v=0.19.3';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -62,7 +62,10 @@ const TEAM_COLORS = [0x2e6fbd, 0xc0392b];
 const BOT_PRIMARY_POOL = ['vmp', 'super46', 'vmp', 'mp5', 'p90', 'm4a1', 'm4a1', 'm4a1', 'ak47', 'ak47', 'scar', 'lmg', 'm680', 'aa12', 'mk14', 'kar98k'];
 
 // how many metres of wall each weapon class can shoot through (a wall-bang loses damage per metre)
-const PEN = { pistol: 0.2, smg: 0.3, shotgun: 0.12, ar: 0.5, dmr: 0.8, lmg: 0.7, sniper: 1.4 };
+// Penetration power in 'effective metres' per class; each gun scales it by its damage (w.pen overrides). Materials resist by a factor of their thickness.
+const PEN = { pistol: 0.45, smg: 0.55, shotgun: 0.3, ar: 0.9, dmr: 1.3, lmg: 1.2, sniper: 2.2 };
+const MATRES = { glass: 0.1, windows: 0.15, wood: 0.4, crate: 0.45, plain: 0.5, sand: 0.7, snow: 0.3, tile: 0.8, brick: 1.0, concrete: 1.5, metal: 1.8 };
+export function gunPen(w) { if (w.pen !== undefined) return w.pen; const b = PEN[w.cls] !== undefined ? PEN[w.cls] : 0.6; return b * (0.75 + 0.5 * Math.min(1, (w.dmg || 30) / (w.cls === 'shotgun' ? 20 : 60))); }
 
 export class Game {
   constructor(canvas, hud, sound, settings) {
@@ -1245,7 +1248,7 @@ export class Game {
   // Bullets: hit the first thing along the ray. Thin walls and crates can be shot through ("wall-bang"): the bullet loses damage for every
   // metre of material it passes (more for pistols/shotguns, less for rifles and snipers), up to 2 surfaces, and can still kill whoever stands behind.
   hitscan(a, ox, oy, oz, d, w, mul, rew = 0) {
-    const MAXD = w.maxD || 160, pen = w.pen !== undefined ? w.pen : (PEN[w.cls] !== undefined ? PEN[w.cls] : 0.35), feet = this.map && this.map.bounds;
+    const MAXD = w.maxD || 160, pen = gunPen(w), feet = this.map && this.map.bounds;
     let ax = ox, ay = oy, az = oz, travelled = 0, pm = 1, walls = 0, victim = null, head = false, best = 0, hitWall = false;
     for (let seg = 0; seg < 3; seg++) {
       const room = MAXD - travelled; if (room <= 0) break;
@@ -1261,10 +1264,10 @@ export class Game {
       hitWall = !victim && !!wall;
       if (victim || !wall) break;
       // wall hit: can the bullet get through?
-      const thick = wall.out - wall.t, ex = ax + d.x * wall.out, ey = ay + d.y * wall.out, ez = az + d.z * wall.out;
+      const thick = (wall.out - wall.t) * (MATRES[wall.mat] !== undefined ? MATRES[wall.mat] : 1), ex = ax + d.x * wall.out, ey = ay + d.y * wall.out, ez = az + d.z * wall.out;
       this.burst(ax + d.x * best - d.x * 0.05, ay + d.y * best - d.y * 0.05, az + d.z * best - d.z * 0.05, ay + d.y * best < 0.08 ? this.map.impact : 0xd8d2c4, 4, 2.2);
-      if (thick > pen || walls >= 2 || ey < 0.05 || (feet && (ex < feet.x0 + 0.6 || ex > feet.x1 - 0.6 || ez < feet.z0 + 0.6 || ez > feet.z1 - 0.6))) break;
-      pm *= Math.max(0.25, 0.72 - thick * 0.55); walls++; travelled += wall.out; ax = ex + d.x * 0.02; ay = ey + d.y * 0.02; az = ez + d.z * 0.02; travelled += 0.02;
+      if (thick > pen || walls >= 3 || ey < 0.05 || (feet && (ex < feet.x0 + 0.6 || ex > feet.x1 - 0.6 || ez < feet.z0 + 0.6 || ez > feet.z1 - 0.6))) break;
+      pm *= Math.min(0.92, Math.max(0.3, 1 - 0.55 * thick / pen)); walls++; travelled += wall.out; ax = ex + d.x * 0.02; ay = ey + d.y * 0.02; az = ez + d.z * 0.02; travelled += 0.02;
       this.burst(ex, ey, ez, 0xd8d2c4, 3, 1.6);
     }
     const px = ax + d.x * best, py = ay + d.y * best, pz = az + d.z * best, tot = travelled + best;

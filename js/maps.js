@@ -9,7 +9,7 @@ class Builder {
   // Solid box (collides + renders). Centre x,z; size w(x) d(z) h(y); starts at y0.
   box(x, z, w, d, h, o = {}) {
     const y0 = o.y0 || 0;
-    if (o.collide !== false) this.boxes.push({ x0: x - w / 2, x1: x + w / 2, y0, y1: y0 + h, z0: z - d / 2, z1: z + d / 2 });
+    if (o.collide !== false) this.boxes.push({ x0: x - w / 2, x1: x + w / 2, y0, y1: y0 + h, z0: z - d / 2, z1: z + d / 2, mat: o.tex || 'concrete' });
     this.visuals.push({ shape: 'box', x, z, y0, w, h, d, tex: o.tex || 'concrete', color: o.color ?? 0x888888, tile: o.tile || 4, emissive: o.emissive, cast: o.cast, opacity: o.opacity });
   }
   // Procedural prop (js/props.js) fitted into w(x) x d(z) x h(y), rot = quarter turns about Y. Visual only.
@@ -26,7 +26,7 @@ class Builder {
   // Cylinder (collides as a square box)
   cyl(x, z, r, h, o = {}) {
     const y0 = o.y0 || 0;
-    if (o.collide !== false) this.boxes.push({ x0: x - r, x1: x + r, y0, y1: y0 + h, z0: z - r, z1: z + r });
+    if (o.collide !== false) this.boxes.push({ x0: x - r, x1: x + r, y0, y1: y0 + h, z0: z - r, z1: z + r, mat: o.tex || 'metal' });
     this.visuals.push({ shape: 'cyl', x, z, y0, r, h, tex: o.tex || 'metal', color: o.color ?? 0x888888, tile: o.tile || 3, emissive: o.emissive });
   }
   cone(x, z, r, h, o = {}) { this.visuals.push({ shape: 'cone', x, z, y0: o.y0 || 0, r, h, tex: 'plain', color: o.color ?? 0x244a2c, tile: 3 }); }

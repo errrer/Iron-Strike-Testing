@@ -299,6 +299,18 @@ export const SKINS = [
   { id: 8, name: 'Aether Wing', rarity: 'legendary', body: 0xe8e6ef, accent: 0xd9a93a, glow: 0xffd77a, metal: 0.9, rough: 0.14, parts: ['wings', 'orb', 'blade', 'strips'] },
   { id: 9, name: 'Abyss Leviathan', rarity: 'mythic', body: 0x06323a, accent: 0x20e0c0, glow: 0x40ffe0, metal: 0.8, rough: 0.12, parts: ['spines', 'blade', 'tail', 'orb', 'strips'] },
   { id: 10, name: 'Solar Crown', rarity: 'mythic', body: 0xe3b23a, accent: 0xfff2b0, glow: 0xffe27a, metal: 1.0, rough: 0.1, parts: ['crown', 'halo', 'wings', 'orb', 'strips'] },
+  { id: 11, name: 'Marble Court', rarity: 'rare', body: 0xe8e8ee, accent: 0x2a2a33, glow: 0xaaaaff, metal: 0.6, rough: 0.25, parts: ['fins','bar'], paint: 40 },
+  { id: 12, name: 'Cyber Pulse', rarity: 'rare', body: 0x0b1822, accent: 0x2ff0ff, glow: 0x40ffff, metal: 0.6, rough: 0.3, parts: ['strips','bar','orb'], paint: 41 },
+  { id: 13, name: 'Gilded Age', rarity: 'rare', body: 0x2a2218, accent: 0xe3b23a, glow: 0xffe27a, metal: 0.9, rough: 0.2, parts: ['fins','tail','strips'], paint: 42 },
+  { id: 14, name: 'Nebula', rarity: 'epic', body: 0x0a0618, accent: 0x8f6bff, glow: 0xb59cff, metal: 0.6, rough: 0.2, parts: ['halo','orb','fins'], paint: 43 },
+  { id: 15, name: 'Inferno', rarity: 'epic', body: 0x1a0a06, accent: 0xff7a1f, glow: 0xffa040, metal: 0.5, rough: 0.3, parts: ['spines','blade','tail'], paint: 44 },
+  { id: 16, name: 'Frostbite', rarity: 'epic', body: 0xd5eefa, accent: 0x5ac8ff, glow: 0xa5ecff, metal: 0.7, rough: 0.2, parts: ['blade','spines','strips'], paint: 45 },
+  { id: 17, name: 'Toxic Rain', rarity: 'epic', body: 0x0c1a0a, accent: 0x6bff3a, glow: 0x9aff6a, metal: 0.5, rough: 0.3, parts: ['fins','strips','orb'], paint: 46 },
+  { id: 18, name: 'Gold Reaper', rarity: 'legendary', body: 0xc9962e, accent: 0x2a0e0e, glow: 0xffd070, metal: 1.0, rough: 0.12, parts: ['blade','wings','halo'], paint: 47 },
+  { id: 19, name: 'Starforge', rarity: 'legendary', body: 0x120f26, accent: 0xffd36b, glow: 0xfff0b0, metal: 0.85, rough: 0.15, parts: ['crown','wings','halo','strips'], paint: 48 },
+  { id: 20, name: 'Plasma Heart', rarity: 'legendary', body: 0x1a0618, accent: 0xff3aa0, glow: 0xff7ac8, metal: 0.7, rough: 0.15, parts: ['orb','halo','spines','bar'], paint: 49 },
+  { id: 21, name: 'Dragon Emperor', rarity: 'mythic', body: 0x2a0505, accent: 0xffb02e, glow: 0xff5a1a, metal: 0.95, rough: 0.1, parts: ['crown','spines','wings','blade','tail','orb'], paint: 50 },
+  { id: 22, name: 'Celestial', rarity: 'mythic', body: 0xf4f7ff, accent: 0x9ad0ff, glow: 0xffffff, metal: 1.0, rough: 0.08, parts: ['wings','halo','crown','orb','blade','strips'], paint: 51 },
 ];
 export const skinOf = (mask) => ((mask | 0) >> SKIN_SHIFT) & ((1 << SKIN_BITS) - 1);
 export const setSkin = (mask, s) => ((mask | 0) & ~(((1 << SKIN_BITS) - 1) << SKIN_SHIFT)) | ((s & ((1 << SKIN_BITS) - 1)) << SKIN_SHIFT);

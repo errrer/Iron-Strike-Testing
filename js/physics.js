@@ -126,16 +126,16 @@ export class Colliders {
 
   // Nearest bullet-stopping box along the ray with how far the ray travels inside it: { t, out, y } or null (used for wall-bang penetration)
   rayThrough(ox, oy, oz, dx, dy, dz, maxD) {
-    let best = maxD, out = 0, hit = false; const boxes = this.boxes;
+    let best = maxD, out = 0, hit = false, mat = null; const boxes = this.boxes;
     for (let i = 0; i < boxes.length; i++) {
       const b = boxes[i]; if (b.noRay) continue;
       let t0 = 0, t1 = Infinity;
       if (Math.abs(dx) < 1e-9) { if (ox < b.x0 || ox > b.x1) continue; } else { let a = (b.x0 - ox) / dx, c = (b.x1 - ox) / dx; if (a > c) { const t = a; a = c; c = t; } if (a > t0) t0 = a; if (c < t1) t1 = c; if (t0 > t1) continue; }
       if (Math.abs(dy) < 1e-9) { if (oy < b.y0 || oy > b.y1) continue; } else { let a = (b.y0 - oy) / dy, c = (b.y1 - oy) / dy; if (a > c) { const t = a; a = c; c = t; } if (a > t0) t0 = a; if (c < t1) t1 = c; if (t0 > t1) continue; }
       if (Math.abs(dz) < 1e-9) { if (oz < b.z0 || oz > b.z1) continue; } else { let a = (b.z0 - oz) / dz, c = (b.z1 - oz) / dz; if (a > c) { const t = a; a = c; c = t; } if (a > t0) t0 = a; if (c < t1) t1 = c; if (t0 > t1) continue; }
-      if (t0 < best) { best = t0; out = t1; hit = true; }
+      if (t0 < best) { best = t0; out = t1; hit = true; mat = b.mat; }
     }
-    return hit ? { t: best, out } : null;
+    return hit ? { t: best, out, mat } : null;
   }
 
   // Is the straight 2D path a->b blocked by anything that stops walking? (margin = body radius)

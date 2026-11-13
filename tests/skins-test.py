@@ -29,12 +29,19 @@ with sync_playwright() as p:
       return [hpAr, hpThick]; }""")
     check('rifle shoots through a thin wall', r[0] < 100)
     check('thick wall stops the bullet', r[1] == 100)
+    r = pg.evaluate("""() => { const g = window.__game, p = g.player, v = g.actors.find(a => a !== p), w = p.weapon, d = { x: 0, y: 0, z: -1 }, out = [];
+      for (const mat of ['wood', 'concrete']) { g.col.boxes.length = 0; g.col.boxes.push({ x0: -3, x1: 3, y0: 0, y1: 4, z0: -10.5, z1: -9.5, mat }); v.hp = 100; g.hitscan(p, 0, 1.2, -5, d, w, 1); out.push(v.hp); }
+      g.col.boxes.length = 0; g.col.boxes.push({ x0: -3, x1: 3, y0: 0, y1: 4, z0: -10.5, z1: -9.5, mat: 'concrete' }); const weak = Object.assign({}, w, { pen: 0.2 }); v.hp = 100; g.hitscan(p, 0, 1.2, -5, d, weak, 1); out.push(v.hp);
+      return out; }""")
+    check('1m wood is shot through (ak)', r[0] < 100)
+    check('wood hurts less than nothing, concrete resists more', r[1] >= r[0])
+    check('weak-pen gun stopped by concrete', r[2] == 100)
     r = pg.evaluate("""() => { const g = window.__game, pr = g.prog; pr.d.cash = 4900; const c = 18;
       const a = pr.canBuy(c); pr.addCash(100); const b = pr.canBuy(c); const bought = pr.buy('ak47', c);
       return [a, b, bought, pr.d.cash, pr.camoUnlocked('ak47', c), pr.camoUnlocked('m4a1', c)]; }""")
     check('skin needs 5000', r[0] is False and r[1] is True)
     check('buying deducts 5000 and unlocks only that gun', r[2] is True and r[3] == 0 and r[4] is True and r[5] is False)
-    r = pg.evaluate("""async () => { const m = await import('./js/supermod.js?v=0.19.2').catch(() => null); return !!m; }""")
+    r = pg.evaluate("""async () => { const m = await import('./js/supermod.js?v=0.19.3').catch(() => null); return !!m; }""")
     r = pg.evaluate("""() => { const g = window.__game, pr = g.prog; pr.d.cash = 0; const before = pr.canBuy(19);
       const s = JSON.parse(localStorage.getItem('ironstrike_supermod') || '{}'); return [before, typeof pr.cash]; }""")
     check('no money, no skin', r[0] is False)
@@ -51,8 +58,8 @@ with sync_playwright() as p:
     for m in ['catacombs', 'ruins', 'plaza']:
         r = pg.evaluate("(m) => { const g = window.__game; g.start({mode:'tdm',map:m,mapName:m,primary:'m4a1',secondary:'g18',attP:0,attS:0,difficulty:'normal'}); g.state='playing'; for (let i=0;i<30;i++) g.update ? g.update(1/30) : 0; return g.actors.length; }", m)
         check('map ' + m + ' loads', r > 1)
-    r = pg.evaluate("""async () => { const P = await import('./js/progress.js?v=0.19.2'), W = await import('./js/weapons.js?v=0.19.2'), M = await import('./js/gunmodels.js?v=0.19.2');
-      (await import('./js/supermod.js?v=0.19.2')).MOD.infMoney = false; const pr = new P.Progress(); const bad = []; for (const id of Object.keys(P.UNLOCK)) if (!W.WEAPONS[id]) bad.push(id);
+    r = pg.evaluate("""async () => { const P = await import('./js/progress.js?v=0.19.3'), W = await import('./js/weapons.js?v=0.19.3'), M = await import('./js/gunmodels.js?v=0.19.3');
+      (await import('./js/supermod.js?v=0.19.3')).MOD.infMoney = false; const pr = new P.Progress(); const bad = []; for (const id of Object.keys(P.UNLOCK)) if (!W.WEAPONS[id]) bad.push(id);
       pr.d.xp = 1e9; const maxed = pr.info.level; pr.reset(); pr.d.xp = 0; pr.d.cash = 0;
       const locked = !pr.unlocked('barrett', false), cant = !pr.canBuyGun('barrett'); pr.d.cash = P.gunPrice('barrett'); const can = pr.canBuyGun('barrett'), got = pr.buyGun('barrett');
       return { bad, maxed, locked, cant, can, got, own: pr.unlocked('barrett', false), cash: pr.d.cash, price: P.gunPrice('barrett'), n: W.PRIMARIES.length + W.SECONDARIES.length, lock2: !pr.unlocked('awp', false) }; }""")
@@ -61,8 +68,8 @@ with sync_playwright() as p:
     check('buying a gun with money works', r['locked'] and r['cant'] and r['can'] and r['got'] and r['own'] and r['cash'] == 0 and r['lock2'])
     check('lots of guns', r['n'] >= 45)
     # skins & cases: mask bits, rolling, panel + reel
-    r = pg.evaluate("""async () => { const W = await import('./js/weapons.js?v=0.19.2'), P = await import('./js/progress.js?v=0.19.2');
-      (await import('./js/supermod.js?v=0.19.2')).MOD.infMoney = false;
+    r = pg.evaluate("""async () => { const W = await import('./js/weapons.js?v=0.19.3'), P = await import('./js/progress.js?v=0.19.3');
+      (await import('./js/supermod.js?v=0.19.3')).MOD.infMoney = false;
       const m = W.setSkin(W.setCamo(0, 5), 8), keep = W.cleanMask(W.WEAPONS.ak47, m), knife = W.cleanMask(W.WEAPONS.k_combat, m);
       const counts = { rare: 0, epic: 0, legendary: 0, mythic: 0 }; for (let i = 0; i < 4000; i++) counts[W.rollCase(W.CASES[1]).rarity]++;
       const pr = new P.Progress(); pr.d.cash = 999; const no = pr.openCase(W.CASES[0]); pr.d.cash = 1000; const a = pr.openCase(W.CASES[0]);

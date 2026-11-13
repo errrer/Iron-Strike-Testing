@@ -1,6 +1,6 @@
 // Skins & Cases panel: pick a model skin for a gun (camos still stack on top through the Gunsmith), buy cases and watch them open.
-import { WEAPONS, SKINS, CASES, RARITY, cleanMask, skinOf, setSkin, withAtt } from './weapons.js?v=0.19.2';
-import { WeaponPreview } from './wpreview.js?v=0.19.2';
+import { WEAPONS, SKINS, CASES, RARITY, cleanMask, skinOf, setSkin, withAtt } from './weapons.js?v=0.19.3';
+import { WeaponPreview } from './wpreview.js?v=0.19.3';
 
 const $ = (id) => document.getElementById(id);
 const mk = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
