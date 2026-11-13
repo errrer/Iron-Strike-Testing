@@ -40,6 +40,7 @@ export class Bot {
       if (dist > this.d.sight) continue;
       if (dist > 9 && (dx * fx + dz * fz) / dist < 0.2) continue;       // outside ~160 degree view cone
       if (!g.los(a, e)) continue;
+      if (g.utils && g.utils.smokes.length && (g.utils.inSmoke(e.pos.x, e.pos.y + 1.2, e.pos.z) || g.utils.inSmoke(a.pos.x, a.pos.y + 1.6, a.pos.z) || g.utils.inSmoke((a.pos.x + e.pos.x) / 2, (a.pos.y + e.pos.y) / 2 + 1.4, (a.pos.z + e.pos.z) / 2))) continue;
       if (dist < bd) { bd = dist; best = e; }
     }
     if (best) {
@@ -85,6 +86,7 @@ export class Bot {
   update(dt) {
     const a = this.a, g = this.g, d = this.d;
     if (!a.alive || g.matchT < 0) return;
+    if (a.stunT > 0) { a.stunT -= dt; return; }
     this.thinkT -= dt; this.strafeT -= dt; this.memT -= dt; this.pause -= dt; this.repathT -= dt; this.errT -= dt; this.stuckT += dt;
     if (this.thinkT <= 0) { this.thinkT = 0.14 + Math.random() * 0.1; this.scan(); }
     if (this.seen) this.reactT -= dt;

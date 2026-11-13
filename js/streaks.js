@@ -1,15 +1,15 @@
-import { labelFor } from './keybinds.js?v=0.19.3';
+import { labelFor } from './keybinds.js?v=0.19.4';
 // Killstreak rewards (offline matches): earn them with kills in a row, then press the number key.
-//   3 kills  UAV        - every enemy shows on the radar for 25 s            (key 4)
-//   5 kills  SENTRY GUN - an automatic turret guards the spot for 60 s       (key 5)
-//   7 kills  AIRSTRIKE  - a line of bombs lands where you are looking        (key 6)
+//   3 kills  UAV        - every enemy shows on the radar for 25 s            (key 7)
+//   5 kills  SENTRY GUN - an automatic turret guards the spot for 60 s       (key 8)
+//   7 kills  AIRSTRIKE  - a line of bombs lands where you are looking        (key 9)
 // The cycle repeats every 10 kills (13, 15, 17 ...).
 import * as THREE from 'three';
 
 export const STREAKS = [
-  { id: 'uav', name: 'UAV', at: 3, key: 4, code: 'Digit4' },
-  { id: 'sentry', name: 'SENTRY GUN', at: 5, key: 5, code: 'Digit5' },
-  { id: 'strike', name: 'AIRSTRIKE', at: 7, key: 6, code: 'Digit6' },
+  { id: 'uav', name: 'UAV', at: 3, key: 7, code: 'Digit7' },
+  { id: 'sentry', name: 'SENTRY GUN', at: 5, key: 8, code: 'Digit8' },
+  { id: 'strike', name: 'AIRSTRIKE', at: 7, key: 9, code: 'Digit9' },
 ];
 const SENTRY_W = { id: 'sentry', name: 'Sentry Gun' }, STRIKE_W = { id: 'strike', name: 'Airstrike' };
 const rand = (a, b) => a + Math.random() * (b - a);

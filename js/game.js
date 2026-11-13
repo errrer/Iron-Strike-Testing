@@ -1,22 +1,23 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.19.3';
-import { canon } from './keybinds.js?v=0.19.3';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.19.3';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.19.3';
-import { buildMap } from './maps.js?v=0.19.3';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.19.3';
-import { buildWorld } from './world.js?v=0.19.3';
-import { Bot } from './bots.js?v=0.19.3';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.19.3';
-import { buildSoldier, SKIN } from './soldier.js?v=0.19.3';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.19.3';
-import { Zombies, PERKS } from './zombies.js?v=0.19.3';
-import { inspectFor, inspectPose } from './inspect.js?v=0.19.3';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.19.3';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.19.3';
-import { Objectives } from './objectives.js?v=0.19.3';
-import { Streaks, STREAKS } from './streaks.js?v=0.19.3';
-import { Gore } from './gore.js?v=0.19.3';
+import { MOD } from './supermod.js?v=0.19.4';
+import { canon } from './keybinds.js?v=0.19.4';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.19.4';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.19.4';
+import { buildMap } from './maps.js?v=0.19.4';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.19.4';
+import { buildWorld } from './world.js?v=0.19.4';
+import { Bot } from './bots.js?v=0.19.4';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.19.4';
+import { buildSoldier, SKIN } from './soldier.js?v=0.19.4';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.19.4';
+import { Zombies, PERKS } from './zombies.js?v=0.19.4';
+import { inspectFor, inspectPose } from './inspect.js?v=0.19.4';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.19.4';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.19.4';
+import { Objectives } from './objectives.js?v=0.19.4';
+import { Utilities } from './utils.js?v=0.19.4';
+import { Streaks, STREAKS } from './streaks.js?v=0.19.4';
+import { Gore } from './gore.js?v=0.19.4';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -119,6 +120,7 @@ export class Game {
       if (!p) return;
       if (e.code === 'KeyR') this.startReload(p);
       if (e.code === 'Digit1' || e.code === 'Digit2') { if (this.knifeOut) this.stowKnife(); else this.switchWeapon(p, e.code === 'Digit1' ? 0 : 1); }
+      if (this.utils && (e.code === 'Digit3' || e.code === 'Digit4')) this.utils.use(e.code === 'Digit3' ? 0 : 1);
       if (e.code === 'KeyQ') this.adsKey = true;
       if (this.streaks && !this.net) { const s = STREAKS.find((x) => x.code === e.code); if (s) this.streaks.use(s.id); }
       if (e.code === 'KeyT') this.toggleView();
@@ -349,6 +351,7 @@ export class Game {
     for (const a of this.actors) this.spawn(a, true);
     this.obj = mode.obj ? new Objectives(this, mode.obj) : null;
     this.streaks = mode.sandbox || mode.zm ? null : new Streaks(this);
+    this.utils = new Utilities(this);
     this.zm = mode.zm ? new Zombies(this) : null;
     this.setPlayerVm();
     this.state = 'playing';
@@ -361,6 +364,7 @@ export class Game {
     if (this.world) this.world.dispose();
     if (this.obj) this.obj.dispose();
     if (this.streaks) this.streaks.dispose();
+    if (this.utils) { this.utils.dispose(); this.utils = null; }
     if (this.zm) this.zm.dispose();
     this.zm = null; this.streaks = null; this.obj = null; this.world = null; this.scene = null;
     this.tracers = []; this.particles = []; this.gore = null;
@@ -449,6 +453,7 @@ export class Game {
     a.pos.set(x, y, z); a.tgt = a.remote ? new V3(x, y, z) : null;
     a.vel.set(0, 0, 0);
     a.yaw = yaw; a.pitch = 0; a.ibuf = [];
+    if (a.isPlayer) a.utilLeft = [1, 1];
     a.hp = 100; a.alive = true; a.reloading = false; a.reloadT = 0; a.switchT = 0.4; a.fireCd = 0.3; a.cur = 0; a.weapon = a.weapons[0];
     a.ammo = a.weapons.map((w) => ({ mag: w.mag, res: w.reserve })); a.crouch = false; a.slideT = 0; a.mantle = null; a.h = 1.8; a.eye = 1.65; a.heat = 0; a.recoilDebt = 0; a.ads = 0;
     a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99; a.recoilBias = 0;
@@ -1013,6 +1018,7 @@ export class Game {
     for (const a of this.actors) if (!a.alive && a.mesh) this.syncMesh(a, dt);
     if (this.obj && !this.ended && this.matchT >= 0) this.obj.update(dt);
     if (this.streaks && !this.ended) this.streaks.update(dt);
+    if (this.utils) this.utils.update(dt);
     if (this.zm) this.zm.update(dt);
     this.updateFx(dt);
 

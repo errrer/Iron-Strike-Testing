@@ -1,22 +1,23 @@
-import { Game, MODES, mpMode } from './game.js?v=0.19.3';
-import { Net, cleanCode, cleanName } from './net.js?v=0.19.3';
-import { watchForEgg } from './easter.js?v=0.19.3';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.19.3';
-import { Sound } from './audio.js?v=0.19.3';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.19.3';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.19.3';
-import { loadProps } from './props.js?v=0.19.3';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.19.3';
-import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.19.3';
-import { initMapMaker } from './mapmaker.js?v=0.19.3';
-import { RaceMode } from './race.js?v=0.19.3';
-import { initSupermod, MOD } from './supermod.js?v=0.19.3';
-import { initKeybinds } from './keybinds.js?v=0.19.3';
-import { Gunsmith } from './gunsmith.js?v=0.19.3';
-import { SkinsUI } from './skinsui.js?v=0.19.3';
-import { WeaponPreview } from './wpreview.js?v=0.19.3';
-import { initTouch, blockZoom } from './touch.js?v=0.19.3';
-import { initGamepad } from './gamepad.js?v=0.19.3';
+import { Game, MODES, mpMode } from './game.js?v=0.19.4';
+import { Net, cleanCode, cleanName } from './net.js?v=0.19.4';
+import { UTILS, UTIL_IDS } from './utils.js?v=0.19.4';
+import { watchForEgg } from './easter.js?v=0.19.4';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.19.4';
+import { Sound } from './audio.js?v=0.19.4';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.19.4';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.19.4';
+import { loadProps } from './props.js?v=0.19.4';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.19.4';
+import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.19.4';
+import { initMapMaker } from './mapmaker.js?v=0.19.4';
+import { RaceMode } from './race.js?v=0.19.4';
+import { initSupermod, MOD } from './supermod.js?v=0.19.4';
+import { initKeybinds } from './keybinds.js?v=0.19.4';
+import { Gunsmith } from './gunsmith.js?v=0.19.4';
+import { SkinsUI } from './skinsui.js?v=0.19.4';
+import { WeaponPreview } from './wpreview.js?v=0.19.4';
+import { initTouch, blockZoom } from './touch.js?v=0.19.4';
+import { initGamepad } from './gamepad.js?v=0.19.4';
 
 const $ = (id) => document.getElementById(id);
 
@@ -41,6 +42,7 @@ if (cfg.primary === 'dmr') cfg.primary = 'mk14';
 if (Array.isArray(cfg.classes)) for (const c of cfg.classes) if (c && c.prim === 'dmr') c.prim = 'mk14';
 if (!Array.isArray(cfg.classes) || cfg.classes.length !== 5) cfg.classes = CLASS_DEFAULTS.map(([p, s], i) => (i === 0 ? { prim: cfg.primary, sec: cfg.secondary, knife: cfg.knife || 'k_combat', ap: 0, as: 0 } : { prim: p, sec: s, knife: 'k_combat', ap: 0, as: 0 }));
 if (!(cfg.cls >= 0 && cfg.cls < 5)) cfg.cls = 0;
+if (!Array.isArray(cfg.utils) || cfg.utils.length !== 2 || cfg.utils.some((u) => !UTILS[u])) cfg.utils = ['frag', 'flash'];
 const save = () => { try { if (cfg.classes && WEAPONS[cfg.primary] && WEAPONS[cfg.secondary]) cfg.classes[cfg.cls] = snapClass(); localStorage.setItem('ironstrike', JSON.stringify(cfg)); } catch (e) { /* ignore */ } };
 
 function showFatal(msg) {
@@ -131,6 +133,8 @@ for (const id of KNIVES) {
 }
 $('knives').onmouseleave = () => showWeapon(cfg[curSlot] || cfg.primary, curSlot);
 game.knifeId = cfg.knife;
+game.utilIds = cfg.utils;
+for (const [i, id] of ['util1', 'util2'].entries()) { const el = $(id); if (!el) continue; el.innerHTML = UTIL_IDS.map((u) => `<option value="${u}">${UTILS[u].name}</option>`).join(''); el.value = cfg.utils[i]; el.title = UTILS[cfg.utils[i]].desc; el.addEventListener('change', () => { cfg.utils[i] = el.value; el.title = UTILS[el.value].desc; save(); }); }
 const syncKnife = () => { game.knifeMask = maskFor(cfg.knife); if (game.state === 'playing' && game.vm && game.knifeOut) game.setPlayerVm(); };
 syncKnife();
 $('knifeGs').addEventListener('click', () => { if (gsm) gsm.show(cfg.knife); });
