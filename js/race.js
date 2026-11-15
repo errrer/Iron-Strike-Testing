@@ -1,8 +1,8 @@
 // Dirt Bike Race: a gun-free racing mode. Rendering, input and HUD live here; the simulation is in race-core.js.
 import * as THREE from 'three';
-import { makeEnv } from './gunmodels.js?v=0.19.4';
-import { RaceSim, HW, VMAX } from './race-core.js?v=0.19.4';
-import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.19.4';
+import { makeEnv } from './gunmodels.js?v=0.20.0';
+import { RaceSim, HW, VMAX } from './race-core.js?v=0.20.0';
+import { RaceNet, COLOR_NAMES, MAX_HUMANS, MAX_RIDERS } from './racenet.js?v=0.20.0';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrap = (a) => { const T = Math.PI * 2; a %= T; if (a > Math.PI) a -= T; if (a < -Math.PI) a += T; return a; };
@@ -86,7 +86,7 @@ export class RaceMode {
       <div class="rrow"><label for="rBots">Bots</label><select id="rBots"><option value="0">None (just you)</option><option value="1">1 bot</option><option value="3">3 bots</option><option value="5" selected>5 bots</option></select></div>
       <div class="rrow"><label for="rDiff">Bot skill</label><select id="rDiff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div>
       <div class="rrow"><label for="rColor">Your bike</label><select id="rColor">${Object.keys(BIKE_COLORS).map((c) => `<option>${c}</option>`).join('')}</select></div>
-      <div class="rkeys"><b>W / &uarr;</b> throttle &middot; <b>S / &darr;</b> brake &middot; <b>A D / &larr; &rarr;</b> steer &middot; <b>Space</b> nitro &middot; <b>Shift</b> wheelie &middot; <b>R</b> reset to track &middot; <b>V</b> camera &middot; <b>Esc</b> pause<br>Controller: RT gas, LT brake, left stick steer, A nitro, Y reset, Start pause. Touch: on-screen buttons.</div>
+      <div class="rkeys"><b>W / &uarr;</b> throttle &middot; <b>S / &darr;</b> brake &middot; <b>A D / &larr; &rarr;</b> steer &middot; <b>Space</b> nitro &middot; <b>Shift</b> wheelie &middot; <b>X</b> handbrake (the only way to slide) &middot; <b>R</b> reset to track &middot; <b>V</b> camera &middot; <b>Esc</b> pause<br>Controller: RT gas, LT brake, left stick steer, A nitro, B handbrake, Y reset, Start pause. Touch: on-screen buttons.</div>
       <div class="rbest" id="rBest">${best ? 'Best lap: ' + fmt(parseFloat(best)) : ''}</div>
       <button id="rGo" class="btn primary" type="button">START RACE</button> <button id="rOnline" class="btn alt" type="button">PLAY ONLINE</button> <button id="rBack" class="btn" type="button">Back</button></div>`);
     let nm = 'Player'; try { nm = localStorage.getItem('ironstrike.race.name') || nm; } catch (e) { /* storage blocked */ }
@@ -109,7 +109,7 @@ export class RaceMode {
       <div id="rTimeBox"><small>TIME</small><b id="rTime">0:00.00</b><span id="rLast"></span></div>
       <div id="rSpd"><b id="rKmh">0</b><small>km/h</small><div id="rNit"><i id="rNitFill"></i></div></div>
       <canvas id="rMap" width="150" height="150"></canvas><div id="rMsg"></div><div id="rBoostFx"></div>
-      <div id="rTouch"><div id="rtSteer"><i id="rtKnob"></i><span>&#9664; STEER &#9654;</span></div><div class="rtR"><button data-k="wheelie" type="button"><b>WHEELIE</b></button><button data-k="boost" type="button"><b>NITRO</b></button><button data-k="brake" type="button"><b>BRAKE</b></button><button data-k="gas" type="button" class="gas"><b>GAS</b></button></div></div>
+      <div id="rTouch"><div id="rtSteer"><i id="rtKnob"></i><span>&#9664; STEER &#9654;</span></div><div class="rtR"><button data-k="hand" type="button"><b>SLIDE</b></button><button data-k="wheelie" type="button"><b>WHEELIE</b></button><button data-k="boost" type="button"><b>NITRO</b></button><button data-k="brake" type="button"><b>BRAKE</b></button><button data-k="gas" type="button" class="gas"><b>GAS</b></button></div></div>
       <button id="rPauseBtn" type="button">II</button>`);
     this.pauseEl = mk('racePause', 'overlay hidden', `<div class="panel racepanel"><h2>PAUSED</h2><button id="rResume" class="btn primary" type="button">Resume</button> <button id="rRestart" class="btn" type="button">Restart</button> <button id="rQuit" class="btn" type="button">Quit to menu</button></div>`);
     this.endEl = mk('raceEnd', 'overlay hidden', `<div class="panel racepanel"><h2 id="rEndTitle">FINISHED</h2><table id="rEndTable"></table><div id="rEndBest"></div><button id="rAgain" class="btn primary" type="button">Race again</button> <button id="rEndQuit" class="btn" type="button">Menu</button></div>`);
@@ -377,17 +377,17 @@ export class RaceMode {
   readInput() {
     const k = this.keys, t = this.touch;
     let thr = (k.KeyW || k.ArrowUp || t.gas) ? 1 : 0, brk = (k.KeyS || k.ArrowDown || t.brake) ? 1 : 0;
-    let steer = ((k.KeyA || k.ArrowLeft || t.left) ? 1 : 0) - ((k.KeyD || k.ArrowRight || t.right) ? 1 : 0), boost = !!(k.Space || t.boost), wheelie = !!(k.ShiftLeft || k.ShiftRight || t.wheelie);
+    let steer = ((k.KeyA || k.ArrowLeft || t.left) ? 1 : 0) - ((k.KeyD || k.ArrowRight || t.right) ? 1 : 0), boost = !!(k.Space || t.boost), wheelie = !!(k.ShiftLeft || k.ShiftRight || t.wheelie), hand = !!(k.KeyX || t.hand);
     const pads = navigator.getGamepads ? navigator.getGamepads() : [], gp = pads && [...pads].find((p) => p && p.connected);
     if (gp) {
       const ax = gp.axes[0] || 0, B = (i) => (gp.buttons[i] ? gp.buttons[i].value || (gp.buttons[i].pressed ? 1 : 0) : 0);
       if (Math.abs(ax) > 0.12) steer = -clamp((Math.abs(ax) - 0.12) / 0.88, 0, 1) * Math.sign(ax);
-      thr = Math.max(thr, B(7)); brk = Math.max(brk, B(6)); boost = boost || B(0) > 0.5 || B(5) > 0.5; wheelie = wheelie || B(2) > 0.5;
+      thr = Math.max(thr, B(7)); brk = Math.max(brk, B(6)); boost = boost || B(0) > 0.5 || B(5) > 0.5; wheelie = wheelie || B(2) > 0.5; hand = hand || B(1) > 0.5;
       const edge = (i, f) => { const d = B(i) > 0.5; if (d && !this.padPrev[i]) f(); this.padPrev[i] = d; };
       edge(3, () => { if (this.sim && !this.paused) this.sim.player.reset(); }); edge(9, () => this.setPause(!this.paused)); edge(4, () => { this.close = !this.close; });
     }
     if (t.steerA !== undefined) steer = t.steerA;
-    return { thr, brk, steer: clamp(steer, -1, 1), boost, wheelie };
+    return { thr, brk, steer: clamp(steer, -1, 1), boost, wheelie, hand };
   }
 
   // ---------------- engine sound
@@ -464,6 +464,12 @@ export class RaceMode {
         const k = this.dustI++ % this.dustN, fx = -Math.sin(b.yaw), fz = -Math.cos(b.yaw);
         this.dustPos[k * 3] = b.x - fx * 0.8 + (Math.random() - 0.5) * 0.4; this.dustPos[k * 3 + 1] = b.y + 0.25; this.dustPos[k * 3 + 2] = b.z - fz * 0.8 + (Math.random() - 0.5) * 0.4;
         this.dustVel[k * 3] = -fx * 1.2 + (Math.random() - 0.5) * 1.6; this.dustVel[k * 3 + 1] = 1.1 + Math.random() * 1.4; this.dustVel[k * 3 + 2] = -fz * 1.2 + (Math.random() - 0.5) * 1.6; this.dustAge[k] = 0;
+      }
+      // powerslide: a fan of dust thrown out sideways
+      if (!b.air && Math.abs(b.slide || 0) > 1.5 && Math.random() < 0.95) {
+        const k = this.dustI++ % this.dustN, sg = Math.sign(b.slide), lx = -Math.cos(b.yaw), lz = Math.sin(b.yaw), fx = -Math.sin(b.yaw), fz = -Math.cos(b.yaw);
+        this.dustPos[k * 3] = b.x - fx * 0.9; this.dustPos[k * 3 + 1] = b.y + 0.2; this.dustPos[k * 3 + 2] = b.z - fz * 0.9;
+        this.dustVel[k * 3] = -lx * sg * (1.5 + Math.random() * 2.5) - fx; this.dustVel[k * 3 + 1] = 0.8 + Math.random() * 1.2; this.dustVel[k * 3 + 2] = -lz * sg * (1.5 + Math.random() * 2.5) - fz; this.dustAge[k] = 0;
       }
     });
     for (let k = 0; k < this.dustN; k++) {

@@ -30,4 +30,15 @@ const s2 = new RaceSim({ laps: 1 }); for (let i = 0; i < 60 * 12; i++) s2.update
 check('driving straight into the grass recovers/limits speed', s2.player.speed < 25 && isFinite(s2.player.x), s2.player.speed.toFixed(1));
 // free ride
 const s3 = new RaceSim({ laps: 0 }); check('free ride = one bike', s3.bikes.length === 1 && s3.state === 'racing');
+// DK Vehicle System, grip profile: no sliding unless the handbrake is held
+{
+  const run = (hand) => { const s = new RaceSim({ laps: 0 }), b = s.player; b.speed = 26; b.vx = -Math.sin(b.yaw) * 26; b.vz = -Math.cos(b.yaw) * 26; let maxSlide = 0, after = 0;
+    for (let i = 0; i < 60 * 3; i++) { const t = i / 60; s.update(1 / 60, { thr: 1, brk: 0, steer: t < 1 ? 0 : 1, boost: false, hand: hand && t > 1 && t < 1.8 }); if (t >= 1) maxSlide = Math.max(maxSlide, Math.abs(b.slide)); if (t > 2.9) after = Math.abs(b.slide); }
+    return { maxSlide, after, speed: b.speed }; };
+  const g = run(false), h = run(true);
+  check('grip: full lock on the gas does not slide', g.maxSlide < 1.5, g.maxSlide.toFixed(2) + ' m/s');
+  check('handbrake: bike powerslides', h.maxSlide > 4, h.maxSlide.toFixed(2) + ' m/s');
+  check('handbrake: regrips after letting go', h.after < 1.5, h.after.toFixed(2) + ' m/s');
+  check('handbrake: slide costs speed', h.speed < g.speed, h.speed.toFixed(1) + ' vs ' + g.speed.toFixed(1));
+}
 console.log(ok ? 'PASS' : 'FAIL'); process.exit(ok ? 0 : 1);

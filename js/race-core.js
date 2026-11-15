@@ -1,6 +1,8 @@
 // Dirt bike racing: pure simulation (no rendering, no THREE) so it can be unit-tested in Node.
 // Coordinates match the shooter: x east/west, z north/south, y up; yaw 0 faces -z, positive yaw turns left (towards -x).
 
+import { PROFILES, dkBikeSlide } from './dk-vehicle.js';   // DK Vehicle System: grip handling, handbrake powerslide
+
 export const HW = 7;                 // half width of the dirt track (m)
 export const VMAX = 31;              // top speed on the track (m/s, ~110 km/h)
 const G = 24;                        // gravity (a bit heavy so jumps feel snappy)
@@ -101,13 +103,13 @@ export class Bike {
     this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.speed = 0; this.vx = 0; this.vz = 0; this.vy = 0;
     this.air = false; this.pitch = 0; this.roll = 0; this.st = 0; this.nitro = 1; this.boosting = false; this.on = true;
     this.idx = 0; this.prog = 0; this.lap = 0; this.lapStart = 0; this.lapTimes = []; this.finished = false; this.finishT = 0; this.stuckT = 0; this.landed = 0; this.offT = 0;
-    this.wheel = 0; this.thr = 0; this.wh = 0; this.wheelie = false; this.free = false; this.whT = 0;
+    this.wheel = 0; this.thr = 0; this.wh = 0; this.wheelie = false; this.free = false; this.whT = 0; this.slide = 0; this.hbT = 0;
   }
   place(idx, lat = 0) {
     const T = this.track, N = T.N, i = ((idx % N) + N) % N, l = T.left(i);
     this.x = T.x[i] + l[0] * lat; this.z = T.z[i] + l[1] * lat; this.yaw = T.yaw[i];
     const g = T.ground(this.x, this.z, i); this.y = g.h; this.idx = i; this.on = g.on;
-    this.speed = 0; this.vx = this.vz = this.vy = 0; this.air = false; this.pitch = 0; this.roll = 0; this.stuckT = 0; this.offT = 0;
+    this.speed = 0; this.slide = 0; this.hbT = 0; this.vx = this.vz = this.vy = 0; this.air = false; this.pitch = 0; this.roll = 0; this.stuckT = 0; this.offT = 0;
   }
   // put the bike back on the track just ahead of where it is (used by the reset key and when stuck)
   reset() { this.place(this.idx + 3, 0); this.nitro = Math.max(this.nitro, 0.3); }
@@ -126,18 +128,28 @@ export class Bike {
     if (boosting) this.nitro = Math.max(0, this.nitro - dt * 0.34); else this.nitro = Math.min(1, this.nitro + dt * 0.05);
     const vmax = VMAX * (this.on ? 1 : 0.62) * (boosting ? 1.3 : 1) * this.skill;
     this.st += (inp.steer - this.st) * Math.min(1, dt * 9);
+    // DK Vehicle System, grip profile: the bike follows the front wheel; only the handbrake (X) lets the back end slide
+    const P = PROFILES.grip;
+    this.hbT += clamp((inp.hand ? 1 : 0) - this.hbT, -P.hbRelease * dt, 12 * dt);
+    const S = dkBikeSlide(P, this.hbT, this.speed);
     if (!this.air) {
       let a = 0;
       if (inp.thr > 0) a += inp.thr * 15 * Math.max(0, 1 - Math.max(0, this.speed) / vmax) * (boosting ? 1.8 : 1) * (1 - 0.18 * this.wh);
       if (inp.brk > 0) a -= inp.brk * (this.speed > 0.5 ? 30 : 7);
+      a -= S.scrub * (this.speed > 0 ? 1 : 0);                                                  // the locked rear wheel scrubs speed
       a -= this.speed * 0.04 + (this.speed > 0 ? 1.4 : -1.4) * (this.on ? 1 : 3);              // drag + rolling resistance (dirt is grippy, grass is not)
       a -= 9.8 * Math.sin(this.pitch) * 0.75;                                                    // hills cost speed going up, give it back going down
       if (this.speed > vmax) a -= (this.speed - vmax) * 2;
       this.speed = clamp(this.speed + a * dt, -6, VMAX * 1.5);
-      const yr = this.st * 2.3 * (1 - 0.45 * this.wh) / (1 + Math.max(0, Math.abs(this.speed)) / 15) * Math.min(1, Math.abs(this.speed) / 4) * (this.speed >= 0 ? 1 : -1);
+      const yr = this.st * 2.3 * (1 - 0.45 * this.wh) / (1 + Math.max(0, Math.abs(this.speed)) / 15) * Math.min(1, Math.abs(this.speed) / 4) * (this.speed >= 0 ? 1 : -1) * S.yawBoost;
       this.yaw += yr * dt;
-      const nfx = -Math.sin(this.yaw), nfz = -Math.cos(this.yaw);
-      this.vx = nfx * this.speed; this.vz = nfz * this.speed;
+      // body-frame velocity: turning the bike rotates it relative to where it is still going, the tyres then pull it back in line
+      const dpsi = yr * dt, cp = Math.cos(dpsi), sp = Math.sin(dpsi);
+      let vf = this.speed * cp + this.slide * sp, vl = this.slide * cp - this.speed * sp;
+      const moved = vl * (1 - Math.exp(-S.latRate * dt)); vl -= moved; vf += (vf >= 0 ? 1 : -1) * Math.abs(moved) * S.conv;
+      this.speed = vf; this.slide = vl;
+      const nfx = -Math.sin(this.yaw), nfz = -Math.cos(this.yaw), nlx = -Math.cos(this.yaw), nlz = Math.sin(this.yaw);
+      this.vx = nfx * vf + nlx * vl; this.vz = nfz * vf + nlz * vl;
     } else this.yaw += this.st * 0.45 * dt;
     if (this.free) { this.x += this.vx * dt; this.z += this.vz * dt; }                                   // free ride: no edge of the world
     else { this.x = clamp(this.x + this.vx * dt, T.bounds.x0, T.bounds.x1); this.z = clamp(this.z + this.vz * dt, T.bounds.z0, T.bounds.z1); }
@@ -151,7 +163,7 @@ export class Bike {
         this.landed = Math.max(0, -this.vy);
         if (this.landed > 11) this.speed *= 1 - Math.min(0.2, (this.landed - 11) * 0.02);       // hard landings scrub speed
         this.vy = 0;
-        const nfx = -Math.sin(this.yaw), nfz = -Math.cos(this.yaw); this.speed = Math.max(0, this.vx * nfx + this.vz * nfz);
+        const nfx = -Math.sin(this.yaw), nfz = -Math.cos(this.yaw); this.speed = Math.max(0, this.vx * nfx + this.vz * nfz); this.slide = 0;
         this.vx = nfx * this.speed; this.vz = nfz * this.speed;
       } else this.vy = Math.max(-30, Math.min(16, (g.h - this.y) / dt));
       this.y = g.h; this.air = false;
