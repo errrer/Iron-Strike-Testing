@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.20.0';
+import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.20.1';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +11,7 @@ import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.20.0';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.20.0';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.20.1';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -1190,7 +1190,8 @@ function applySkin(g, sk) {
 }
 
 // ---- per-gun silhouette mods: extra geometry so variants of one base model don't look like recolours ----
-const GUN_MODS = {
+export const GUN_MODS = {
+  m4a1: ['foregrip'], ak47: ['ribs'], scar: ['vents'], mp5: ['shroud'], vmp: ['rib'], m1911: ['rib'], magnum: ['rib'],
   ump: ['shroud', 'ribs'], m16: ['carry', 'longbarrel'], fal: ['carry', 'brake3'], rpk: ['drum', 'bipod'], sks: ['bayonet', 'longbarrel'], mac10: ['stockwire', 'shroud'], revolver44: ['longbarrel', 'rib'],
   mp7: ['stockwire', 'foregrip'], pp19: ['drum', 'shroud'], kriss: ['block', 'foregrip', 'vents'], aug: ['carry', 'block'], famas: ['carry', 'ribs'], ak74: ['brake3', 'vents'], g36: ['carry', 'foregrip'],
   hk417: ['shroud', 'bipod'], mk14: ['cheek', 'bipod', 'longbarrel'], m60: ['shroud', 'bipod', 'ammobox'], pkm: ['vents', 'ammobox', 'bipod'], r700: ['cheek', 'brake3'], awp: ['cheek', 'longbarrel', 'bipod'],
@@ -1227,6 +1228,40 @@ function applyMods(g, id) {
   }
 }
 
+// ---- per-gun style: furniture colour (stock / handguard / grip), mag size, receiver livery stripe - so every variant reads differently at a glance ----
+export const GUN_STYLE = {
+  m16: { furn: 0x15161a, mag: [1, 0.9, 1], stripe: 0xc9a24a }, aug: { furn: 0x4b5a32, mag: [1.1, 0.8, 1.1], stripe: 0x4b5a32 }, famas: { furn: 0xb09a6a, mag: [1, 1.15, 1], stripe: 0x2c4f86 },
+  ak74: { furn: 0xd9722a, mag: [1, 1.05, 1], stripe: 0xd9722a }, kriss: { furn: 0x1f7a7a, mag: [1, 1.2, 1], stripe: 0x2ff0ff },
+  r700: { furn: 0x6b3f1e, stripe: 0x6b3f1e }, awp: { furn: 0x4b5a32, stripe: 0xe6e6e0 }, barrett: { furn: 0x15161a, stripe: 0xb23030 }, reaper: { furn: 0x5a3a86, stripe: 0xc65a8a },
+  spas12: { furn: 0x15161a, stripe: 0xd9722a }, ksg: { furn: 0xb09a6a, stripe: 0x6b3f1e },
+  ump: { furn: 0x7b8087, mag: [1, 1.1, 1], stripe: 0x2c4f86 }, mp7: { furn: 0x4a2a14, mag: [0.9, 0.85, 0.9], stripe: 0xb09a6a },
+  pp19: { furn: 0x6b3f1e, stripe: 0x6b3f1e }, fal: { furn: 0x4b5a32, mag: [1, 1.1, 1], stripe: 0xb09a6a }, g36: { furn: 0xe6e6e0, mag: [1.15, 1, 1.15], stripe: 0x7b8087 }, hk417: { furn: 0xc2a878, mag: [1, 0.9, 1], stripe: 0x15161a },
+  rpk: { furn: 0x6b3f1e, stripe: 0x8a2222 }, m60: { furn: 0x15161a, stripe: 0x4b5a32 }, pkm: { furn: 0x4a2a14, stripe: 0xd9722a },
+  saiga: { furn: 0xd9722a, stripe: 0x15161a }, tec9: { furn: 0x7b8087, stripe: 0x2ff0ff }, cz75: { furn: 0x4a2a14, mag: [1, 0.95, 1], stripe: 0xc9a24a },
+  usp: { furn: 0x2c4f86, stripe: 0x7b8087 }, five7: { furn: 0xe6e6e0, mag: [1, 1.12, 1], stripe: 0x1f7a7a },
+  mac10: { furn: 0x15161a, stripe: 0xb23030 }, revolver44: { furn: 0x6b3f1e, stripe: 0xc9a24a }, python: { furn: 0x15161a, stripe: 0x7b8087 }, judge: { furn: 0x8a2222, stripe: 0x15161a },
+  m4a1: { furn: 0x15161a, stripe: 0x7b8087 }, ak47: { furn: 0x6b3f1e, stripe: 0x6b3f1e }, scar: { furn: 0xc2a878, stripe: 0xc2a878 }, mp5: { furn: 0x15161a, stripe: 0x7b8087 }, vmp: { furn: 0x2c4f86, stripe: 0x2c4f86 },
+};
+function applyStyle(g, id) {
+  const st = GUN_STYLE[id]; if (!st || !THREE.Box3 || !THREE.Color) return;
+  let b; try { b = new THREE.Box3().setFromObject(g); } catch (e) { return; }
+  const mn = b.min, mx = b.max, L = mx.z - mn.z, H = mx.y - mn.y; if (!isFinite(L) || L < 0.05) return;
+  const yb = mn.y + H * 0.6, bb = new THREE.Box3(), c = new THREE.Vector3();
+  if (st.furn !== undefined) g.traverse((o) => {
+    if (!o.isMesh || !o.material || o.userData.modPart || o.userData.iron || o.userData.mag || !o.material.color) return;
+    bb.setFromObject(o); bb.getCenter(c);
+    const col = o.material.color; if ((col.r + col.g + col.b) / 3 > 0.5 && !o.material.map) return;
+    const stock = c.z > mn.z + L * 0.74, hand = c.z < mn.z + L * 0.42 && c.y < yb && (bb.max.y - bb.min.y) < H * 0.5, grip = c.z > mn.z + L * 0.55 && c.y < mn.y + H * 0.4;
+    if (!(stock || hand || grip)) return;
+    o.material = o.material.clone(); if (o.material.map) o.material.map = null; o.material.color.set(st.furn); o.material.metalness = 0.15; o.material.roughness = 0.6; o.userData.camoPart = false;
+  });
+  if (st.mag) g.traverse((o) => { if (o.isMesh && o.userData.mag) o.scale.multiply(new THREE.Vector3(st.mag[0], st.mag[1], st.mag[2])); });
+  if (st.stripe !== undefined) {
+    const m = new THREE.MeshStandardMaterial({ color: st.stripe, metalness: 0.3, roughness: 0.45, emissive: st.stripe, emissiveIntensity: 0.25 }), cx = (mn.x + mx.x) / 2, hw = Math.max(0.025, (mx.x - mn.x) / 2);
+    for (const sd of [-1, 1]) { const q = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.009, L * 0.22), m); q.position.set(cx + sd * (hw + 0.0015), mn.y + H * 0.58, mn.z + L * 0.5); q.userData.modPart = true; g.add(q); }
+  }
+}
+
 export function buildGun(w) {
   const data = w.asset && MODEL_DATA[w.asset.id];
   const g = data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || (() => new THREE.Group()))();
@@ -1235,7 +1270,7 @@ export function buildGun(w) {
     const c = o.material.color; if ((c.r + c.g + c.b) / 3 > 0.45) return;
     o.material = o.material.clone(); o.material.color.lerp(new THREE.Color(w.tint), 0.55);
   });
-  try { applyMods(g, w.id); } catch (e) { /* headless */ }
+  try { applyStyle(g, w.id); applyMods(g, w.id); } catch (e) { /* headless */ }
   const skinId = skinOf(w.attMask); if (skinId && SKINS[skinId] && w.slot !== 'melee' && THREE.Box3 && THREE.SphereGeometry) { try { applySkin(g, SKINS[skinId]); } catch (e) { /* headless test environment */ } }
   if (skinId && SKINS[skinId] && SKINS[skinId].paint && w.slot !== 'melee' && !camoOf(w.attMask)) { try { applyCamo(g, SKINS[skinId].paint); } catch (e) { /* headless */ } }
   if (w.attMask) {
