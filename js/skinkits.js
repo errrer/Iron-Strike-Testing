@@ -28,14 +28,10 @@ export function skinKit(THREE, sk, c) {
       return sh;
     };
     for (const sd of [-1, 1]) {
-      if (canExtrude) {
-        const geo = new T.ExtrudeGeometry(outline(fam), { depth: 0.006, bevelEnabled: true, bevelThickness: 0.0025, bevelSize: 0.0025, bevelSegments: 2 });
-        const m = add(geo, plate, cx + sd * (side + 0.001), yb - H * 0.02, cz - L * 0.02, 0, Math.PI / 2, 0); if (sd < 0) m.position.x -= 0.006;
-        const inner = new T.ExtrudeGeometry(outline(fam), { depth: 0.002, bevelEnabled: false }), g2 = add(inner, glowM, cx + sd * (side + 0.0045), yb - H * 0.02, cz - L * 0.02, 0, Math.PI / 2, 0); g2.scale.set(0.62, 0.5, 1); if (sd < 0) g2.position.x -= 0.0035;
-        anim(g2, (t) => { g2.scale.y = 0.5 + 0.06 * Math.sin(t * 2.4); });
-      } else add(Box(0.004, 0.026, L * 0.4), plate, cx + sd * (side + 0.002), yb, cz);
-      chain(5, (i, n) => { const o = add(Oct(0.0045), glowM, cx + sd * (side + 0.006), yb - H * 0.02 + 0.006 * (i % 2), cz + L * sp(i, n, -0.26, 0.2)); anim(o, (t) => { o.scale.setScalar(0.8 + 0.5 * Math.max(0, Math.sin(t * 3 - i * 0.7))); }); });
-      chain(7, (i, n) => add(Cone(0.0036, 0.016 + 0.004 * (i % 3), 4), plate, cx + sd * (side - 0.001), yb - 0.024, zf + L * sp(i, n, 0.1, 0.46), Math.PI, 0, sd * 0.5));   // thorn row under the forend
+      add(Box(0.004, 0.006, L * 0.42), plate, cx + sd * (side + 0.001), yb - 0.02, zf + L * 0.3);                  // slim chrome rail along the forend
+      add(Box(0.0025, 0.0022, L * 0.38), glowM, cx + sd * (side + 0.003), yb - 0.02, zf + L * 0.3);                // glowing inlay line
+      chain(5, (i, n) => { const o = add(Oct(0.0045), glowM, cx + sd * (side + 0.005), yb - 0.02, zf + L * sp(i, n, 0.12, 0.46)); anim(o, (t) => { o.scale.setScalar(0.8 + 0.5 * Math.max(0, Math.sin(t * 3 - i * 0.7))); }); });
+      chain(7, (i, n) => add(Cone(0.0036, 0.016 + 0.004 * (i % 3), 4), plate, cx + sd * (side - 0.001), yb - 0.024, zf + L * sp(i, n, 0.12, 0.46), Math.PI, 0, sd * 0.5));   // thorn row under the forend
     }
     for (const sd of [-1, 1]) { add(Cone(0.0042, 0.034, 4), plate, cx + sd * 0.016, yb + 0.004, zf - 0.016, -Math.PI / 2, 0, sd * 0.25); add(Cone(0.0032, 0.022, 4), glowM, cx + sd * 0.01, yb - 0.015, zf - 0.01, -Math.PI / 2, 0, sd * 0.15); }   // muzzle prongs
     add(Tor(0.017, 0.0032), plate, cx, yb, zf + L * 0.05, 0, 0, 0); add(Tor(0.0195, 0.002), glowM, cx, yb, zf + L * 0.05 + 0.007, 0, 0, 0);
