@@ -14,6 +14,34 @@ export function skinKit(THREE, sk, c) {
   const chain = (n, f) => { for (let i = 0; i < n; i++) f(i, n); };
   const K = {};
 
+  // ---- v3 "ornate" layer on every skin: sculpted chrome plates (extruded outlines) + glowing animated inlays + thorn rows + muzzle prongs ----
+  const ornate = () => {
+    const fam = sk.id % 4, plate = std(sk.accent, 0.95, 0.12), dark = std(sk.body, 0.9, 0.2);
+    try { plate.emissive = new T.Color(sk.glow).multiplyScalar(0.07); } catch (e) {}
+    const canExtrude = T.Shape && T.ExtrudeGeometry;
+    const outline = (f) => {                                  // side-plate outlines in (z along the gun, y up) space, unit-ish
+      const sh = new T.Shape(), A = L * 0.5, B = 0.046;
+      if (f === 0) { sh.moveTo(-A * 0.9, 0); sh.quadraticCurveTo(-A * 0.2, B * 1.5, A * 0.55, B * 0.6); sh.lineTo(A * 0.9, B * 0.1); sh.quadraticCurveTo(A * 0.2, -B * 0.9, -A * 0.9, 0); }               // blade sweep
+      else if (f === 1) { sh.moveTo(-A * 0.8, -B * 0.4); sh.lineTo(-A * 0.3, B * 1.3); sh.lineTo(A * 0.1, B * 0.3); sh.lineTo(A * 0.5, B * 1.1); sh.lineTo(A * 0.85, -B * 0.3); sh.lineTo(A * 0.1, -B * 0.9); sh.lineTo(-A * 0.8, -B * 0.4); }   // jagged horns
+      else if (f === 2) { sh.moveTo(-A * 0.9, 0); sh.bezierCurveTo(-A * 0.5, B * 1.8, A * 0.3, B * 1.6, A * 0.9, -B * 0.1); sh.bezierCurveTo(A * 0.4, B * 0.4, -A * 0.3, B * 0.3, -A * 0.9, 0); }          // crescent
+      else { sh.moveTo(-A * 0.9, B * 0.3); sh.lineTo(-A * 0.1, B * 1.1); sh.lineTo(A * 0.3, B * 0.4); sh.lineTo(A * 0.95, B * 0.6); sh.lineTo(A * 0.4, -B * 0.5); sh.lineTo(-A * 0.4, -B * 0.8); sh.lineTo(-A * 0.9, B * 0.3); }      // lightning
+      return sh;
+    };
+    for (const sd of [-1, 1]) {
+      if (canExtrude) {
+        const geo = new T.ExtrudeGeometry(outline(fam), { depth: 0.006, bevelEnabled: true, bevelThickness: 0.0025, bevelSize: 0.0025, bevelSegments: 2 });
+        const m = add(geo, plate, cx + sd * (side + 0.001), yb - H * 0.02, cz - L * 0.02, 0, Math.PI / 2, 0); if (sd < 0) m.position.x -= 0.006;
+        const inner = new T.ExtrudeGeometry(outline(fam), { depth: 0.002, bevelEnabled: false }), g2 = add(inner, glowM, cx + sd * (side + 0.0045), yb - H * 0.02, cz - L * 0.02, 0, Math.PI / 2, 0); g2.scale.set(0.62, 0.5, 1); if (sd < 0) g2.position.x -= 0.0035;
+        anim(g2, (t) => { g2.scale.y = 0.5 + 0.06 * Math.sin(t * 2.4); });
+      } else add(Box(0.004, 0.026, L * 0.4), plate, cx + sd * (side + 0.002), yb, cz);
+      chain(5, (i, n) => { const o = add(Oct(0.0045), glowM, cx + sd * (side + 0.006), yb - H * 0.02 + 0.006 * (i % 2), cz + L * sp(i, n, -0.26, 0.2)); anim(o, (t) => { o.scale.setScalar(0.8 + 0.5 * Math.max(0, Math.sin(t * 3 - i * 0.7))); }); });
+      chain(7, (i, n) => add(Cone(0.0036, 0.016 + 0.004 * (i % 3), 4), plate, cx + sd * (side - 0.001), yb - 0.024, zf + L * sp(i, n, 0.1, 0.46), Math.PI, 0, sd * 0.5));   // thorn row under the forend
+    }
+    for (const sd of [-1, 1]) { add(Cone(0.0042, 0.034, 4), plate, cx + sd * 0.016, yb + 0.004, zf - 0.016, -Math.PI / 2, 0, sd * 0.25); add(Cone(0.0032, 0.022, 4), glowM, cx + sd * 0.01, yb - 0.015, zf - 0.01, -Math.PI / 2, 0, sd * 0.15); }   // muzzle prongs
+    add(Tor(0.017, 0.0032), plate, cx, yb, zf + L * 0.05, 0, 0, 0); add(Tor(0.0195, 0.002), glowM, cx, yb, zf + L * 0.05 + 0.007, 0, 0, 0);
+    chain(3, (i) => add(Cone(0.004, 0.02, 4), plate, cx, yb - 0.01 - i * 0.008, zr + 0.004 + i * 0.012, Math.PI / 2 + 0.2, 0, 0));        // stock spikes
+  };
+
   K[1] = () => {                                              // Ironwood: brass bands round the barrel + inlaid leaf diamonds
     for (const k of [0.1, 0.2, 0.3, 0.55]) add(Tor(0.0165, 0.0026), accM, cx, yb, zf + L * k, 0, 0, 0);
     chain(6, (i, n) => { for (const sd of [-1, 1]) { const o = add(Oct(0.007), accM, cx + sd * side, yb - H * 0.05, zf + L * sp(i, n, 0.14, 0.34)); o.scale.set(0.35, 1.4, 1); } });
@@ -130,5 +158,5 @@ export function skinKit(THREE, sk, c) {
     chain(6, (i) => { const s = add(Oct(0.0035), glowM, cx, yt + 0.03, cz); anim(s, (t) => { const a = t * 0.7 + i * 1.05; s.position.set(cx + Math.sin(a) * 0.04, yt + 0.03 + Math.sin(a * 1.7) * 0.015, cz + L * 0.1 + Math.cos(a) * 0.1); s.rotation.y = t * 2; }); });
   };
 
-  const f = K[sk.id]; if (!f) return false; f(); return true;
+  const f = K[sk.id]; if (!f) return false; try { ornate(); } catch (e) { if (typeof console !== 'undefined') console.warn('ornate', e.message); } f(); return true;
 }

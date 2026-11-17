@@ -1,24 +1,24 @@
-import { Game, MODES, mpMode } from './game.js?v=0.20.2';
-import { Net, cleanCode, cleanName } from './net.js?v=0.20.2';
-import { UTILS, UTIL_IDS } from './utils.js?v=0.20.2';
-import { watchForEgg, watchWord } from './easter.js?v=0.20.2';
-import { Azam } from './azam.js?v=0.20.2';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.20.2';
-import { Sound } from './audio.js?v=0.20.2';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.20.2';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.20.2';
-import { loadProps } from './props.js?v=0.20.2';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.20.2';
-import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.20.2';
-import { initMapMaker } from './mapmaker.js?v=0.20.2';
-import { RaceMode } from './race.js?v=0.20.2';
-import { initSupermod, MOD } from './supermod.js?v=0.20.2';
-import { initKeybinds } from './keybinds.js?v=0.20.2';
-import { Gunsmith } from './gunsmith.js?v=0.20.2';
-import { SkinsUI } from './skinsui.js?v=0.20.2';
-import { WeaponPreview } from './wpreview.js?v=0.20.2';
-import { initTouch, blockZoom } from './touch.js?v=0.20.2';
-import { initGamepad } from './gamepad.js?v=0.20.2';
+import { Game, MODES, mpMode } from './game.js?v=0.21.0';
+import { Net, cleanCode, cleanName } from './net.js?v=0.21.0';
+import { UTILS, UTIL_IDS } from './utils.js?v=0.21.0';
+import { watchForEgg, watchWord } from './easter.js?v=0.21.0';
+import { Azam } from './azam.js?v=0.21.0';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.21.0';
+import { Sound } from './audio.js?v=0.21.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.21.0';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.21.0';
+import { loadProps } from './props.js?v=0.21.0';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.21.0';
+import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.21.0';
+import { initMapMaker } from './mapmaker.js?v=0.21.0';
+import { RaceMode } from './race.js?v=0.21.0';
+import { initSupermod, MOD } from './supermod.js?v=0.21.0';
+import { initKeybinds } from './keybinds.js?v=0.21.0';
+import { Gunsmith } from './gunsmith.js?v=0.21.0';
+import { SkinsUI } from './skinsui.js?v=0.21.0';
+import { WeaponPreview } from './wpreview.js?v=0.21.0';
+import { initTouch, blockZoom } from './touch.js?v=0.21.0';
+import { initGamepad } from './gamepad.js?v=0.21.0';
 
 const $ = (id) => document.getElementById(id);
 
@@ -55,7 +55,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gfx: ['low', 'medium', 'high', 'ultra'].includes(cfg.gfx) ? cfg.gfx : 'high', gore: cfg.gore !== false, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll === true };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gfx: ['low', 'medium', 'high', 'ultra'].includes(cfg.gfx) ? cfg.gfx : 'high', gore: cfg.gore !== false, extremeGore: cfg.extremeGore === true, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll === true };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -221,6 +221,11 @@ for (const id of ['rag', 'rag2']) {
   const el = $(id); if (!el) continue;
   el.checked = cfg.ragdoll !== false;
   el.addEventListener('change', () => { cfg.ragdoll = el.checked; game.settings.ragdoll = el.checked; for (const o of ['rag', 'rag2']) if ($(o)) $(o).checked = el.checked; save(); });
+}
+for (const id of ['xgore', 'xgore2']) {
+  const el = $(id); if (!el) continue;
+  el.checked = cfg.extremeGore === true;
+  el.addEventListener('change', () => { cfg.extremeGore = el.checked; game.settings.extremeGore = el.checked; if (el.checked && !cfg.gore) { cfg.gore = true; game.settings.gore = true; for (const o of ['gore', 'gore2']) if ($(o)) $(o).checked = true; } if (!el.checked && game.gx) game.gx.clear(); for (const o of ['xgore', 'xgore2']) if ($(o)) $(o).checked = el.checked; save(); });
 }
 // gore toggle (main menu + pause menu)
 for (const id of ['gore', 'gore2']) {

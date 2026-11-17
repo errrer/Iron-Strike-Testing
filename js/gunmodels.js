@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.20.2';
-import { makeReal } from './realguns.js?v=0.20.2';
-import { skinKit } from './skinkits.js?v=0.20.2';
+import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.21.0';
+import { makeReal } from './realguns.js?v=0.21.0';
+import { skinKit } from './skinkits.js?v=0.21.0';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -13,7 +13,7 @@ import { skinKit } from './skinkits.js?v=0.20.2';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.20.2';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.21.0';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];

@@ -1,23 +1,24 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.20.2';
-import { canon } from './keybinds.js?v=0.20.2';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.20.2';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.20.2';
-import { buildMap } from './maps.js?v=0.20.2';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.20.2';
-import { buildWorld } from './world.js?v=0.20.2';
-import { Bot } from './bots.js?v=0.20.2';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.20.2';
-import { buildSoldier, SKIN } from './soldier.js?v=0.20.2';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.20.2';
-import { Zombies, PERKS } from './zombies.js?v=0.20.2';
-import { inspectFor, inspectPose } from './inspect.js?v=0.20.2';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.20.2';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.20.2';
-import { Objectives } from './objectives.js?v=0.20.2';
-import { Utilities } from './utils.js?v=0.20.2';
-import { Streaks, STREAKS } from './streaks.js?v=0.20.2';
-import { Gore } from './gore.js?v=0.20.2';
+import { MOD } from './supermod.js?v=0.21.0';
+import { canon } from './keybinds.js?v=0.21.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.21.0';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.21.0';
+import { buildMap } from './maps.js?v=0.21.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.21.0';
+import { buildWorld } from './world.js?v=0.21.0';
+import { Bot } from './bots.js?v=0.21.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.21.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.21.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.21.0';
+import { Zombies, PERKS } from './zombies.js?v=0.21.0';
+import { inspectFor, inspectPose } from './inspect.js?v=0.21.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.21.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.21.0';
+import { Objectives } from './objectives.js?v=0.21.0';
+import { Utilities } from './utils.js?v=0.21.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.21.0';
+import { GoreX } from './gorex.js?v=0.21.0';
+import { Gore } from './gore.js?v=0.21.0';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -948,7 +949,7 @@ export class Game {
     this.laserDot = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a, fog: false }));
     this.laserDot.visible = false; this.fxGroup.add(this.laserDot);
     this.tracerI = 0; this.partI = 0;
-    this.gore = new Gore(this.fxGroup, this.col);
+    this.gore = new Gore(this.fxGroup, this.col); this.gx = null;
   }
 
   tracer(a, b) {
@@ -1095,6 +1096,10 @@ export class Game {
   // (head/torso/arm/leg each have 3 models, plus chunks and organs) leaving blood trails. See gore.js.
   spawnGore(v, k, w, head) {
     const gr = this.gore; if (!gr || !this.settings.gore || !this.gfxQ.gore || !v.mesh) return;
+    if (this.settings.extremeGore) {
+      if (!this.gx) { try { this.gx = new GoreX(this, gr); } catch (e) { this.gx = null; } }
+      if (this.gx) { try { this.gx.death(v, k, w, head); return; } catch (e) { console.warn(e); } }
+    }
     const m = v.mesh, cls = (w.id === 'm680' || w.id === 'aa12') ? 'shotgun' : (w.id === 'kar98k' || w.id === 'dmr') ? 'sniper' : 'other', big = cls !== 'other' || head;
     let dx = v.pos.x - k.pos.x, dz = v.pos.z - k.pos.z; const dl = Math.hypot(dx, dz);
     if (dl < 0.01) { const a = Math.random() * 6.28; dx = Math.cos(a); dz = Math.sin(a); } else { dx /= dl; dz /= dl; }
@@ -1295,6 +1300,7 @@ export class Game {
     if (MOD.oneHit && attacker && attacker.isPlayer && v !== attacker) amount = 1e5;
     if (this.zm) { if (v.down) return; amount = this.zm.adjust(v, attacker, amount); if (v.zombie) this.zm.onHit(attacker, v); }
     v.hp -= amount; v.lastHurt = this.time;
+    if (this.settings.extremeGore && this.settings.gore && this.gfxQ.gore && this.gore && v.mesh && !v.zombie) { try { if (!this.gx) this.gx = new GoreX(this, this.gore); this.gx.hit(v, attacker, w || {}, head, amount, v.hp <= 0); } catch (e) {} }
     if (v.isPlayer) { this.hud.damageFrom(attacker, this.player); this.sound.hurt(); }
     if (v.remote && this.net) this.net.evTo(v.id, ['h', attacker.id]);
     if (attacker.isPlayer) { this.hud.hitmarker(v.hp <= 0, head); this.sound.hit(head); }
@@ -1536,6 +1542,7 @@ export class Game {
       const sp = Math.hypot(a.vel.x, a.vel.z);
       a.walkPhase += sp * dt * 2.2;
       m.crouchK = (m.crouchK || 0) + ((a.crouch ? 1 : 0) - (m.crouchK || 0)) * Math.min(1, dt * 12);
+      if (this.gx) this.gx.clearWounds(a);
       if (m.goreHidden.length) { for (const o of m.goreHidden) o.visible = !(m.rich && m.rich.visible); m.goreHidden = []; }
       if (a.zombie) animateZombie(this, a, m, dt); else animateSoldier(this, a, m, dt);
       m.root.visible = true;
@@ -1554,6 +1561,7 @@ export class Game {
       q.vel.y -= 9 * dt; q.position.addScaledVector(q.vel, dt);
     }
     if (this.gore) this.gore.update(dt);
+    if (this.gx && this.settings.extremeGore) this.gx.update(dt);
     if (this.flashT > 0) { this.flashT -= dt; if (this.flashT <= 0) { if (this.vm) this.vm.flash.visible = false; this.flashLight.intensity = 0; } }
   }
 

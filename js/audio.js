@@ -66,6 +66,7 @@ export class Sound {
     if (!this.ctx) return; const t = this.ctx.currentTime, bus = this._bus(0.35, 0);
     this._tone(t, head ? 2400 : 1700, head ? 1800 : 1300, 0.05, 0.6, bus, 'square');
   }
+  squelch(v = 1) { try { const t = this.ctx.currentTime, b = this._bus(0.35 * v, 0); this._noise(t, 0.16, 500, 0.5, b, 'lowpass'); this._noise(t + 0.03, 0.12, 260, 0.45, b, 'lowpass'); this._tone(t, 110, 60, 0.12, 0.3, b, 'sine'); } catch (e) {} }
   kill() {
     if (!this.ctx) return; const t = this.ctx.currentTime, bus = this._bus(0.4, 0);
     this._tone(t, 900, 700, 0.08, 0.6, bus, 'square'); this._tone(t + 0.09, 1200, 900, 0.12, 0.6, bus, 'square');

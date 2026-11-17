@@ -1,7 +1,7 @@
 // Cosmetic gore: body-part gibs (4 parts x 3 models each), blood bursts and floor splats.
 // Stylised low-poly like the rest of the game. Can be switched off in the settings.
 import * as THREE from 'three';
-import { bx, mat, SKIN, DARK, OLIVE, KHAKI } from './soldier.js?v=0.20.2';
+import { bx, mat, SKIN, DARK, OLIVE, KHAKI } from './soldier.js?v=0.21.0';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -134,7 +134,7 @@ export class Gore {
     this.parent.add(g);
     const o = { g, part, variant: v, vel: new V3(vel.x, vel.y, vel.z), spin: new V3(rand(-9, 9), rand(-9, 9), rand(-9, 9)), age: 0, rest: false, bounces: 0, trail: 0, bleeds: part !== 'chunk' || Math.random() < 0.5 };
     this.gibs.push(o);
-    if (this.gibs.length > 80) this._drop(this.gibs.shift());
+    if (this.gibs.length > (this.maxGibs || 80)) this._drop(this.gibs.shift());
     return o;
   }
 
@@ -147,7 +147,7 @@ export class Gore {
       if (!d.visible) continue;
       d.age += dt;
       if (d.grow) { const gr = d.grow; gr.t = Math.min(1, gr.t + dt / 2.5); const k = gr.from + (gr.to - gr.from) * (1 - (1 - gr.t) * (1 - gr.t)); d.scale.set(k * gr.f, k, 1); if (gr.t >= 1) d.grow = null; }
-      if (d.age > 40) { d.material.opacity = 0.92 * Math.max(0, 1 - (d.age - 40) / 5); if (d.age > 45) d.visible = false; }
+      const fa = this.fadeAt || 40; if (d.age > fa) { d.material.opacity = 0.92 * Math.max(0, 1 - (d.age - fa) / 5); if (d.age > fa + 5) d.visible = false; }
     }
     // droplets
     for (const m of this.drops) {
