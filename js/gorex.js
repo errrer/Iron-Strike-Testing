@@ -2,8 +2,8 @@
 // blood mist, pooling and wall streaks that darken as they age, blood on your screen, organs / ribs / intestines / brain matter,
 // and full dismemberment for shotguns, snipers, headshots and explosives. Purely cosmetic and local to your screen.
 import * as THREE from 'three';
-import { bx, mat } from './soldier.js?v=0.21.1';
-import { GIBS } from './gore.js?v=0.21.1';
+import { bx, mat } from './soldier.js?v=0.21.2';
+import { GIBS } from './gore.js?v=0.21.2';
 
 const V3 = THREE.Vector3, rand = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];
 const G = () => new THREE.Group();
@@ -41,7 +41,7 @@ export class GoreX {
     this.g = game; this.gore = gore; this.mist = []; this.mI = 0; this.sBlood = []; this.t = 0;
     buildGibs(); gore.maxGibs = 150; gore.fadeAt = 90;
     const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 2, 32, 32, 31);
-    gr.addColorStop(0, 'rgba(150,8,8,0.9)'); gr.addColorStop(0.5, 'rgba(110,6,6,0.45)'); gr.addColorStop(1, 'rgba(80,4,4,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+    gr.addColorStop(0, 'rgba(120,6,6,0.8)'); gr.addColorStop(0.5, 'rgba(90,5,5,0.3)'); gr.addColorStop(1, 'rgba(80,4,4,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
     const tex = new THREE.CanvasTexture(c);
     for (let i = 0; i < 70; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; s.life = 0; s.vel = new V3(); gore.parent.add(s); this.mist.push(s); }
     this.wounds = new Map();
@@ -50,17 +50,17 @@ export class GoreX {
   dispose() { for (const s of this.mist) this.gore.parent.remove(s); this.ov.innerHTML = ''; }
 
   puff(x, y, z, vx, vy, vz, size = 0.5) {
-    const s = this.mist[this.mI++ % this.mist.length]; s.position.set(x, y, z); s.vel.set(vx, vy, vz); s.life = rand(0.5, 0.9); s.max = s.life; s.s0 = size; s.scale.setScalar(size * 0.4); s.material.opacity = 0.55; s.material.rotation = rand(0, 6); s.visible = true;
+    const s = this.mist[this.mI++ % this.mist.length]; s.position.set(x, y, z); s.vel.set(vx, vy, vz); s.life = rand(0.35, 0.7); s.max = s.life; s.s0 = size * 0.4; s.scale.setScalar(s.s0 * 0.4); s.material.opacity = 0.3; s.material.rotation = rand(0, 6); s.visible = true;
   }
 
   // blood on your screen: blobs that run down the glass
   screenBlood(n = 5) {
     const ov = this.ov; while (ov.childElementCount > 40) ov.firstChild.remove();
     for (let i = 0; i < n; i++) {
-      const d = document.createElement('div'), s = rand(60, 260), x = rand(2, 98), y = rand(2, 85), dark = Math.random() < 0.4;
-      d.style.cssText = `position:absolute;left:${x}%;top:${y}%;width:${s}px;height:${s * rand(0.7, 1.2)}px;margin:${-s / 2}px 0 0 ${-s / 2}px;border-radius:${rand(35, 50)}% ${rand(40, 55)}% ${rand(45, 60)}% ${rand(35, 55)}%;background:radial-gradient(circle at 40% 35%,${dark ? '#6a0a0a' : '#b11414'},${dark ? '#3e0505' : '#7d0b0b'} 70%,rgba(60,4,4,0.0) 100%);opacity:0.85;box-shadow:0 0 ${s * 0.12}px rgba(70,0,0,0.7);filter:blur(0.4px)`;
+      const d = document.createElement('div'), s = rand(14, 70), x = rand(2, 98), y = rand(2, 85), dark = Math.random() < 0.4;
+      d.style.cssText = `position:absolute;left:${x}%;top:${y}%;width:${s}px;height:${s * rand(0.7, 1.2)}px;margin:${-s / 2}px 0 0 ${-s / 2}px;border-radius:${rand(35, 50)}% ${rand(40, 55)}% ${rand(45, 60)}% ${rand(35, 55)}%;background:radial-gradient(circle at 40% 35%,${dark ? '#6a0a0a' : '#b11414'},${dark ? '#3e0505' : '#7d0b0b'} 70%,rgba(60,4,4,0.0) 100%);opacity:0.8;filter:blur(0.3px)`;
       ov.appendChild(d);
-      if (d.animate) { d.animate([{ transform: 'translateY(0) scale(0.4)', opacity: 0 }, { transform: 'translateY(0) scale(1)', opacity: 0.9, offset: 0.06 }, { transform: `translateY(${rand(90, 320)}px) scale(${rand(0.95, 1.1)} ${rand(1.2, 1.7)})`, opacity: 0 }], { duration: rand(4500, 9500), easing: 'cubic-bezier(.3,.1,.6,1)' }).onfinish = () => d.remove(); } else setTimeout(() => d.remove(), 6000);
+      if (d.animate) { d.animate([{ transform: 'translateY(0) scale(0.4)', opacity: 0 }, { transform: 'translateY(0) scale(1)', opacity: 0.9, offset: 0.06 }, { transform: `translateY(${rand(30, 140)}px) scale(${rand(0.9, 1)} ${rand(1.5, 3)})`, opacity: 0 }], { duration: rand(6000, 12000), easing: 'cubic-bezier(.3,.1,.6,1)' }).onfinish = () => d.remove(); } else setTimeout(() => d.remove(), 6000);
     }
   }
 
@@ -76,7 +76,21 @@ export class GoreX {
     if (head) { p.position.x = rand(-0.08, 0.08); p.position.z = front ? -0.115 : 0.115; }
     (m.body || m.root).add(p); w.push(p); if (w.length > 16) { const o = w.shift(); o.parent && o.parent.remove(o); o.material.dispose(); }
   }
-  clearWounds(v) { const m = v.mesh, w = m && this.wounds.get(m); if (!w) return; for (const o of w) { o.parent && o.parent.remove(o); o.material.dispose(); } this.wounds.delete(m); }
+
+  // blood that wraps the geometry: thin wet shells over the box parts, patchy and darker the more they were hit
+  coat(root, amt = 0.5, maxN = 14, skip = null) {
+    if (!root || !THREE.BoxGeometry) return; root.userData.coated = true; const tex = this.gore.decals.slice(0, 6).map((d) => d.material.map).filter(Boolean); let n = 0;
+    const list = []; root.traverse((o) => { if (skip) { for (let q = o; q; q = q.parent) if (q === skip) return; } const gp = o.geometry && o.geometry.parameters; if (o.isMesh !== false && gp && gp.width && gp.height && gp.depth && !o.userData.bloodShell && o.visible) list.push(o); });
+    for (const o of list) {
+      if (n >= maxN || Math.random() > amt) continue; n++;
+      const gp = o.geometry.parameters, t = pick(tex), mt = new THREE.MeshBasicMaterial({ map: t || null, color: pick([0x8a1a1a, 0x6e1010, 0x9c2323]), transparent: true, opacity: rand(0.55, 0.9), depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      if (t && t.clone) { const c = t.clone(); c.needsUpdate = true; c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(rand(0.35, 0.8), rand(0.35, 0.8)); c.offset.set(rand(0, 1), rand(0, 1)); mt.map = c; }
+      const sh = new THREE.Mesh(new THREE.BoxGeometry(gp.width * 1.045, gp.height * 1.045, gp.depth * 1.045), mt); sh.userData.bloodShell = true; o.add(sh);
+      (this.shells || (this.shells = [])).push(sh);
+    }
+  }
+  clearShells(root) { if (!root || !root.userData.coated) return; root.userData.coated = false; const rm = []; root.traverse((o) => { if (o.userData && o.userData.bloodShell) rm.push(o); }); for (const o of rm) { o.parent && o.parent.remove(o); o.material.dispose && o.material.dispose(); } }
+  clearWounds(v) { this.clearShells(v.mesh && v.mesh.root); const m = v.mesh, w = m && this.wounds.get(m); if (!w) return; for (const o of w) { o.parent && o.parent.remove(o); o.material.dispose(); } this.wounds.delete(m); }
 
   // every bullet that hits somebody
   hit(v, k, w, head, amount, killed) {
@@ -85,9 +99,10 @@ export class GoreX {
     const x = v.pos.x, y = v.pos.y + hh, z = v.pos.z, big = Math.min(2.5, amount / 35 + (head ? 0.8 : 0));
     gr.spray(x, y, z, dx, 0.15, dz, Math.round(10 + 14 * big), 6.5, 0.5);       // exit spray
     gr.spray(x, y, z, -dx, 0.1, -dz, 5, 2.4, 0.8);                               // mist back at the shooter
-    for (let i = 0; i < 2 + big; i++) this.puff(x, y, z, dx * rand(0.5, 2) + rand(-0.6, 0.6), rand(-0.2, 0.8), dz * rand(0.5, 2) + rand(-0.6, 0.6), rand(0.35, 0.7));
+    for (let i = 0; i < 1 + Math.floor(big); i++) this.puff(x, y, z, dx * rand(0.5, 2) + rand(-0.6, 0.6), rand(-0.2, 0.8), dz * rand(0.5, 2) + rand(-0.6, 0.6), rand(0.35, 0.7));
     gr.splatter(x, y, z, dx, dz, Math.round(3 + 4 * big), 6);
     if (Math.random() < 0.7) this.wound(v, head);
+    if (v.mesh && Math.random() < 0.5) this.coat(v.mesh.root, 0.12, 4, v.mesh.gun);
     if (!killed) { v.bloodT = 5; gr.bleed(() => this.g.stumpPos(v, { x: rand(-0.1, 0.1), y: hh - 0.05, z: -0.1 }), 0.9, 0.35 * (1 + big)); }
     const p = this.g.player; if (p && (k === p || v === p)) { const d = Math.hypot(v.pos.x - p.pos.x, v.pos.z - p.pos.z); if (v === p) { this.screenBlood(1 + Math.round(big)); } else if (d < 3.2) this.screenBlood(Math.random() < 0.6 ? 1 : 2); }
     if (this.g.sound && this.g.sound.squelch) this.g.sound.squelch(0.5 + big * 0.2);
@@ -102,16 +117,17 @@ export class GoreX {
     // the main burst: a fan of droplets + thick mist
     gr.spray(x, y + 1.3, z, dx, 0.35, dz, Math.round(70 * power), 8, 0.7);
     gr.spray(x, y + 1.2, z, 0, 1, 0, 30, 4.5, 0.9);
-    for (let i = 0; i < 9; i++) this.puff(x, y + rand(0.8, 1.6), z, dx * rand(0.5, 3) + rand(-1, 1), rand(0, 1.4), dz * rand(0.5, 3) + rand(-1, 1), rand(0.5, 1.1));
+    for (let i = 0; i < 4; i++) this.puff(x, y + rand(0.8, 1.6), z, dx * rand(0.5, 3) + rand(-1, 1), rand(0, 1.4), dz * rand(0.5, 3) + rand(-1, 1), rand(0.5, 1.1));
     gr.splatter(x, y + 1.3, z, dx, dz, Math.round(26 * power), 9);
     gr.splatter(x, y + 1.0, z, -dx, -dz, 8, 6);
+    this.coat(m.root, head ? 0.55 : 0.7, 20, m.gun);
     // pools: several overlapping, slowly growing, darker as they age
     for (let i = 0; i < 4; i++) gr.splat({ x: x + rand(-0.45, 0.45), y, z: z + rand(-0.45, 0.45), nx: 0, ny: 1, nz: 0 }, rand(0.9, 1.7) * (i ? 0.8 : 1.15), true);
     gr.splat({ x: x + dx * 1.1, y, z: z + dz * 1.1, nx: 0, ny: 1, nz: 0 }, 0.9, true);
     // long arterial spurts (stay for ~7 s, pulse with the heartbeat) from where the neck / chest was
     const spurt = (dy, dur, pw) => gr.bleed(() => this.g.stumpPos(v, { x: rand(-0.04, 0.04), y: dy, z: -0.08 }), dur, pw);
     if (head) { spurt(1.45, 7, 2.2); gr.splat({ x: x + dx * 0.3, y, z: z + dz * 0.3, nx: 0, ny: 1, nz: 0 }, 1.1, true); } else { spurt(1.3, 5, 1.4); spurt(1.1, 4, 1.0); }
-    const sp = () => rand(2.5, 8) * power, add = (part, yy, ox = 0) => gr.gib(part, { x, y: y + yy, z }, { x: dx * sp() + rand(-2.5, 2.5), y: rand(2.5, 6.5), z: dz * sp() + rand(-2.5, 2.5) }, m.color);
+    const sp = () => rand(2.5, 8) * power, add = (part, yy, ox = 0) => { const o = gr.gib(part, { x, y: y + yy, z }, { x: dx * sp() + rand(-2.5, 2.5), y: rand(2.5, 6.5), z: dz * sp() + rand(-2.5, 2.5) }, m.color); if (o && (part === 'arm' || part === 'leg' || part === 'torso' || part === 'hand' || part === 'foot')) this.coat(o.g, 0.7, 6); return o; };
     // head: skull + brain + eyes + jaw
     if (head || cls === 'explosive' || (cls === 'shotgun' && Math.random() < 0.5)) {
       add('skull', 1.62); add('skull', 1.62); add('jaw', 1.55); add('eye', 1.65); if (Math.random() < 0.6) add('eye', 1.65);
@@ -141,7 +157,7 @@ export class GoreX {
       add(part, yy); if (part === 'arm' && Math.random() < 0.6) add('hand', 1.1); if (part === 'leg' && Math.random() < 0.6) add('foot', 0.4);
     }
     for (let i = 0, n = Math.round(10 * power) + Math.floor(Math.random() * 6); i < n; i++) gr.gib('chunk', { x, y: y + rand(0.8, 1.6), z }, { x: dx * sp() + rand(-3, 3), y: rand(2, 8), z: dz * sp() + rand(-3, 3) }, m.color);
-    const p = this.g.player; if (p) { const d = Math.hypot(x - p.pos.x, z - p.pos.z); if (d < 4.5 && k === p) this.screenBlood(3 + Math.round((4.5 - d) * 1.2)); else if (v === p) this.screenBlood(6); }
+    const p = this.g.player; if (p) { const d = Math.hypot(x - p.pos.x, z - p.pos.z); if (d < 4.5 && k === p) this.screenBlood(2 + Math.round((4.5 - d) * 0.8)); else if (v === p) this.screenBlood(4); }
     if (this.g.sound && this.g.sound.squelch) { this.g.sound.squelch(1); setTimeout(() => this.g.sound.squelch && this.g.sound.squelch(0.7), 120); }
   }
 
@@ -151,7 +167,8 @@ export class GoreX {
       if (!s.visible) continue;
       s.life -= dt; if (s.life <= 0) { s.visible = false; continue; }
       const k = 1 - s.life / s.max; s.position.addScaledVector(s.vel, dt); s.vel.multiplyScalar(Math.exp(-2.2 * dt)); s.vel.y -= 0.6 * dt;
-      s.scale.setScalar(s.s0 * (0.4 + 1.5 * Math.sqrt(k))); s.material.opacity = 0.55 * (1 - k) * (1 - k * 0.3);
+      s.scale.setScalar(s.s0 * (0.5 + 1.1 * Math.sqrt(k)));
+      const cp = this.g.camera && this.g.camera.position, cd = cp ? Math.hypot(s.position.x - cp.x, s.position.y - cp.y, s.position.z - cp.z) : 9; s.material.opacity = 0.3 * (1 - k) * Math.min(1, Math.max(0, (cd - 0.8) / 2));
     }
     // aging: fresh blood is bright and wet, old blood goes dark brown
     const dk = this.gore.decals;
