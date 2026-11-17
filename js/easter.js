@@ -47,3 +47,13 @@ export function watchForEgg(onToggle) {
     if (buf === CODE) { buf = ''; loadRichtofen().then((ok) => { if (ok) onToggle(); }); }
   }, true);
 }
+
+// generic "type this word anywhere" watcher
+export function watchWord(code, onHit) {
+  let buf = '';
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || !e.key || e.key.length !== 1) return;
+    buf = (buf + e.key.toLowerCase()).slice(-code.length);
+    if (buf === code) { buf = ''; onHit(); }
+  }, true);
+}

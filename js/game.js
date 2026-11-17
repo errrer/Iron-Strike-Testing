@@ -1,23 +1,23 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.20.1';
-import { canon } from './keybinds.js?v=0.20.1';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.20.1';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.20.1';
-import { buildMap } from './maps.js?v=0.20.1';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.20.1';
-import { buildWorld } from './world.js?v=0.20.1';
-import { Bot } from './bots.js?v=0.20.1';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.20.1';
-import { buildSoldier, SKIN } from './soldier.js?v=0.20.1';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.20.1';
-import { Zombies, PERKS } from './zombies.js?v=0.20.1';
-import { inspectFor, inspectPose } from './inspect.js?v=0.20.1';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.20.1';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.20.1';
-import { Objectives } from './objectives.js?v=0.20.1';
-import { Utilities } from './utils.js?v=0.20.1';
-import { Streaks, STREAKS } from './streaks.js?v=0.20.1';
-import { Gore } from './gore.js?v=0.20.1';
+import { MOD } from './supermod.js?v=0.20.2';
+import { canon } from './keybinds.js?v=0.20.2';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.20.2';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.20.2';
+import { buildMap } from './maps.js?v=0.20.2';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.20.2';
+import { buildWorld } from './world.js?v=0.20.2';
+import { Bot } from './bots.js?v=0.20.2';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.20.2';
+import { buildSoldier, SKIN } from './soldier.js?v=0.20.2';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.20.2';
+import { Zombies, PERKS } from './zombies.js?v=0.20.2';
+import { inspectFor, inspectPose } from './inspect.js?v=0.20.2';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.20.2';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.20.2';
+import { Objectives } from './objectives.js?v=0.20.2';
+import { Utilities } from './utils.js?v=0.20.2';
+import { Streaks, STREAKS } from './streaks.js?v=0.20.2';
+import { Gore } from './gore.js?v=0.20.2';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -28,7 +28,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const KNIFE_SWING = {
   k_combat: { arc: 1, reach: 1, roll: 0.15, chop: 0 }, k_karambit: { arc: 0.8, reach: 0.8, roll: 1.4, chop: 0 }, k_balisong: { arc: 0.9, reach: 0.9, roll: 0.7, chop: 0.1 },
   k_machete: { arc: 1.3, reach: 1.1, roll: 0.1, chop: 0.2 }, k_tomahawk: { arc: 0.7, reach: 1, roll: 0, chop: 0.9 },
-  k_katana: { arc: 1.5, reach: 1.2, roll: 0.05, chop: 0.1 }, k_kukri: { arc: 0.9, reach: 1, roll: 0.1, chop: 0.55 }, k_dagger: { arc: 0.6, reach: 0.8, roll: 0.5, chop: 0 },
+  k_katana: { arc: 1.5, reach: 1.2, roll: 0.05, chop: 0.1 }, k_kukri: { arc: 0.9, reach: 1, roll: 0.1, chop: 0.55 }, k_dagger: { arc: 0.6, reach: 0.8, roll: 0.5, chop: 0 }, k_zephyr: { arc: 0.5, reach: 0.7, roll: 0.9, chop: 0 },
 };
 export const MODES = {
   tdm: { id: 'tdm', name: 'Team Deathmatch', team: true, perSide: 5, scoreLimit: 30, time: 420, blurb: '5v5 - first team to 30 kills' },
@@ -1048,7 +1048,7 @@ export class Game {
     a.vel.x += (wx * speed - a.vel.x) * k;
     a.vel.z += (wz * speed - a.vel.z) * k;
     a.vel.y -= GRAVITY * dt * (a.isPlayer ? MOD.gravity : 1);
-    if (jump && a.onGround) { a.vel.y = 7.2 * (a.isPlayer ? MOD.jump : 1); a.onGround = false; }
+    if (jump && a.onGround) { a.vel.y = 7.2 * (a.isPlayer ? MOD.jump * (this.knifeOut && this.knifeId === 'k_zephyr' ? 1.3 : 1) : 1); a.onGround = false; }
     if (crouch) a.h = 1.25;
     else if (a.h < 1.8 && !this.col.overlaps(a.pos.x, a.pos.y, a.pos.z, a.hw, 1.8)) a.h = 1.8;
     this.col.move(a, dt);
@@ -1430,7 +1430,7 @@ export class Game {
     const down = !!p.down;
     const ads = (this.adsHeld || this.adsKey) && !frozen && p.switchT <= 0 && !p.reloading && !down && !this.knifeOut && !this.swing;
     const sprint = !!k.ShiftLeft && fwd > 0 && !ads && !wantCrouch && !this.fireHeld && !down;
-    let speed = (sprint ? 8.0 : wantCrouch ? 2.6 : 5.2) * (this.knifeOut ? this.knifeW().moveMul : w.moveMul) * (ads ? 0.62 : 1) * ((p.perks & 16) ? 1.12 : 1) * MOD.speed;
+    let speed = (sprint ? (this.knifeOut && this.knifeId === 'k_zephyr' ? 10.5 : 8.0) : wantCrouch ? 2.6 : 5.2) * (this.knifeOut ? this.knifeW().moveMul : w.moveMul) * (ads ? 0.62 : 1) * ((p.perks & 16) ? 1.12 : 1) * MOD.speed;
     if (jOn && !sprint) speed *= Math.max(0.5, Math.min(1, jm * 1.15));      // a light push walks, a full push runs
     if (down) speed = 1.5;
     const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);

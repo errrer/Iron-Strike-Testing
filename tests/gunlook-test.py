@@ -14,8 +14,8 @@ with sync_playwright() as p:
     pg.route('**/cdn.jsdelivr.net/npm/three@**', lambda r: r.fulfill(body=stub, content_type='application/javascript'))
     pg.goto(f'http://127.0.0.1:{port}/index.html'); pg.wait_for_timeout(400)
     r = pg.evaluate("""async () => { const v = document.querySelector('script[src*="main.js"]').src.split('?')[1] || ''; const W = await import('./js/weapons.js?' + v), G = await import('./js/gunmodels.js?' + v);
-      const sig = {}, dup = []; for (const w of Object.values(W.WEAPONS)) { if (w.cls === 'melee' || w.hidden) continue;
-        const k = JSON.stringify([(w.asset && w.asset.id) || w.builder, (G.GUN_MODS[w.id] || []).slice().sort(), G.GUN_STYLE[w.id] || null, w.tint === undefined ? null : w.tint]); if (sig[k]) dup.push(w.id + '=' + sig[k]); else sig[k] = w.id; }
+      const RG = await import('./js/realguns.js?' + v), real = Object.keys(RG.makeReal({})); const sig = {}, dup = []; for (const w of Object.values(W.WEAPONS)) { if (w.cls === 'melee' || w.hidden) continue;
+        const k = real.includes(w.id) ? 'real:' + w.id : JSON.stringify([(w.asset && w.asset.id) || w.builder, (G.GUN_MODS[w.id] || []).slice().sort(), G.GUN_STYLE[w.id] || null, w.tint === undefined ? null : w.tint]); if (sig[k]) dup.push(w.id + '=' + sig[k]); else sig[k] = w.id; }
       return [Object.keys(sig).length, dup]; }""")
     print(r); ok = not r[1] and not errs
     b.close()

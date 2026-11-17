@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.20.1';
+import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.20.2';
+import { makeReal } from './realguns.js?v=0.20.2';
+import { skinKit } from './skinkits.js?v=0.20.2';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -11,7 +13,7 @@ import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.20.1';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.20.1';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.20.2';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -608,7 +610,17 @@ function buildKDagger() {                                      // double-edged s
   fuller(b, -0.06, -0.2, 0.0, 0.0032);
   return kdone(b, V(0, -0.004, 0.02), -0.285);
 }
-const BUILDERS = { ak: buildAK, bolt: buildBolt, pump: buildPump, glock: buildGlock, m1911: build1911, revolver: buildRevolver,
+function buildKZephyr() {                                      // feather-light swept blade with a winged guard and a ribbed lightweight handle
+  const b = new B(), cy = mat(0x2fe0ff, 0.6, 0.3, { emissive: 0x0a6a8a, emissiveIntensity: 0.9 });
+  b.box(0.02, 0.026, 0.1, 0, -0.004, 0.02, M.black()); for (let i = 0; i < 4; i++) b.box(0.022, 0.028, 0.005, 0, -0.004, -0.012 + i * 0.02, cy);
+  b.box(0.016, 0.02, 0.016, 0, -0.004, 0.085, cy);
+  for (const sd of [-1, 1]) b.box(0.006, 0.01, 0.07, sd * 0.012, 0.0, -0.05, cy, 0, sd * 0.45, 0);                                // swept wing guard
+  b.box(0.012, 0.05, 0.008, 0, 0.0, -0.046, M.steel());
+  blade(b, [[-0.05, 0.016], [-0.17, 0.02], [-0.3, 0.014], [-0.38, 0.0], [-0.3, -0.008], [-0.17, -0.012], [-0.05, -0.012]], 0.0045, M.silver());
+  b.box(0.002, 0.003, 0.26, 0.0026, 0.01, -0.2, cy); b.box(0.002, 0.003, 0.26, -0.0026, 0.01, -0.2, cy);                          // glowing edge lines
+  return kdone(b, V(0, -0.004, 0.02), -0.38);
+}
+const BUILDERS = { k_zephyr: buildKZephyr, ak: buildAK, bolt: buildBolt, pump: buildPump, glock: buildGlock, m1911: build1911, revolver: buildRevolver,
   mp5: buildMp5, p90: buildP90, scar: buildScar, super46: buildSuper46, lmg: buildLmg, dmr: buildDmr, aa12: buildAa12, deagle: buildDeagle, skorp: buildSkorp, k_combat: buildKCombat, k_karambit: buildKKarambit, k_balisong: buildKBalisong, k_machete: buildKMachete, k_tomahawk: buildKTomahawk, k_katana: buildKKatana, k_kukri: buildKKukri, k_dagger: buildKDagger,
   goldgun: () => { const g = buildDeagle(), gold = mat(0xffd24a, 1, 0.16, { emissive: 0x3a2400, emissiveIntensity: 0.35 }); g.traverse((o) => { if (o.isMesh && !(o.userData && o.userData.iron)) o.material = gold; }); return g; } };
 
@@ -1174,7 +1186,8 @@ function applySkin(g, sk) {
   const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.userData.skinPart = true; g.add(m); return m; };
   const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
   const yb = mn.y + H * 0.64, yt = mn.y + H * 0.8, zf = mn.z;           // yb ~ the barrel / receiver line, yt ~ the top rail, zf = muzzle end
-  for (const part of sk.parts) {
+  const kit = skinKit(THREE, sk, { add, g, L, H, cx, cz, hw, yb, yt, yl: yb - 0.035, zf, zr: mx.z, glowM, accM, bodyM });
+  for (const part of (kit ? [] : sk.parts)) {
     if (part === 'strips') for (const sd of [-1, 1]) add(box(0.003, 0.006, L * 0.42), glowM, cx + sd * (hw + 0.002), yb - H * 0.02, cz - L * 0.04);
     else if (part === 'fins') for (let i = 0; i < 3; i++) add(box(0.004, 0.018 + i * 0.006, L * 0.14), accM, cx, yt + 0.006, zf + L * (0.38 + i * 0.16), 0.3, 0, 0);
     else if (part === 'blade') { const len = L * 0.4; add(new THREE.ConeGeometry(0.012, len, 4), accM, cx, yb - H * 0.1, zf - L * 0.04 + len / 2, -Math.PI / 2, 0, 0).scale.set(0.22, 1, 1.5); add(box(0.006, 0.016, L * 0.12), bodyM, cx, yb - H * 0.08, zf + L * 0.3); }
@@ -1262,15 +1275,17 @@ function applyStyle(g, id) {
   }
 }
 
+let REAL = null;
+const real = () => REAL || (REAL = makeReal({ B, M, V, mark, iron, ironSights, triggerGroup, mat, cm }));
 export function buildGun(w) {
-  const data = w.asset && MODEL_DATA[w.asset.id];
-  const g = data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || (() => new THREE.Group()))();
-  if (w.tint && w.builder !== 'goldgun' && THREE.Color) g.traverse((o) => {                       // recoloured variants: tint the dark metal / polymer parts
+  const data = w.asset && MODEL_DATA[w.asset.id], rb = real()[w.id];
+  const g = rb ? rb() : data ? buildFromAsset(w, data) : (BUILDERS[w.builder] || (() => new THREE.Group()))();
+  if (!rb && w.tint && w.builder !== 'goldgun' && THREE.Color) g.traverse((o) => {                       // recoloured variants: tint the dark metal / polymer parts
     if (!o.isMesh || !o.material || o.material.map || (o.userData && o.userData.iron) || !o.material.color) return;
     const c = o.material.color; if ((c.r + c.g + c.b) / 3 > 0.45) return;
     o.material = o.material.clone(); o.material.color.lerp(new THREE.Color(w.tint), 0.55);
   });
-  try { applyStyle(g, w.id); applyMods(g, w.id); } catch (e) { /* headless */ }
+  if (!rb) { try { applyStyle(g, w.id); applyMods(g, w.id); } catch (e) { /* headless */ } }
   const skinId = skinOf(w.attMask); if (skinId && SKINS[skinId] && w.slot !== 'melee' && THREE.Box3 && THREE.SphereGeometry) { try { applySkin(g, SKINS[skinId]); } catch (e) { /* headless test environment */ } }
   if (skinId && SKINS[skinId] && SKINS[skinId].paint && w.slot !== 'melee' && !camoOf(w.attMask)) { try { applyCamo(g, SKINS[skinId].paint); } catch (e) { /* headless */ } }
   if (w.attMask) {

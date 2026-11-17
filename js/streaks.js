@@ -1,4 +1,4 @@
-import { labelFor } from './keybinds.js?v=0.20.1';
+import { labelFor } from './keybinds.js?v=0.20.2';
 // Killstreak rewards (offline matches): earn them with kills in a row, then press the number key.
 //   3 kills  UAV        - every enemy shows on the radar for 25 s            (key 7)
 //   5 kills  SENTRY GUN - an automatic turret guards the spot for 60 s       (key 8)

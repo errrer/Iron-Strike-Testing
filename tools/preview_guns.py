@@ -17,7 +17,7 @@ def prim(m):
         f = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
         return [np.array([c[q[0]], c[q[1]], c[q[2]]]) for q in f] + [np.array([c[q[0]], c[q[2]], c[q[3]]]) for q in f]
     if k in ('cyl', 'cone'):
-        rt, rb, h = (p[0], p[0], p[1]) if k == 'cone' and False else ((0.0, p[0], p[1]) if k == 'cone' else p)
+        rt, rb, h = (0.0, p[0], p[1]) if k == 'cone' else (p if len(p) == 3 else (p[0], p[0], p[1]))
         n = 12; t = []
         for i in range(n):
             a0, a1 = 2 * np.pi * i / n, 2 * np.pi * (i + 1) / n
@@ -31,8 +31,18 @@ def prim(m):
         for i in range(la):
             for j in range(lo): t += [np.array([P(i, j), P(i + 1, j), P(i + 1, j + 1)]), np.array([P(i, j), P(i + 1, j + 1), P(i, j + 1)])]
         return t
+    if k == 'octa':
+        r = p[0]; v = [[r,0,0],[-r,0,0],[0,r,0],[0,-r,0],[0,0,r],[0,0,-r]]; fcs = [(0,2,4),(4,2,1),(1,2,5),(5,2,0),(0,4,3),(4,1,3),(1,5,3),(5,0,3)]
+        return [np.array([v[a],v[b],v[c]]) for a,b,c in fcs]
+    if k == 'torus':
+        R_, tt = p[0], p[1]; out = []; n, mm = 18, 5
+        pt = lambda i, j: [(R_ + tt*np.cos(2*np.pi*j/mm))*np.cos(2*np.pi*i/n), (R_ + tt*np.cos(2*np.pi*j/mm))*np.sin(2*np.pi*i/n), tt*np.sin(2*np.pi*j/mm)]
+        for i in range(n):
+            for j in range(mm): out += [np.array([pt(i,j),pt(i+1,j),pt(i+1,j+1)]), np.array([pt(i,j),pt(i+1,j+1),pt(i,j+1)])]
+        return out
     if k == 'buffer':
-        Pv = np.array(m['positions']).reshape(-1, 3); I = np.array(m['indices']).reshape(-1, 3)
+        Pv = np.array(m['positions']).reshape(-1, 3); ix = m.get('indices')
+        I = np.array(ix).reshape(-1, 3) if isinstance(ix, list) and len(ix) > 3 else np.arange(len(Pv)).reshape(-1, 3)
         return [Pv[i] for i in I]
     return []
 
@@ -41,7 +51,8 @@ def gun_tris(g):
     for m in g['meshes']:
         if m.get('opacity') not in (None, 1) and m['opacity'] < 0.9 and False: continue
         R = rotm(*m['rot']); pos = np.array(m['pos']); c = m['color']; rgb = np.array([(c >> 16 & 255) / 255, (c >> 8 & 255) / 255, (c & 255) / 255])
-        for t in prim(m): out.append(((R @ t.T).T + pos, rgb))
+        sc = np.array(m.get('scl', [1, 1, 1]))
+        for t in prim(m): out.append(((R @ (t * sc).T).T + pos, rgb))
     return out
 
 if __name__ == '__main__':

@@ -156,7 +156,7 @@ variant2('magnum', 'judge', 'The Judge', 'Revolver that fires shot shells. Wicke
 variant('deagle', 'goldgun', 'Golden Gun', 'One bullet. One shot. One kill. Then a very slow reload.', 'special', { builder: 'goldgun', dmg: 500, hs: 1, rpm: 40, auto: false, mag: 1, reserve: 999, reload: 6.5, spread: 0.012, adsSpread: 0.0004, recoil: 0.022, recoilYaw: 0.002, range: [250, 250], minMul: 1, moveMul: 0.96, snd: { f: 900, len: 0.24, thump: 1.4 }, attach: [] }, 0xffd24a);
 
 // ---- melee: five knives. `dmg` is the damage of a slash (knife equipped); a quick-melee lunge (tap V) always does 100 and one-shots.
-export const KNIVES = ['k_combat', 'k_karambit', 'k_balisong', 'k_machete', 'k_tomahawk', 'k_katana', 'k_kukri', 'k_dagger'];
+export const KNIVES = ['k_combat', 'k_karambit', 'k_balisong', 'k_machete', 'k_tomahawk', 'k_katana', 'k_kukri', 'k_dagger', 'k_zephyr'];
 const knife = (id, name, desc, o) => { WEAPONS[id] = { id, name, slot: 'melee', cls: 'melee', desc, dmg: o.dmg, hs: 1, rpm: Math.round(60 / o.cd), auto: false, mag: 1, reserve: 0, reload: 1, spread: 0, adsSpread: 0, recoil: 0, recoilYaw: 0, range: [o.reach, o.reach], minMul: 1, pellets: 1, zoom: 1, scope: false, moveMul: o.speed, maxD: o.reach, cd: o.cd, snd: { f: 900, len: 0.06, thump: 0.05 }, builder: id, attach: [], opts: {} }; };
 knife('k_combat', 'Combat Knife', 'Standard issue. Balanced reach and speed.', { dmg: 60, cd: 0.5, reach: 2.6, speed: 1.1 });
 knife('k_karambit', 'Karambit', 'Curved claw blade. The fastest slash, short reach.', { dmg: 50, cd: 0.34, reach: 2.3, speed: 1.14 });
@@ -165,6 +165,7 @@ knife('k_machete', 'Machete', 'Long heavy blade. Great reach, slower swings.', {
 knife('k_katana', 'Katana', 'Long folded-steel blade. Huge reach and clean cuts, a slow recovery.', { dmg: 82, cd: 0.78, reach: 3.2, speed: 1.05 });
 knife('k_kukri', 'Kukri', 'Bent chopping blade. Heavy hits at a steady pace.', { dmg: 70, cd: 0.55, reach: 2.6, speed: 1.08 });
 knife('k_dagger', 'Dagger', 'Slim double-edged stiletto. Very quick, very short.', { dmg: 46, cd: 0.3, reach: 2.2, speed: 1.16 });
+knife('k_zephyr', 'Zephyr', 'All mobility: you run, jump and slide far faster with it out. It deals 1 damage but swings as fast as you can click.', { dmg: 1, cd: 0.03, reach: 2.2, speed: 1.85 });
 knife('k_tomahawk', 'Tomahawk', 'Throwing axe. Hits hard, a bit slow.', { dmg: 72, cd: 0.62, reach: 2.8, speed: 1.08 });
 
 export const PRIMARIES = ['vmp', 'super46', 'mp5', 'mp7', 'ump', 'p90', 'pp19', 'kriss', 'm4a1', 'm16', 'aug', 'famas', 'ak47', 'ak74', 'scar', 'g36', 'fal', 'hk417', 'lmg', 'rpk', 'pkm', 'm60', 'sks', 'mk14', 'kar98k', 'r700', 'awp', 'reaper', 'barrett', 'm680', 'spas12', 'ksg', 'aa12', 'saiga'];
