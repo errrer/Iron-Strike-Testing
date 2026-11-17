@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.21.3';
-import { makeReal } from './realguns.js?v=0.21.3';
-import { skinKit } from './skinkits.js?v=0.21.3';
+import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.21.4';
+import { makeReal } from './realguns.js?v=0.21.4';
+import { skinKit } from './skinkits.js?v=0.21.4';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -13,7 +13,7 @@ import { skinKit } from './skinkits.js?v=0.21.3';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.21.3';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.21.4';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -1057,12 +1057,12 @@ function buildUnder(b, u, kind) {
     for (let i = 0; i < 4; i++) b.box(0.028, 0.004, 0.032, 0, m.y - 0.026 - i * 0.015, m.z + 0.005, M.black(), 0.1);
     b.box(0.026, 0.008, 0.032, 0, m.y - 0.01 - h, m.z + 0.008, M.blued());
     u.fore = V(0, m.y - 0.01 - h / 2 + 0.045, m.z + 0.004);                          // support hand moves to the grip
-  } else if (kind === 2) {                                                             // angled grip: leans forward, smooth and wide
-    const th = 0.62, len = 0.075, cx = m.y - 0.008 - Math.cos(th) * len / 2, cz = m.z - Math.sin(th) * len / 2;
-    b.box(0.022, 0.012, 0.06, 0, m.y - 0.004, m.z + 0.008, M.blued());
-    b.box(0.028, len, 0.034, 0, cx, cz, M.poly(), th);
-    for (let i = 0; i < 3; i++) b.box(0.03, 0.004, 0.036, 0, cx + 0.018 - i * 0.017, cz - 0.0 - (i - 1) * 0.0 + 0.0, M.black(), th);
-    u.fore = V(0, cx + 0.012, cz - 0.004);
+  } else if (kind === 2) {                                                             // angled grip: base sweeps back toward the shooter, smooth and wide
+    const th = -0.62, len = 0.075, cy = m.y - 0.008 - Math.cos(th) * len / 2, cz = m.z - Math.sin(th) * len / 2;
+    b.box(0.022, 0.012, 0.06, 0, m.y - 0.004, m.z - 0.008, M.blued());
+    b.box(0.028, len, 0.034, 0, cy, cz, M.poly(), th);
+    for (let i = 0; i < 3; i++) { const t = (i - 1) * 0.017; b.box(0.03, 0.004, 0.036, 0, cy + Math.cos(th) * t, cz + Math.sin(th) * t, M.black(), th); }   // ridges sit along the grip's own axis
+    u.fore = V(0, cy + 0.012, cz + 0.004);
   } else if (kind === 3) {                                                             // stubby grip: short fat post you cup with the whole hand
     b.box(0.022, 0.012, 0.045, 0, m.y - 0.004, m.z, M.blued());
     b.post(0.0155, 0.042, 0, m.y - 0.03, m.z, M.poly());
