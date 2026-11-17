@@ -2,13 +2,32 @@
 // blood mist, pooling and wall streaks that darken as they age, blood on your screen, organs / ribs / intestines / brain matter,
 // and full dismemberment for shotguns, snipers, headshots and explosives. Purely cosmetic and local to your screen.
 import * as THREE from 'three';
-import { bx, mat } from './soldier.js?v=0.21.2';
-import { GIBS } from './gore.js?v=0.21.2';
+import { bx, mat } from './soldier.js?v=0.21.3';
+import { GIBS } from './gore.js?v=0.21.3';
 
 const V3 = THREE.Vector3, rand = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];
 const G = () => new THREE.Group();
 const sph = (r, m, x, y, z, g, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r, 9, 7), m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); g.add(o); return o; };
 const wet = (hex, r = 0.28) => { const m = new THREE.MeshStandardMaterial({ color: hex, roughness: r, metalness: 0.05 }); return m; };
+
+
+// procedural textures: torn meat cavity (jagged, dark, glistening) and clotted bullet holes
+const cvs = (n) => { const c = document.createElement('canvas'); c.width = c.height = n; return [c, c.getContext('2d')]; };
+let _meat, _hole;
+function meatTex() {
+  if (_meat) return _meat; const [c, x] = cvs(128), cx = 64, cy = 64;
+  x.beginPath(); for (let i = 0; i < 28; i++) { const a = i / 28 * 6.283, r = 46 + Math.random() * 16 * (i % 2 ? 1 : 0.4); x.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.9); } x.closePath();
+  x.fillStyle = '#2a0606'; x.fill(); x.save(); x.clip();
+  for (let i = 0; i < 260; i++) { const r = 3 + Math.random() * 14, px = cx + (Math.random() - 0.5) * 100, py = cy + (Math.random() - 0.5) * 100, d = Math.hypot(px - cx, py - cy) / 55, k = Math.random(); x.fillStyle = k < 0.5 ? `rgba(${70 + Math.random() * 60 | 0},6,10,0.8)` : k < 0.8 ? `rgba(${120 + Math.random() * 60 | 0},12,16,0.7)` : `rgba(${170 + Math.random() * 50 | 0},60,60,0.55)`; x.beginPath(); x.ellipse(px, py, r, r * rand(0.4, 1), Math.random() * 3, 0, 6.283); x.fill(); }
+  x.strokeStyle = 'rgba(210,150,140,0.5)'; x.lineWidth = 1.6; for (let i = 0; i < 18; i++) { x.beginPath(); x.moveTo(cx + (Math.random() - 0.5) * 80, cy + (Math.random() - 0.5) * 80); x.quadraticCurveTo(cx + (Math.random() - 0.5) * 90, cy + (Math.random() - 0.5) * 90, cx + (Math.random() - 0.5) * 80, cy + (Math.random() - 0.5) * 80); x.stroke(); }
+  x.fillStyle = 'rgba(235,225,200,0.9)'; for (let i = 0; i < 4; i++) { x.fillRect(cx - 30 + i * 18 + Math.random() * 6, cy - 20 + Math.random() * 10, 5, 28 + Math.random() * 14); }   // rib ends
+  x.restore(); return (_meat = new THREE.CanvasTexture(c));
+}
+function holeTex() {
+  if (_hole) return _hole; const [c, x] = cvs(64);
+  for (let i = 0; i < 26; i++) { const a = Math.random() * 6.283, r = Math.random() * 18, px = 32 + Math.cos(a) * r, py = 32 + Math.sin(a) * r; x.fillStyle = `rgba(${20 + Math.random() * 30 | 0},0,0,${0.7 + Math.random() * 0.3})`; x.beginPath(); x.arc(px, py, 3 + Math.random() * 5, 0, 6.283); x.fill(); }
+  x.fillStyle = '#0a0000'; x.beginPath(); x.arc(32, 32, 6, 0, 6.283); x.fill(); return (_hole = new THREE.CanvasTexture(c));
+}
 
 // ---- organs and body parts (extra gib models, registered into the shared GIBS table) ----
 let built = false;
@@ -65,18 +84,19 @@ export class GoreX {
   }
 
   // a wound stuck to the body that was hit (stays on the corpse)
-  wound(v, head) {
+  wound(v, head, kind = 'hole') {
     const m = v.mesh; if (!m || !m.root) return;
     let w = this.wounds.get(m); if (!w) { w = []; this.wounds.set(m, w); }
-    const tex = this._tex || (this._tex = Array.from({ length: 6 }, (_, i) => this.gore.decals[i].material.map));
-    const p = new THREE.Mesh(this._wg || (this._wg = new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({ map: pick(tex), color: 0xb0b0b0, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
-    const s = head ? rand(0.1, 0.16) : rand(0.12, 0.26); p.scale.set(s, s, 1);
-    const front = Math.random() < 0.65, side = rand(-0.17, 0.17);
-    p.position.set(side, head ? 1.6 + rand(-0.03, 0.05) : rand(0.85, 1.4), front ? -0.145 : 0.145); p.rotation.set(0, front ? Math.PI : 0, rand(0, 6));
-    if (head) { p.position.x = rand(-0.08, 0.08); p.position.z = front ? -0.115 : 0.115; }
-    (m.body || m.root).add(p); w.push(p); if (w.length > 16) { const o = w.shift(); o.parent && o.parent.remove(o); o.material.dispose(); }
+    const dec = this.gore.decals.slice(0, 6).map((d) => d.material.map), front = Math.random() < 0.7, face = front ? -1 : 1;
+    const mk = (map, size, x, y, color = 0xffffff, op = 1) => {
+      const p = new THREE.Mesh(this._wg || (this._wg = new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({ map, color, transparent: true, opacity: op, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+      p.scale.set(size, size, 1); p.position.set(x, y, face * (head ? 0.118 : 0.148)); p.rotation.set(0, front ? Math.PI : 0, rand(0, 6.28)); (m.body || m.root).add(p); w.push(p); if (w.length > 26) { const o = w.shift(); o.parent && o.parent.remove(o); o.material.dispose(); } return p;
+    };
+    const px = head ? rand(-0.07, 0.07) : rand(-0.15, 0.15), py = head ? 1.6 + rand(-0.03, 0.05) : rand(0.9, 1.4);
+    if (kind === 'cavity') { mk(meatTex(), rand(0.28, 0.4), rand(-0.05, 0.05), rand(1.05, 1.28)); return; }
+    mk(holeTex(), head ? 0.07 : rand(0.05, 0.09), px, py);                                                          // clotted bullet hole
+    mk(pick(dec), head ? rand(0.1, 0.16) : rand(0.14, 0.3), px, py - 0.02, 0x8a5a5a, 0.85);                          // stain soaking the clothing
   }
-
   // blood that wraps the geometry: thin wet shells over the box parts, patchy and darker the more they were hit
   coat(root, amt = 0.5, maxN = 14, skip = null) {
     if (!root || !THREE.BoxGeometry) return; root.userData.coated = true; const tex = this.gore.decals.slice(0, 6).map((d) => d.material.map).filter(Boolean); let n = 0;
@@ -115,7 +135,7 @@ export class GoreX {
     let dx = v.pos.x - k.pos.x, dz = v.pos.z - k.pos.z; const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
     const x = v.pos.x, y = v.pos.y, z = v.pos.z, power = cls === 'explosive' ? 1.8 : cls === 'shotgun' ? 1.5 : cls === 'sniper' ? 1.3 : 1;
     // the main burst: a fan of droplets + thick mist
-    gr.spray(x, y + 1.3, z, dx, 0.35, dz, Math.round(70 * power), 8, 0.7);
+    gr.spray(x, y + 1.3, z, dx, 0.35, dz, Math.round(45 * power), 5, 0.6);
     gr.spray(x, y + 1.2, z, 0, 1, 0, 30, 4.5, 0.9);
     for (let i = 0; i < 4; i++) this.puff(x, y + rand(0.8, 1.6), z, dx * rand(0.5, 3) + rand(-1, 1), rand(0, 1.4), dz * rand(0.5, 3) + rand(-1, 1), rand(0.5, 1.1));
     gr.splatter(x, y + 1.3, z, dx, dz, Math.round(26 * power), 9);
@@ -127,11 +147,11 @@ export class GoreX {
     // long arterial spurts (stay for ~7 s, pulse with the heartbeat) from where the neck / chest was
     const spurt = (dy, dur, pw) => gr.bleed(() => this.g.stumpPos(v, { x: rand(-0.04, 0.04), y: dy, z: -0.08 }), dur, pw);
     if (head) { spurt(1.45, 7, 2.2); gr.splat({ x: x + dx * 0.3, y, z: z + dz * 0.3, nx: 0, ny: 1, nz: 0 }, 1.1, true); } else { spurt(1.3, 5, 1.4); spurt(1.1, 4, 1.0); }
-    const sp = () => rand(2.5, 8) * power, add = (part, yy, ox = 0) => { const o = gr.gib(part, { x, y: y + yy, z }, { x: dx * sp() + rand(-2.5, 2.5), y: rand(2.5, 6.5), z: dz * sp() + rand(-2.5, 2.5) }, m.color); if (o && (part === 'arm' || part === 'leg' || part === 'torso' || part === 'hand' || part === 'foot')) this.coat(o.g, 0.7, 6); return o; };
+    const sp = () => rand(0.8, 2.6) * Math.min(power, 1.4), add = (part, yy, ox = 0) => { const o = gr.gib(part, { x, y: y + yy, z }, { x: dx * sp() + rand(-1, 1), y: rand(1.2, 3), z: dz * sp() + rand(-1, 1) }, m.color); if (o && (part === 'arm' || part === 'leg' || part === 'torso' || part === 'hand' || part === 'foot')) this.coat(o.g, 0.7, 6); return o; };
     // head: skull + brain + eyes + jaw
     if (head || cls === 'explosive' || (cls === 'shotgun' && Math.random() < 0.5)) {
-      add('skull', 1.62); add('skull', 1.62); add('jaw', 1.55); add('eye', 1.65); if (Math.random() < 0.6) add('eye', 1.65);
-      for (let i = 0, n = 3 + Math.floor(Math.random() * 4); i < n; i++) add('brain', rand(1.55, 1.8));
+      add('skull', 1.62); add('jaw', 1.55); add('eye', 1.65); if (Math.random() < 0.6) add('eye', 1.65);
+      for (let i = 0, n = 2 + Math.floor(Math.random() * 2); i < n; i++) add('brain', rand(1.55, 1.8));
       gr.splat({ x: x - dx * 0.4, y, z: z - dz * 0.4, nx: 0, ny: 1, nz: 0 }, 0.7, true);
       if (m.headG && m.headG.visible && !(m.rich && m.rich.visible)) { m.headG.visible = false; m.goreHidden.push(m.headG); }
     }
@@ -139,15 +159,15 @@ export class GoreX {
     if (cls === 'explosive' || cls === 'shotgun' || cls === 'sniper' || (!head && Math.random() < 0.55)) {
       add('ribs', 1.2); add('spine', 1.1);
       for (const part of pick([['heart', 'lung', 'lung'], ['liver', 'lung', 'heart'], ['heart', 'liver']])) add(part, rand(1.0, 1.4));
-      add('gut', 0.95); if (Math.random() < 0.6) add('gut', 0.9);
+      add('gut', 0.95);
     }
     // limbs by weapon class
     const list = [];
-    if (cls === 'explosive') list.push('arm', 'arm', 'leg', 'leg', 'torso');
-    else if (cls === 'shotgun') for (let i = 0, n = 3 + Math.floor(Math.random() * 3); i < n; i++) list.push(pick(['arm', 'leg', 'arm', 'leg', 'torso']));
-    else if (cls === 'sniper') for (let i = 0, n = 2 + Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg', 'torso']));
+    if (cls === 'explosive') list.push('arm', 'leg', Math.random() < 0.5 ? 'arm' : 'leg');
+    else if (cls === 'shotgun') for (let i = 0, n = 1 + Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg', 'arm', 'leg', 'torso']));
+    else if (cls === 'sniper') for (let i = 0, n = Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg', 'torso']));
     else if (cls === 'melee') list.push(pick(['arm', 'leg', 'arm']));
-    else if (Math.random() < 0.65) for (let i = 0, n = 1 + Math.floor(Math.random() * 2); i < n; i++) list.push(pick(['arm', 'leg']));
+    
     const rich = m.rich && m.rich.visible;
     for (const part of list) {
       let ref = null, yy = 1.1;
@@ -156,7 +176,9 @@ export class GoreX {
       if (ref && !rich && ref.visible) { ref.visible = false; m.goreHidden.push(ref); const lp = ref.position; gr.bleed(() => this.g.stumpPos(v, lp), 6, 1.3); }
       add(part, yy); if (part === 'arm' && Math.random() < 0.6) add('hand', 1.1); if (part === 'leg' && Math.random() < 0.6) add('foot', 0.4);
     }
-    for (let i = 0, n = Math.round(10 * power) + Math.floor(Math.random() * 6); i < n; i++) gr.gib('chunk', { x, y: y + rand(0.8, 1.6), z }, { x: dx * sp() + rand(-3, 3), y: rand(2, 8), z: dz * sp() + rand(-3, 3) }, m.color);
+    for (let i = 0, n = 4 + Math.floor(Math.random() * 3); i < n; i++) gr.gib('chunk', { x, y: y + rand(0.8, 1.6), z }, { x: dx * sp() + rand(-1.2, 1.2), y: rand(1.5, 3.5), z: dz * sp() + rand(-1.2, 1.2) }, m.color);
+    if (!head || cls === 'explosive') { this.wound(v, false, 'cavity'); if (cls !== 'other') this.wound(v, false, 'cavity'); }
+    for (let i = 0; i < 5; i++) this.wound(v, false);
     const p = this.g.player; if (p) { const d = Math.hypot(x - p.pos.x, z - p.pos.z); if (d < 4.5 && k === p) this.screenBlood(2 + Math.round((4.5 - d) * 0.8)); else if (v === p) this.screenBlood(4); }
     if (this.g.sound && this.g.sound.squelch) { this.g.sound.squelch(1); setTimeout(() => this.g.sound.squelch && this.g.sound.squelch(0.7), 120); }
   }
