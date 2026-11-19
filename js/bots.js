@@ -55,8 +55,10 @@ export class Bot {
   chooseGoal() {
     const a = this.a, g = this.g, nav = g.nav;
     let gx, gz;
-    const og = g.obj && !(this.memPos && this.memT > 0 && this.seen) && Math.random() < 0.75 ? g.obj.botGoal(a) : null;
-    if (og) { gx = og.x; gz = og.z; }
+    const bg = g.br ? g.br.botGoal(a) : null;
+    const og = bg ? null : g.obj && !(this.memPos && this.memT > 0 && this.seen) && Math.random() < 0.75 ? g.obj.botGoal(a) : null;
+    if (bg) { gx = bg.x; gz = bg.z; }
+    else if (og) { gx = og.x; gz = og.z; }
     else if (this.memPos && this.memT > 0) { gx = this.memPos.x; gz = this.memPos.z; }
     else if (Math.random() < 0.65) {
       let bd = Infinity, be = null;

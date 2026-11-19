@@ -1,24 +1,25 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.21.4';
-import { canon } from './keybinds.js?v=0.21.4';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.21.4';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.21.4';
-import { buildMap } from './maps.js?v=0.21.4';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.21.4';
-import { buildWorld } from './world.js?v=0.21.4';
-import { Bot } from './bots.js?v=0.21.4';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.21.4';
-import { buildSoldier, SKIN } from './soldier.js?v=0.21.4';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.21.4';
-import { Zombies, PERKS } from './zombies.js?v=0.21.4';
-import { inspectFor, inspectPose } from './inspect.js?v=0.21.4';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.21.4';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.21.4';
-import { Objectives } from './objectives.js?v=0.21.4';
-import { Utilities } from './utils.js?v=0.21.4';
-import { Streaks, STREAKS } from './streaks.js?v=0.21.4';
-import { GoreX } from './gorex.js?v=0.21.4';
-import { Gore } from './gore.js?v=0.21.4';
+import { MOD } from './supermod.js?v=0.22.0';
+import { canon } from './keybinds.js?v=0.22.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.22.0';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.22.0';
+import { buildMap } from './maps.js?v=0.22.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.22.0';
+import { buildWorld } from './world.js?v=0.22.0';
+import { Bot } from './bots.js?v=0.22.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.22.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.22.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.22.0';
+import { Zombies, PERKS } from './zombies.js?v=0.22.0';
+import { BattleRoyale } from './br.js?v=0.22.0';
+import { inspectFor, inspectPose } from './inspect.js?v=0.22.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.22.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.22.0';
+import { Objectives } from './objectives.js?v=0.22.0';
+import { Utilities } from './utils.js?v=0.22.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.22.0';
+import { GoreX } from './gorex.js?v=0.22.0';
+import { Gore } from './gore.js?v=0.22.0';
 
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -40,6 +41,7 @@ export const MODES = {
   kc: { id: 'kc', name: 'Kill Confirmed', team: true, perSide: 5, scoreLimit: 40, time: 600, obj: 'kc', solo: true, blurb: 'Kills drop dog tags - grab red to confirm, blue to deny (offline)' },
   snd: { id: 'snd', name: 'Search & Destroy', team: true, perSide: 5, scoreLimit: 4, time: 1500, obj: 'snd', oneLife: true, solo: true, blurb: 'One life. Attack: plant at A or B (hold E). Defend: stop it. First to 4 rounds (offline)' },
   zm: { id: 'zm', name: 'Zombies', team: true, coop: true, zm: true, perSide: 0, scoreLimit: 0, time: 0, blurb: 'Survive endless rounds of zombies. Solo or 4-player co-op.' },
+  br: { id: 'br', name: 'Battle Royale', team: false, count: 20, scoreLimit: 9999, time: 99999, br: true, solo: true, blurb: 'Drop from a helicopter onto the island with a pistol. Open crates for guns with random attachments, beat the storm, be the last one alive (offline, 19 bots)' },
   gg: { id: 'gg', name: 'Gun Game', team: false, count: 8, scoreLimit: 9999, time: 900, gg: true, blurb: 'Every kill upgrades your gun. A knife kill sets the victim back. Kill with the one-shot Golden Gun to win' },
   sandbox: { id: 'sandbox', name: 'Sandbox', team: false, count: 1, scoreLimit: 0, time: 0, sandbox: true, blurb: 'No score, no clock. Spawn dummies (B), swap your loadout any time (Esc)' },
 };
@@ -128,11 +130,12 @@ export class Game {
       if (e.code === 'KeyV') { this.vHeld = true; this.vHandled = false; this.vDownT = performance.now(); }
       if (e.code === 'KeyB' && this.mode.sandbox) this.sandboxSpawn(e.shiftKey ? 5 : 1);
       if (e.code === 'KeyN' && this.mode.sandbox) this.sandboxClear();
-      if (e.code === 'KeyF' && this.zm) this.zm.localUse(true);
+      if (e.code === 'KeyF' && this.br) this.br.localUse(true);
+      else if (e.code === 'KeyF' && this.zm) this.zm.localUse(true);
       else if (e.code === 'KeyF') this.startInspect();
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
-    document.addEventListener('keyup', (ev) => { const e = { code: canon(ev.code), preventDefault: () => ev.preventDefault() }; this.keys[e.code] = false; if (e.code === 'KeyV' && this.vHeld) { this.vHeld = false; if (!this.vHandled && this.state === 'playing') this.startSwing('quick'); } if (e.code === 'KeyQ') this.adsKey = false; if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
+    document.addEventListener('keyup', (ev) => { const e = { code: canon(ev.code), preventDefault: () => ev.preventDefault() }; this.keys[e.code] = false; if (e.code === 'KeyV' && this.vHeld) { this.vHeld = false; if (!this.vHandled && this.state === 'playing') this.startSwing('quick'); } if (e.code === 'KeyQ') this.adsKey = false; if (e.code === 'KeyF' && this.br) this.br.localUse(false); if (e.code === 'KeyF' && this.zm && this.state === 'playing') this.zm.localUse(false); if (e.code === 'Tab') { this.showScore = false; e.preventDefault(); } });
     this.canvas.addEventListener('mousedown', (e) => {
       if (this.state !== 'playing') return;
       if (e.button === 0) { this.fireHeld = true; this.fireEdge = true; }
@@ -303,7 +306,7 @@ export class Game {
 
   lock() { if (this.touchMode) return; try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
 
-  pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; this.hud.showPause(true); { const t = document.getElementById('pauseTitle'), c = document.getElementById('pauseClasses'); if (t) t.textContent = this.net ? 'MENU - MATCH KEEPS RUNNING' : 'PAUSED'; if (c) c.style.display = this.mode.gg ? 'none' : ''; } if (this.onPause) this.onPause(); }
+  pause() { if (this.state !== 'playing') return; if (this.zm) this.zm.localUse(false); if (this.br) this.br.localUse(false); this.state = 'paused'; this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; this.hud.showPause(true); { const t = document.getElementById('pauseTitle'), c = document.getElementById('pauseClasses'); if (t) t.textContent = this.net ? 'MENU - MATCH KEEPS RUNNING' : 'PAUSED'; if (c) c.style.display = this.mode.gg ? 'none' : ''; } if (this.onPause) this.onPause(); }
   resume() { if (this.state !== 'paused') return; this.state = 'playing'; this.hud.showPause(false); this.lock(); }
 
   // ------------------------------------------------------------------ match setup
@@ -324,6 +327,7 @@ export class Game {
     const mode = this.mode;
     const mk = (id, name, team, isPlayer, prim, sec, ap, as) => this.makeActor(id, name, team, isPlayer, prim, sec, ap, as);
     const names = CALLSIGNS.slice().sort(() => Math.random() - 0.5);
+    for (let i = names.length; i < 40; i++) names.push(CALLSIGNS[i % CALLSIGNS.length] + (1 + Math.floor(i / CALLSIGNS.length)));
     this.player = mk(0, 'You', 0, true, cfg.primary, cfg.secondary, cfg.attP | 0, cfg.attS | 0);
     this.actors.push(this.player);
     if (mode.zm) { /* no bots: just you (and your co-op friends online) against the zombies */ }
@@ -345,13 +349,14 @@ export class Game {
       }
     }
     this.teamScore = [0, 0];
-    this.timeLeft = mode.time; this.matchT = mode.sandbox ? 0 : -3.5; this.ended = false; this.ggWin = null;
+    this.timeLeft = mode.time; this.matchT = mode.sandbox ? 0 : mode.br ? -2 : -3.5; this.ended = false; this.ggWin = null;
     this.killer = null; this.deathInfo = '';
     this.lastCountdown = mode.sandbox ? 0 : 99; this.nextDummyId = 1000;
     this.matchXp = 0; this.xpDone = false; this.hud.begin(this); this.gfxT = 0;
+    this.br = mode.br ? new BattleRoyale(this) : null;
     for (const a of this.actors) this.spawn(a, true);
     this.obj = mode.obj ? new Objectives(this, mode.obj) : null;
-    this.streaks = mode.sandbox || mode.zm ? null : new Streaks(this);
+    this.streaks = mode.sandbox || mode.zm || mode.br ? null : new Streaks(this);
     this.utils = new Utilities(this);
     this.zm = mode.zm ? new Zombies(this) : null;
     this.setPlayerVm();
@@ -367,14 +372,15 @@ export class Game {
     if (this.streaks) this.streaks.dispose();
     if (this.utils) { this.utils.dispose(); this.utils = null; }
     if (this.zm) this.zm.dispose();
-    this.zm = null; this.streaks = null; this.obj = null; this.world = null; this.scene = null;
+    if (this.br) this.br.dispose();
+    this.br = null; this.zm = null; this.streaks = null; this.obj = null; this.world = null; this.scene = null;
     this.tracers = []; this.particles = []; this.gore = null;
     this.actors = [];
   }
 
   // zombies mode needs a fine navigation grid (windows are 2 m gaps); everything else uses the coarse one
   makeNav() { return this.mode.zm ? new NavGraph(this.col, this.map.bounds, 1, { margin: 0.55, seg: 0.3 }) : new NavGraph(this.col, this.map.bounds, this.map.navStep || 3, this.map.navStep ? { margin: 0.6 } : {}); }
-  get noRespawn() { return !!(this.mode.oneLife || this.mode.zm); }
+  get noRespawn() { return !!(this.mode.oneLife || this.mode.zm || this.mode.br); }
 
   // a stand-in killer for deaths that no living actor caused (bleeding out in Zombies)
   fakeKiller(v) { return { id: -1, name: 'ZOMBIES', team: 1, isPlayer: false, kills: 0, streak: 0, pos: new V3(v.pos.x + 1, v.pos.y, v.pos.z), zombie: true }; }
@@ -427,6 +433,7 @@ export class Game {
   }
 
   spawn(a, first = false) {
+    if (this.br && this.br.place(a, first)) return;
     const nav = this.nav, map = this.map;
     let pool;
     if (this.mode.team) pool = nav.inRect(map.spawns[a.team]);
@@ -997,7 +1004,8 @@ export class Game {
       if (a.isPlayer) continue;
       if (client) { if (!a.alive) a.deathT += dt; continue; }
       if (a.alive) {
-        if (a.brain) a.brain.update(dt);
+        if (a.air && this.br) this.br.updateAir(a, dt);
+        else if (a.brain) a.brain.update(dt);
         a.protT = Math.max(0, a.protT - dt);
         if (a.tgt) { a.pos.lerp(a.tgt, 1 - Math.exp(-22 * dt)); a.pos.y = a.tgt.y; }
       } else {
@@ -1012,7 +1020,7 @@ export class Game {
       if (a.remote && a.fireCd < -0.25) a.fireCd = -0.25;
       if (a.reloading && !a.remote) { a.reloadT -= dt; if (a.reloadT <= 0) this.finishReload(a); }
       if (a.heat > 0) a.heat = Math.max(0, a.heat - dt * 3);
-      if (!client && !a.down && !a.zombie && this.time - a.lastHurt > 5 && a.hp < 100) a.hp = Math.min(100, a.hp + dt * 25);
+      if (!client && !this.br && !a.down && !a.zombie && this.time - a.lastHurt > 5 && a.hp < 100) a.hp = Math.min(100, a.hp + dt * 25);
       this.stepSounds(a, dt);
       if (a.mesh) this.syncMesh(a, dt);
     }
@@ -1021,6 +1029,7 @@ export class Game {
     if (this.streaks && !this.ended) this.streaks.update(dt);
     if (this.utils) this.utils.update(dt);
     if (this.zm) this.zm.update(dt);
+    if (this.br) this.br.update(dt);
     this.updateFx(dt);
 
     if (!client && !this.ended) this.checkEnd();
@@ -1298,6 +1307,7 @@ export class Game {
     if (v.isPlayer && MOD.god) return;
     if (MOD.dmgMul > 1 && attacker && attacker.isPlayer && v !== attacker) amount *= MOD.dmgMul;
     if (MOD.oneHit && attacker && attacker.isPlayer && v !== attacker) amount = 1e5;
+    if (this.br) amount = this.br.adjust(v, amount);
     if (this.zm) { if (v.down) return; amount = this.zm.adjust(v, attacker, amount); if (v.zombie) this.zm.onHit(attacker, v); }
     v.hp -= amount; v.lastHurt = this.time;
     if (this.settings.extremeGore && this.settings.gore && this.gfxQ.gore && this.gore && v.mesh && !v.zombie) { try { if (!this.gx) this.gx = new GoreX(this, this.gore); this.gx.hit(v, attacker, w || {}, head, amount, v.hp <= 0); } catch (e) {} }
@@ -1326,6 +1336,7 @@ export class Game {
       if (!v.zombie) for (let i = 0; i < 2; i++) { const am = k.ammo[i]; am.res = Math.min(k.weapons[i].reserve, am.res + Math.ceil(k.weapons[i].mag / 2)); }
     }
     if (this.zm && v.zombie) this.zm.onKill(v, k, head);
+    if (this.br) this.br.onKill(v, k);
   }
 
   // ------------------------------------------------------------------ best plays: the player's standout kills, listed on the end screen
@@ -1384,6 +1395,7 @@ export class Game {
     const p = this.player; this.prog.stat('matches');
     this.award(XP_REWARD.played, 'MATCH COMPLETE');
     if (this.mode.zm) { this.award(Math.min(1500, Math.max(0, this.teamScore[0] - 1) * 40), `ROUND ${this.teamScore[0]} REACHED`); this.endXp = this.matchXp; return; }
+    if (this.mode.br && this.br) { const pl = this.br.placement(); this.award(Math.max(0, 21 - pl) * 12 + p.kills * 25, `PLACED #${pl}`); }
     if (win !== null && win === p.team) { this.prog.stat('wins'); this.award(XP_REWARD.win, 'VICTORY'); this.prog.addCash(100); this.hud.xp('+$100 VICTORY BONUS', true); this.endCash = 100; }
     this.endXp = this.matchXp;
   }
@@ -1391,6 +1403,7 @@ export class Game {
   checkEnd() {
     const m = this.mode;
     if (m.sandbox || m.zm) return;
+    if (m.br) { if (this.br && this.br.checkEnd()) this.endMatch(); return; }
     let over = false;
     if (m.gg && this.ggWin) over = true;
     else if (m.team) over = this.teamScore[0] >= m.scoreLimit || this.teamScore[1] >= m.scoreLimit;
@@ -1405,6 +1418,7 @@ export class Game {
     this.keys = {}; this.fireHeld = false; this.adsHeld = false; this.adsKey = false; this.breath = 1; this.breathEx = 0; this.showScore = false;
     let win;
     if (this.mode.zm) win = null;
+    else if (this.mode.br) win = this.br ? this.br.winnerTeam() : null;
     else if (this.mode.team) win = this.teamScore[0] === this.teamScore[1] ? null : (this.teamScore[0] > this.teamScore[1] ? 0 : 1);
     else if (this.mode.gg && this.ggWin) win = this.ggWin.team;
     else if (this.mode.gg) { const s = [...this.actors].sort((a, b) => b.gg - a.gg || b.kills - a.kills); win = s.length > 1 && s[0].gg === s[1].gg && s[0].kills === s[1].kills ? null : s[0].team; }
@@ -1427,6 +1441,7 @@ export class Game {
       return;
     }
     p.protT = Math.max(0, p.protT - dt);
+    if (this.br && p.air) { this.br.updateAir(p, dt); return; }
     const frozen = this.matchT < 0;
     this.updateMelee(dt);
     const jm = Math.hypot(this.joy.x, this.joy.y), jOn = jm > 0.12;                                // analog stick (touch)

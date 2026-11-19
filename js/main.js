@@ -1,24 +1,24 @@
-import { Game, MODES, mpMode } from './game.js?v=0.21.4';
-import { Net, cleanCode, cleanName } from './net.js?v=0.21.4';
-import { UTILS, UTIL_IDS } from './utils.js?v=0.21.4';
-import { watchForEgg, watchWord } from './easter.js?v=0.21.4';
-import { Azam } from './azam.js?v=0.21.4';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.21.4';
-import { Sound } from './audio.js?v=0.21.4';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.21.4';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.21.4';
-import { loadProps } from './props.js?v=0.21.4';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.21.4';
-import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.21.4';
-import { initMapMaker } from './mapmaker.js?v=0.21.4';
-import { RaceMode } from './race.js?v=0.21.4';
-import { initSupermod, MOD } from './supermod.js?v=0.21.4';
-import { initKeybinds } from './keybinds.js?v=0.21.4';
-import { Gunsmith } from './gunsmith.js?v=0.21.4';
-import { SkinsUI } from './skinsui.js?v=0.21.4';
-import { WeaponPreview } from './wpreview.js?v=0.21.4';
-import { initTouch, blockZoom } from './touch.js?v=0.21.4';
-import { initGamepad } from './gamepad.js?v=0.21.4';
+import { Game, MODES, mpMode } from './game.js?v=0.22.0';
+import { Net, cleanCode, cleanName } from './net.js?v=0.22.0';
+import { UTILS, UTIL_IDS } from './utils.js?v=0.22.0';
+import { watchForEgg, watchWord } from './easter.js?v=0.22.0';
+import { Azam } from './azam.js?v=0.22.0';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.22.0';
+import { Sound } from './audio.js?v=0.22.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.22.0';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.22.0';
+import { loadProps } from './props.js?v=0.22.0';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.22.0';
+import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.22.0';
+import { initMapMaker } from './mapmaker.js?v=0.22.0';
+import { RaceMode } from './race.js?v=0.22.0';
+import { initSupermod, MOD } from './supermod.js?v=0.22.0';
+import { initKeybinds } from './keybinds.js?v=0.22.0';
+import { Gunsmith } from './gunsmith.js?v=0.22.0';
+import { SkinsUI } from './skinsui.js?v=0.22.0';
+import { WeaponPreview } from './wpreview.js?v=0.22.0';
+import { initTouch, blockZoom } from './touch.js?v=0.22.0';
+import { initGamepad } from './gamepad.js?v=0.22.0';
 
 const $ = (id) => document.getElementById(id);
 
@@ -352,7 +352,8 @@ function deploy() {
   if (sound.master) sound.master.gain.value = cfg.vol;
   lastZm = false;
   $('menu').classList.add('hidden'); $('endscreen').classList.add('hidden'); $('pause').classList.add('hidden');
-  game.start({ mode: cfg.mode, map: cfg.map, mapName: MAP_INFO[cfg.map].name, primary: cfg.primary, secondary: cfg.secondary, attP: maskFor(cfg.primary), attS: maskFor(cfg.secondary), difficulty: cfg.difficulty });
+  const dm = MODES[cfg.mode].br ? 'isle' : cfg.map;
+  game.start({ mode: cfg.mode, map: dm, mapName: MAP_INFO[dm].name, primary: cfg.primary, secondary: cfg.secondary, attP: maskFor(cfg.primary), attS: maskFor(cfg.secondary), difficulty: cfg.difficulty });
 }
 function toMenu() {
   if (net) { net.leave(); net = null; resetMpUi(); }

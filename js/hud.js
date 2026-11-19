@@ -141,6 +141,7 @@ export class HUD {
       e.endSub.textContent = `You survived ${game.teamScore[0]} round${game.teamScore[0] === 1 ? '' : 's'}` + (game.endXp ? `  -  +${game.endXp} XP` : '');
       this.buildTable(game, e.endTable); e.endscreen.classList.remove('hidden'); this.el.dead.classList.add('hidden'); return;
     }
+    if (game.mode.br && game.br) { const pl = game.br.placement(); e.endTitle.textContent = pl === 1 ? 'WINNER WINNER!' : `ELIMINATED - #${pl}`; e.endTitle.className = pl === 1 ? 'win' : 'lose'; e.endSub.textContent = `You placed #${pl} of ${game.actors.length} with ${p.kills} kill${p.kills === 1 ? '' : 's'}` + (game.endXp ? `  -  +${game.endXp} XP` : ''); this.buildTable(game, e.endTable); e.endscreen.classList.remove('hidden'); this.el.dead.classList.add('hidden'); return; }
     const won = game.mode.team ? win === p.team : win === p.team;
     e.endTitle.textContent = win === null ? 'DRAW' : (won ? 'VICTORY' : 'DEFEAT');
     e.endTitle.className = win === null ? 'draw' : (won ? 'win' : 'lose');
@@ -181,7 +182,7 @@ export class HUD {
     }
     const tl = Math.ceil(game.timeLeft);
     const surv = game.zm ? game.zm.survT | 0 : 0;
-    this.set('timer', game.mode.zm ? `${Math.floor(surv / 60)}:${String(surv % 60).padStart(2, '0')}` : game.mode.sandbox ? 'SANDBOX' : `${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`);
+    this.set('timer', game.mode.zm ? `${Math.floor(surv / 60)}:${String(surv % 60).padStart(2, '0')}` : game.mode.sandbox ? 'SANDBOX' : game.mode.br ? 'ROYALE' : `${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`);
     // health
     const hp = Math.max(0, Math.ceil(p.hp));
     e.hpfill.style.width = `${hp}%`;

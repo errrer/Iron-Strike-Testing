@@ -815,6 +815,72 @@ function finish(b, theme) {
   return { ...theme, bounds: BOUNDS, boxes: b.boxes, visuals: b.visuals, spawns: SPAWNS };
 }
 
+// ------------------------------------------------------------------------------------------
+// BATTLE ROYALE island: 300 x 300 m, nine named towns, woods and rock fields in between. Loot crates are placed by the mode at run time.
+// ------------------------------------------------------------------------------------------
+export const ISLE_BOUNDS = { x0: -150, x1: 150, z0: -150, z1: 150 };
+export const ISLE_TOWNS = [
+  { id: 'docks', name: 'Rusty Docks', x: -95, z: -92 }, { id: 'town', name: 'Pinewood', x: 0, z: -96 }, { id: 'quarry', name: 'Quarry', x: 96, z: -90 },
+  { id: 'farm', name: 'Old Farm', x: -100, z: 2 }, { id: 'plaza', name: 'Central Plaza', x: 0, z: 0 }, { id: 'factory', name: 'Factory', x: 100, z: 6 },
+  { id: 'village', name: 'Willow Village', x: -95, z: 96 }, { id: 'airfield', name: 'Airfield', x: 4, z: 102 }, { id: 'hotel', name: 'Grand Hotel', x: 100, z: 96 },
+];
+function isle() {
+  const b = new Builder(), R = rng(20261119), B = ISLE_BOUNDS;
+  const PAL = [{ color: 0xd9cfc0, roofColor: 0x6b4a3a }, { color: 0xc7b08a, roofColor: 0x4a5a63 }, { color: 0xa9b7c2, roofColor: 0x555c63 }, { color: 0xc98f7a, roofColor: 0x5a4034 }, { color: 0xb8c4a6, roofColor: 0x4f5b43 }];
+  const loot = [];
+  const bld = (x, z, w, d, h, doors, wins, i = 0) => { loot.push([x, z]); b.building(x, z, w, d, h, { tex: 'brick', tile: 3, ...PAL[(i + Math.abs((x * 3 + z) | 0)) % PAL.length], doors, windows: wins }); };
+  const crate = (x, z, s = 1.5, h = 1.4) => b.solid('crate', x, z, s, s, h, { tex: 'crate', color: 0x9a6c3c, rot: ((x * 7 + z * 3) | 0) & 3, rough: 0.9 });
+  const barrel = (x, z) => b.solid('barrel', x, z, 0.9, 0.9, 1.0, { color: 0x7a4a2a, tint: 0xb5703c, rough: 0.85 });
+  const T = Object.fromEntries(ISLE_TOWNS.map((t) => [t.id, t]));
+  // --- Rusty Docks: stacked containers and two sheds
+  { const t = T.docks; const cols = [0xb23a2f, 0x2f6fb2, 0xc7842b, 0x3f8f5a, 0x7a5aa0];
+    for (let i = 0; i < 9; i++) { const x = t.x - 24 + (i % 3) * 12 + R() * 2, z = t.z - 16 + Math.floor(i / 3) * 14 + R() * 2; b.box(x, z, 2.5, 6.5, 2.6, { tex: 'metal', color: cols[i % 5], tile: 2 }); if (i % 2) b.box(x, z, 2.5, 6.5, 2.6, { tex: 'metal', color: cols[(i + 2) % 5], tile: 2, y0: 2.6 }); }
+    bld(t.x + 18, t.z - 4, 11, 8, 4, ['nx'], ['pz'], 0); bld(t.x + 8, t.z + 20, 9, 7, 3.6, ['nz'], ['px'], 1); crate(t.x - 4, t.z + 4); barrel(t.x + 1, t.z + 6); }
+  // --- Pinewood: a small main street
+  { const t = T.town;
+    for (const [dx, dz, w, d, door] of [[-16, -9, 10, 8, 'pz'], [-2, -10, 9, 8, 'pz'], [13, -9, 11, 8, 'pz'], [-14, 11, 9, 9, 'nz'], [2, 12, 12, 8, 'nz'], [17, 11, 8, 8, 'nz']]) bld(t.x + dx, t.z + dz, w, d, 3.8, [door], ['px', 'nx'], dx);
+    crate(t.x - 6, t.z + 1); crate(t.x + 7, t.z - 1, 1.6, 1.0); barrel(t.x + 1, t.z + 2); b.solid('car', t.x + 9, t.z + 2, 4.3, 1.9, 1.5, { color: 0x4b5a6b, tint: 0x8fa6c0, rough: 0.9 }); }
+  // --- Quarry: rock stacks, a hut and a lookout tower
+  { const t = T.quarry; for (let i = 0; i < 14; i++) { const a = R() * 6.283, r = 6 + R() * 22, w = 2 + R() * 4, h = 1.6 + R() * 3.4; b.box(t.x + Math.cos(a) * r, t.z + Math.sin(a) * r, w, w * (0.8 + R() * 0.5), h, { tex: 'concrete', color: 0x8d8070, tile: 2 }); }
+    bld(t.x - 6, t.z + 2, 8, 6, 3.4, ['px'], ['nz'], 2); b.box(t.x + 12, t.z - 4, 5, 5, 0.5, { tex: 'wood', color: 0x6a4a2a, y0: 7.5 }); for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) b.box(t.x + 12 + dx, t.z - 4 + dz, 0.4, 0.4, 7.5, { tex: 'wood', color: 0x4a3318 });
+    b.stairs(t.x + 6.5, t.z - 4, 'px', 15, 1.6, 0.5, 0.6, { tex: 'wood', color: 0x6a4a2a }); }
+  // --- Old Farm: barn, farmhouse, silo
+  { const t = T.farm; bld(t.x + 4, t.z - 10, 16, 11, 5.2, ['pz', 'nx'], ['px'], 3); bld(t.x - 12, t.z + 10, 9, 8, 3.6, ['px'], ['nz', 'pz'], 1); b.cyl(t.x + 20, t.z + 6, 3, 9, { tex: 'metal', color: 0xb8b8b0 });
+    for (let i = 0; i < 5; i++) b.box(t.x - 6 + i * 3.2, t.z + 22, 2.2, 1.6, 1.1, { tex: 'wood', color: 0xc9b35a, tile: 2 }); crate(t.x + 6, t.z + 8); barrel(t.x - 2, t.z + 2); }
+  // --- Central Plaza: ring of shops around a fountain
+  { const t = T.plaza; b.cyl(t.x, t.z, 3, 1.0, { tex: 'concrete', color: 0xa8a8a8 });
+    for (const [dx, dz, w, d, door] of [[-18, -14, 11, 8, 'pz'], [0, -17, 10, 8, 'pz'], [18, -14, 11, 8, 'pz'], [-18, 14, 11, 8, 'nz'], [0, 17, 10, 8, 'nz'], [18, 14, 11, 8, 'nz']]) bld(t.x + dx, t.z + dz, w, d, 4.2, [door], ['px', 'nx'], dx + dz);
+    b.solid('car', t.x - 8, t.z + 6, 4.3, 1.9, 1.5, { color: 0x6e5d4b, tint: 0xb59a78, rough: 0.9 }); b.solid('car', t.x + 8, t.z - 6, 4.3, 1.9, 1.5, { color: 0x8f2f2f, tint: 0xc05a5a, rough: 0.9, rot: 2 });
+    for (const [x, z] of [[-9, 0], [9, 0], [0, -9], [0, 9]]) crate(t.x + x, t.z + z, 1.5, 1.0); }
+  // --- Factory: long hall, side shed, silos and pipes
+  { const t = T.factory; bld(t.x - 2, t.z - 6, 26, 16, 6.5, ['nx', 'pz'], ['px', 'nz'], 2); bld(t.x + 16, t.z + 16, 10, 8, 4, ['nz'], ['px'], 0);
+    for (let i = 0; i < 3; i++) b.cyl(t.x - 16 + i * 8, t.z + 20, 2.8, 8.5, { tex: 'metal', color: 0x9aa0a6 }); for (let i = 0; i < 6; i++) barrel(t.x - 10 + i * 1.3, t.z + 8); crate(t.x + 14, t.z - 2); crate(t.x + 14, t.z + 1, 1.5, 1.0); }
+  // --- Willow Village: four cottages and a well
+  { const t = T.village; for (const [dx, dz, door] of [[-14, -10, 'pz'], [10, -12, 'pz'], [-10, 12, 'nz'], [14, 10, 'nz']]) bld(t.x + dx, t.z + dz, 9, 8, 3.5, [door], ['px', 'nx'], dx); b.cyl(t.x, t.z, 1.2, 1.0, { tex: 'brick', color: 0x9c8466 }); crate(t.x + 4, t.z - 2); barrel(t.x - 3, t.z + 3); }
+  // --- Airfield: hangar, control tower, fuel drums
+  { const t = T.airfield; bld(t.x - 14, t.z - 6, 28, 14, 6, ['pz', 'nz'], ['px'], 2); bld(t.x + 18, t.z + 8, 7, 7, 9, ['nx'], ['pz'], 1); for (let i = 0; i < 5; i++) barrel(t.x + 2 + i * 1.3, t.z + 10); crate(t.x + 8, t.z - 4); crate(t.x + 8, t.z - 1.5, 1.5, 1.0); b.deco(t.x, t.z + 22, 80, 4, 0.05, { tex: 'plain', color: 0x4a4d52, y0: 0.01 }); }
+  // --- Grand Hotel: wide three-storey block with a courtyard
+  { const t = T.hotel; bld(t.x - 8, t.z - 14, 28, 10, 8.5, ['pz', 'nz'], ['px', 'nx'], 0); bld(t.x + 14, t.z + 4, 10, 18, 8.5, ['nx'], ['pz', 'nz'], 4); bld(t.x - 14, t.z + 8, 9, 9, 3.8, ['px'], ['nz'], 1); crate(t.x - 2, t.z); crate(t.x + 2, t.z + 3, 1.4, 1.0); barrel(t.x + 4, t.z - 2);
+    b.cyl(t.x - 1, t.z + 10, 2.2, 1.0, { tex: 'concrete', color: 0xb8b0a0 }); }
+  // --- trees and rocks in the gaps (kept out of the towns)
+  const nearTown = (x, z, r) => ISLE_TOWNS.some((t) => Math.hypot(x - t.x, z - t.z) < r);
+  const leaf = [0x2f6b34, 0x3a7a3a, 0x285a30, 0x4a8a3a];
+  for (let i = 0, n = 0; i < 700 && n < 150; i++) { const x = B.x0 + 8 + R() * (B.x1 - B.x0 - 16), z = B.z0 + 8 + R() * (B.z1 - B.z0 - 16); if (nearTown(x, z, 32)) continue; n++;
+    const h = 5 + R() * 3; b.cyl(x, z, 0.35, 3.2, { tex: 'wood', color: 0x5a3b1e, tile: 2 }); b.cone(x, z, 1.6 + R() * 0.8, h, { y0: 2.4, color: leaf[n % 4] }); }
+  for (let i = 0, n = 0; i < 400 && n < 40; i++) { const x = B.x0 + 8 + R() * (B.x1 - B.x0 - 16), z = B.z0 + 8 + R() * (B.z1 - B.z0 - 16); if (nearTown(x, z, 26)) continue; n++; const w = 1.6 + R() * 2.4; b.box(x, z, w, w * (0.8 + R() * 0.6), 1 + R() * 1.6, { tex: 'concrete', color: 0x8a8578, tile: 2 }); }
+  // open fields get a few low walls and wrecks for cover
+  for (let i = 0, n = 0; i < 300 && n < 14; i++) { const x = B.x0 + 12 + R() * (B.x1 - B.x0 - 24), z = B.z0 + 12 + R() * (B.z1 - B.z0 - 24); if (nearTown(x, z, 24)) continue; n++; b.box(x, z, R() < 0.5 ? 6 : 0.7, R() < 0.5 ? 0.7 : 6, 1.2, { tex: 'brick', color: 0xb0a090 }); }
+  // water beyond the shore (visual only) and invisible walls at the edge
+  b.deco(0, 0, 900, 900, 0.2, { tex: 'plain', color: 0x2f7fb8, y0: -0.3 });
+  const t = 4, H = 400, wall = (x, z, w, d) => b.boxes.push({ x0: x - w / 2, x1: x + w / 2, y0: -1, y1: H, z0: z - d / 2, z1: z + d / 2, mat: 'concrete' });
+  wall(0, B.z0 - t / 2, 308, t); wall(0, B.z1 + t / 2, 308, t); wall(B.x0 - t / 2, 0, t, 300); wall(B.x1 + t / 2, 0, t, 300);
+  return { ...{
+    id: 'isle', sky: [0x4f9ae0, 0xcfe6f5], fog: [0xbfd9ec, 90, 330],
+    hemi: [0xfff4dc, 0x6a7a52, 1.05], sun: { color: 0xfff1d0, intensity: 3.3, pos: [-60, 90, 40] },
+    ground: { tex: 'sand', color: 0x7ea25a, tile: 8, size: [304, 304] }, impact: 0xa89a7a,
+  }, bounds: ISLE_BOUNDS, boxes: b.boxes, visuals: b.visuals, spawns: SPAWNS, navStep: 5, br: true, towns: ISLE_TOWNS, loot };
+}
+
 export const MAP_INFO = {
   warehouse: { name: 'Warehouse', desc: 'Indoor containers & a central catwalk. Tight lanes, close fights.', thumb: 'linear-gradient(135deg,#2b2f36,#59616b 55%,#c7842b)' },
   dust: { name: 'Dust', desc: 'Desert village. Buildings, windows and a busy central plaza.', thumb: 'linear-gradient(135deg,#f1d9a8,#c49a66 55%,#5f9fd6)' },
@@ -830,10 +896,12 @@ export const MAP_INFO = {
   catacombs: { name: 'Catacombs', desc: 'Tight concrete rooms around a central hall. Close fights in dim light.', thumb: 'linear-gradient(135deg,#39414a,#8a8e95 55%,#4a4e55)' },
   ruins: { name: 'Ruins', desc: 'Broken stone walls, archways and a raised temple platform in the open.', thumb: 'linear-gradient(135deg,#5a9bd8,#f2e2bc 55%,#a89878)' },
   plaza: { name: 'Plaza', desc: 'City square with a fountain, shopfronts, a parked bus and market stalls.', thumb: 'linear-gradient(135deg,#5aa0e0,#c9a07a 55%,#8c8e92)' },
+  isle: { name: 'Isle of Iron', desc: 'Battle Royale island: nine towns, woods and quarries. 300 x 300 m.', thumb: 'linear-gradient(135deg,#2f7fb8,#7ea25a 60%,#c9b27c)' },
   frostbite: { name: 'Frostbite', desc: 'Snow compound with watchtowers for long-range duels.', thumb: 'linear-gradient(135deg,#4f6f93,#dfe9f2 60%,#8a6a45)' },
 };
 
-export const MAP_BUILDERS = { warehouse, dust, skyline, container, frostbite, docks, villa, metro, quarry, catacombs, ruins, plaza, outpost, bunker, farm };
+export const MAP_BUILDERS = { warehouse, dust, skyline, container, frostbite, docks, villa, metro, quarry, catacombs, ruins, plaza, outpost, bunker, farm, isle };
+export const BR_MAPS = ['isle'];
 export const ZM_MAPS = ['outpost', 'bunker', 'farm'];                                    // zombies-only maps (not offered in the normal map list)
-export const MAP_IDS = Object.keys(MAP_BUILDERS).filter((id) => !ZM_MAPS.includes(id));
+export const MAP_IDS = Object.keys(MAP_BUILDERS).filter((id) => !ZM_MAPS.includes(id) && !BR_MAPS.includes(id));
 export function buildMap(id) { return MAP_BUILDERS[id](); }
