@@ -1,25 +1,26 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.23.0';
-import { canon } from './keybinds.js?v=0.23.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.23.0';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.23.0';
-import { buildMap } from './maps.js?v=0.23.0';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.23.0';
-import { buildWorld } from './world.js?v=0.23.0';
-import { Bot } from './bots.js?v=0.23.0';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.23.0';
-import { buildSoldier, SKIN } from './soldier.js?v=0.23.0';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.23.0';
-import { Zombies, PERKS } from './zombies.js?v=0.23.0';
-import { BattleRoyale } from './br.js?v=0.23.0';
-import { inspectFor, inspectPose } from './inspect.js?v=0.23.0';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.23.0';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.23.0';
-import { Objectives } from './objectives.js?v=0.23.0';
-import { Utilities } from './utils.js?v=0.23.0';
-import { Streaks, STREAKS } from './streaks.js?v=0.23.0';
-import { GoreX } from './gorex.js?v=0.23.0';
-import { Gore } from './gore.js?v=0.23.0';
+import { MOD } from './supermod.js?v=0.24.0';
+import { canon } from './keybinds.js?v=0.24.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.24.0';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.24.0';
+import { buildMap } from './maps.js?v=0.24.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.24.0';
+import { buildWorld } from './world.js?v=0.24.0';
+import { Bot } from './bots.js?v=0.24.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.24.0';
+import { loadTeto, makeTeto, tetoReady, TETO_SKIN, TETO_SLEEVE, TETO_CUFF } from './teto.js?v=0.24.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.24.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.24.0';
+import { Zombies, PERKS } from './zombies.js?v=0.24.0';
+import { BattleRoyale } from './br.js?v=0.24.0';
+import { inspectFor, inspectPose } from './inspect.js?v=0.24.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.24.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.24.0';
+import { Objectives } from './objectives.js?v=0.24.0';
+import { Utilities } from './utils.js?v=0.24.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.24.0';
+import { GoreX } from './gorex.js?v=0.24.0';
+import { Gore } from './gore.js?v=0.24.0';
 
 const pick3 = (a) => a[Math.floor(Math.random() * a.length)];
 const V3 = THREE.Vector3;
@@ -102,7 +103,7 @@ export class Game {
     this.time = 0; this.matchT = 0;
     this.actors = []; this.player = null; this.world = null; this.scene = null;
     this.tracers = []; this.particles = [];
-    this.net = null; this.hist = []; this.richtofen = false;
+    this.net = null; this.hist = []; this.richtofen = false; this.teto = false;
     this.knifeId = 'k_combat'; this.knifeOut = false; this.swing = null; this.vHeld = false; this.vHandled = false; this.vDownT = 0;
     this.vmS = { sprint: 0, strafe: 0, land: 0, slide: 0, cycle: 0, inspectT: 0, lastVy: 0, wasGround: true, rand: 0, shake: 0, slk: 0, mvk: 0 };
     this.vmCache = {};
@@ -342,6 +343,7 @@ export class Game {
         // visible only in third-person view
         a.mesh = this.makeBotMesh(mode.team ? 0x4aa3ff : 0x27ae60, a.weapons[0], null);
         a.mesh.root.visible = false; this.scene.add(a.mesh.root);
+        if (this.teto && tetoReady()) this.applyTeto(a.mesh, true);
       } else {
         const color = mode.team ? TEAM_COLORS[a.team] : FFA_COLORS[a.team % FFA_COLORS.length];
         a.mesh = this.makeBotMesh(color, a.weapons[0], mode.team && a.team === 0 ? a.name : null);
@@ -829,9 +831,29 @@ export class Game {
 
   // easter egg: swap an actor's blocky body for the Richtofen model
   applyRich(m, on) {
+    if (m.teto && m.teto.on) return;
     if (on && !m.rich) { m.rich = makeRichtofen(); m.body.add(m.rich); }
     if (m.rich) m.rich.visible = on;
     for (const p of m.parts) p.visible = !on;
+  }
+
+  // secret: the player's body becomes Kasane Teto (skinned mesh driven by the soldier rig) and the viewmodel gets her hands
+  applyTeto(m, on) {
+    if (on) {
+      if (!tetoReady()) return;
+      if (!m.teto) { m.teto = makeTeto(); m.body.add(m.teto.root); }
+      if (!m.teto.on) { m.richOld = m.rich; if (m.rich) m.rich.visible = false; m.rich = m.teto.root; }
+    } else if (!m.teto || !m.teto.on) return;
+    m.teto.on = on; m.teto.root.visible = on; m.teto.setRig(m, on);
+    if (!on) { m.rich = m.richOld || null; if (m.rich) m.rich.visible = this.richtofen; }
+    for (const p of m.parts) p.visible = !(m.rich && m.rich.visible);
+    if (on) m.teto.sync(m);
+  }
+
+  setTeto(on) {
+    this.teto = on;
+    for (const a of this.actors) if (a.isPlayer && a.mesh) this.applyTeto(a.mesh, on);
+    this.vmCache = {}; if (this.player && this.vmRoot) this.setPlayerVm();
   }
 
   setRichtofen(on) {
@@ -878,8 +900,10 @@ export class Game {
   buildVm(w) {
     const root = new THREE.Group(), gun = buildGun(w); root.add(gun);
     const u = gun.userData, G = u.grip, F = u.fore;
-    const glove = new THREE.MeshStandardMaterial({ color: 0x2a2f29, roughness: 0.9 });
-    const sleeve = new THREE.MeshStandardMaterial({ color: 0x3b4a3a, roughness: 0.95 });
+    const tt = this.teto;                                                                            // secret: Teto's bare hands + arm-warmers
+    const glove = new THREE.MeshStandardMaterial({ color: tt ? TETO_SKIN : 0x2a2f29, roughness: tt ? 0.7 : 0.9 });
+    const sleeve = new THREE.MeshStandardMaterial({ color: tt ? TETO_SLEEVE : 0x3b4a3a, roughness: 0.95 });
+    const cuffM = new THREE.MeshStandardMaterial({ color: TETO_CUFF, roughness: 0.8 });
     const lh = new THREE.Group(); gun.add(lh); lh.visible = w.cls !== 'melee';                      // support hand: animated separately (reloads, pumping, inspecting)
     const add = (w_, h_, d_, mt, x, y, z, rx = 0, ry = 0, rz = 0, parent = gun) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w_, h_, d_), mt); me.position.set(x, y, z); me.rotation.set(rx, ry, rz); parent.add(me); return me; };
     // trigger hand: the palm sits on the back of the grip, three fingers wrap round the front, the index finger rests on the
@@ -892,19 +916,20 @@ export class Game {
     add(0.014, 0.014, 0.05, glove, 0.004, 0.046, -0.048, 0, 0, 0, hand);                    // index finger on the trigger
     add(0.016, 0.03, 0.06, glove, -0.03, 0.03, 0.005, -0.15, 0, 0.12, hand);                // thumb along the left of the frame
     const armMesh = add(0.07, 0.07, 0.36, sleeve, G.x + 0.045, G.y - 0.07, G.z + 0.24, 0.5, 0.18, 0);
+    if (tt) add(0.079, 0.079, 0.03, cuffM, 0, 0, -0.175, 0, 0, 0, armMesh);                          // pink trim at the wrist
     // support hand
     if (u.pistol) {
       // two-handed pistol grip: left palm on the left of the grip, fingers over the right hand's fingers, thumb forward on the frame
       add(0.026, 0.075, 0.05, glove, G.x - 0.036, G.y - 0.004, G.z + 0.01, rake, 0, 0, lh);
       for (let i = 0; i < 3; i++) add(0.05, 0.02, 0.026, glove, G.x - 0.008, G.y - 0.03 - i * 0.022, G.z - 0.052, rake, 0, 0, lh);
       add(0.014, 0.016, 0.06, glove, G.x - 0.042, G.y + 0.025, G.z - 0.045, 0, 0, 0, lh);
-      add(0.07, 0.07, 0.34, sleeve, F.x - 0.09, F.y - 0.08, F.z + 0.22, 0.5, -0.4, 0, lh);
+      { const sl = add(0.07, 0.07, 0.34, sleeve, F.x - 0.09, F.y - 0.08, F.z + 0.22, 0.5, -0.4, 0, lh); if (tt) add(0.079, 0.079, 0.03, cuffM, 0, 0, -0.145, 0, 0, 0, sl); }
     } else {
       // C-clamp under the handguard: palm underneath, fingers up the right side, thumb up the left
       add(0.07, 0.034, 0.1, glove, F.x, F.y - 0.05, F.z + 0.005, 0, 0, 0, lh);                // palm under the handguard
       for (let i = 0; i < 4; i++) add(0.02, 0.05, 0.02, glove, F.x + 0.042, F.y - 0.022, F.z - 0.032 + i * 0.022, 0, 0, -0.35, lh);   // four fingers curled up the right side
       add(0.016, 0.05, 0.05, glove, F.x - 0.04, F.y - 0.018, F.z - 0.005, 0, 0, 0.3, lh);     // thumb up the left side
-      add(0.075, 0.07, 0.42, sleeve, F.x - 0.075, F.y - 0.1, F.z + 0.3, 0.38, -0.28, 0, lh);
+      { const sl = add(0.075, 0.07, 0.42, sleeve, F.x - 0.075, F.y - 0.1, F.z + 0.3, 0.38, -0.28, 0, lh); if (tt) add(0.084, 0.079, 0.03, cuffM, 0, 0, -0.205, 0, 0, 0, sl); }
     }
     const flash = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: this.flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     flash.position.copy(u.muzzle); flash.visible = false; gun.add(flash);
@@ -1562,6 +1587,7 @@ export class Game {
     const m = a.mesh;
     if (!a.alive && a.rag) {
       a.rag.step(dt); a.rag.apply(m); m.root.visible = a.deathT < 12;
+      if (m.teto && m.teto.on) m.teto.sync(m);
       if (m.goreHidden.length === 0 && m.rich && m.rich.visible) m.rich.visible = false;
       return;
     }
@@ -1574,6 +1600,7 @@ export class Game {
       if (this.gx) this.gx.clearWounds(a);
       if (m.goreHidden.length) { for (const o of m.goreHidden) o.visible = !(m.rich && m.rich.visible); m.goreHidden = []; }
       if (a.zombie) animateZombie(this, a, m, dt); else animateSoldier(this, a, m, dt);
+      if (m.teto && m.teto.on) m.teto.sync(m);
       m.root.visible = true;
       if (a.protT > 0) m.root.visible = Math.floor(this.time * 12) % 2 === 0;
       if (a.air === 'heli') m.root.visible = false;          // everybody rides inside the bus unseen
