@@ -10,17 +10,44 @@ export class Colliders {
   constructor(boxes) {
     this.boxes = boxes;
     this.blockers = boxes.filter(isBlocker);
+    this.gm = null; this.stamp = 0; if (boxes.length > 1200) this.buildGrid();       // big maps (Battle Royale island): spatial hash so each query only sees nearby boxes
+  }
+  buildGrid() {
+    const cs = this.cs = 16, gm = this.gm = new Map(); let id = 0;
+    for (const b of this.boxes) {
+      b._i = id++;
+      for (let cx = Math.floor(b.x0 / cs); cx <= Math.floor(b.x1 / cs); cx++) for (let cz = Math.floor(b.z0 / cs); cz <= Math.floor(b.z1 / cs); cz++) { const k = (cx + 512) * 1024 + (cz + 512); const l = gm.get(k); if (l) l.push(b); else gm.set(k, [b]); }
+    }
+  }
+  // boxes touching the rectangle (all of them on small maps)
+  near(x0, z0, x1, z1) {
+    if (!this.gm) return this.boxes; const cs = this.cs, out = [], st = ++this.stamp;
+    for (let cx = Math.floor(x0 / cs); cx <= Math.floor(x1 / cs); cx++) for (let cz = Math.floor(z0 / cs); cz <= Math.floor(z1 / cs); cz++) { const l = this.gm.get((cx + 512) * 1024 + (cz + 512)); if (l) for (const b of l) if (b._st !== st) { b._st = st; out.push(b); } }
+    return out;
+  }
+  // boxes in the grid cells a ray passes through (2D traversal)
+  rayBoxes(ox, oz, dx, dz, maxD) {
+    if (!this.gm) return this.boxes; const cs = this.cs, out = [], st = ++this.stamp;
+    let cx = Math.floor(ox / cs), cz = Math.floor(oz / cs); const ex = Math.floor((ox + dx * maxD) / cs), ez = Math.floor((oz + dz * maxD) / cs);
+    const sx = dx > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1, tdx = Math.abs(dx) < 1e-9 ? Infinity : Math.abs(cs / dx), tdz = Math.abs(dz) < 1e-9 ? Infinity : Math.abs(cs / dz);
+    let tx = Math.abs(dx) < 1e-9 ? Infinity : ((dx > 0 ? (cx + 1) * cs - ox : ox - cx * cs) / Math.abs(dx)), tz = Math.abs(dz) < 1e-9 ? Infinity : ((dz > 0 ? (cz + 1) * cs - oz : oz - cz * cs) / Math.abs(dz));
+    for (let n = 0; n < 400; n++) {
+      const l = this.gm.get((cx + 512) * 1024 + (cz + 512)); if (l) for (const b of l) if (b._st !== st) { b._st = st; out.push(b); }
+      if (cx === ex && cz === ez) break;
+      if (tx < tz) { cx += sx; tx += tdx; } else { cz += sz; tz += tdz; }
+    }
+    return out;
   }
 
   // dynamic boxes (zombie-mode barricades and doors)
-  add(b) { if (this.boxes.includes(b)) return; this.boxes.push(b); if (isBlocker(b) && !b.noZ) this.blockers.push(b); }
+  add(b) { if (this.boxes.includes(b)) return; this.gm = null; this.boxes.push(b); if (isBlocker(b) && !b.noZ) this.blockers.push(b); }
   remove(b) {
-    const i = this.boxes.indexOf(b); if (i >= 0) this.boxes.splice(i, 1);
+    this.gm = null; const i = this.boxes.indexOf(b); if (i >= 0) this.boxes.splice(i, 1);
     const j = this.blockers.indexOf(b); if (j >= 0) this.blockers.splice(j, 1);
   }
 
   overlaps(x, y, z, hw, h) {
-    for (const b of this.boxes) {
+    for (const b of this.near(x - hw, z - hw, x + hw, z + hw)) {
       if (y + h > b.y0 && y < b.y1 && x + hw > b.x0 && x - hw < b.x1 && z + hw > b.z0 && z - hw < b.z1) return true;
     }
     return false;
@@ -29,7 +56,7 @@ export class Colliders {
   // Moves an actor (pos, vel, hw, h) by vel*dt with axis-separated AABB resolution.
   move(a, dt) {
     const p = a.pos, v = a.vel, hw = a.hw, h = a.h;
-    const boxes = this.boxes;
+    const pad = hw + 0.6 + (Math.abs(v.x) + Math.abs(v.z)) * dt, boxes = this.near(p.x - pad, p.z - pad, p.x + pad, p.z + pad);
 
     // --- X ---
     p.x += v.x * dt;
@@ -75,7 +102,7 @@ export class Colliders {
     const hw = a.hw, p = a.pos;
     const px = p.x + fx * (hw + 0.3), pz = p.z + fz * (hw + 0.3);      // probe just in front of the body
     let best = null;
-    for (const b of this.boxes) {
+    for (const b of this.near(px - 1.5, pz - 1.5, px + 1.5, pz + 1.5)) {
       const up = b.y1 - p.y;
       if (up < STEP_H + 0.08 || up > maxUp) continue;
       if (b.y0 > p.y + 1.3) continue;                                    // has to reach down to where the hands are
@@ -94,7 +121,7 @@ export class Colliders {
   // solid=true also counts barricades (noRay boxes), used by zombie sight checks; bullets and cameras ignore them
   ray(ox, oy, oz, dx, dy, dz, maxD, solid) {
     let best = maxD;
-    const boxes = this.boxes;
+    const boxes = this.rayBoxes(ox, oz, dx, dz, maxD);
     for (let i = 0; i < boxes.length; i++) {
       const b = boxes[i]; if (b.noRay && !solid) continue;
       let t0 = 0, t1 = best;
@@ -126,7 +153,7 @@ export class Colliders {
 
   // Nearest bullet-stopping box along the ray with how far the ray travels inside it: { t, out, y } or null (used for wall-bang penetration)
   rayThrough(ox, oy, oz, dx, dy, dz, maxD) {
-    let best = maxD, out = 0, hit = false, mat = null; const boxes = this.boxes;
+    let best = maxD, out = 0, hit = false, mat = null; const boxes = this.rayBoxes(ox, oz, dx, dz, maxD);
     for (let i = 0; i < boxes.length; i++) {
       const b = boxes[i]; if (b.noRay) continue;
       let t0 = 0, t1 = Infinity;

@@ -816,69 +816,95 @@ function finish(b, theme) {
 }
 
 // ------------------------------------------------------------------------------------------
-// BATTLE ROYALE island: 300 x 300 m, nine named towns, woods and rock fields in between. Loot crates are placed by the mode at run time.
+// BATTLE ROYALE island: 640 x 640 m, sixteen named towns, compounds, camps, roads, forests and rock fields. Loot crates are placed by the mode.
 // ------------------------------------------------------------------------------------------
-export const ISLE_BOUNDS = { x0: -150, x1: 150, z0: -150, z1: 150 };
+export const ISLE_BOUNDS = { x0: -320, x1: 320, z0: -320, z1: 320 };
 export const ISLE_TOWNS = [
-  { id: 'docks', name: 'Rusty Docks', x: -95, z: -92 }, { id: 'town', name: 'Pinewood', x: 0, z: -96 }, { id: 'quarry', name: 'Quarry', x: 96, z: -90 },
-  { id: 'farm', name: 'Old Farm', x: -100, z: 2 }, { id: 'plaza', name: 'Central Plaza', x: 0, z: 0 }, { id: 'factory', name: 'Factory', x: 100, z: 6 },
-  { id: 'village', name: 'Willow Village', x: -95, z: 96 }, { id: 'airfield', name: 'Airfield', x: 4, z: 102 }, { id: 'hotel', name: 'Grand Hotel', x: 100, z: 96 },
+  { id: 'docks', t: 'docks', name: 'Rusty Docks', x: -250, z: -240 }, { id: 'pine', t: 'town', name: 'Pinewood', x: -90, z: -255 }, { id: 'quarry', t: 'quarry', name: 'Quarry', x: 100, z: -250 }, { id: 'lake', t: 'village', name: 'Lakeside', x: 255, z: -235 },
+  { id: 'farm', t: 'farm', name: 'Old Farm', x: -265, z: -85 }, { id: 'mid', t: 'town', name: 'Midtown', x: -120, z: -110 }, { id: 'factory', t: 'factory', name: 'Factory', x: 120, z: -100 }, { id: 'power', t: 'factory', name: 'Power Plant', x: 265, z: -70 },
+  { id: 'plaza', t: 'plaza', name: 'Central Plaza', x: 0, z: 0 },
+  { id: 'willow', t: 'village', name: 'Willow Village', x: -260, z: 95 }, { id: 'market', t: 'town', name: 'Market Street', x: -110, z: 85 }, { id: 'hotel', t: 'hotel', name: 'Grand Hotel', x: 110, z: 95 }, { id: 'harbor', t: 'docks', name: 'Harbor', x: 265, z: 110 },
+  { id: 'church', t: 'village', name: 'St. Mary', x: -250, z: 255 }, { id: 'airfield', t: 'airfield', name: 'Airfield', x: -30, z: 250 }, { id: 'resort', t: 'hotel', name: 'Sunset Resort', x: 210, z: 255 },
 ];
 function isle() {
-  const b = new Builder(), R = rng(20261119), B = ISLE_BOUNDS;
-  const PAL = [{ color: 0xd9cfc0, roofColor: 0x6b4a3a }, { color: 0xc7b08a, roofColor: 0x4a5a63 }, { color: 0xa9b7c2, roofColor: 0x555c63 }, { color: 0xc98f7a, roofColor: 0x5a4034 }, { color: 0xb8c4a6, roofColor: 0x4f5b43 }];
-  const loot = [];
-  const bld = (x, z, w, d, h, doors, wins, i = 0) => { loot.push([x, z]); b.building(x, z, w, d, h, { tex: 'brick', tile: 3, ...PAL[(i + Math.abs((x * 3 + z) | 0)) % PAL.length], doors, windows: wins }); };
+  const b = new Builder(), R = rng(20261120), B = ISLE_BOUNDS, loot = [], fp = [];
+  const PAL = [{ color: 0xd9cfc0, roofColor: 0x6b4a3a }, { color: 0xc7b08a, roofColor: 0x4a5a63 }, { color: 0xa9b7c2, roofColor: 0x555c63 }, { color: 0xc98f7a, roofColor: 0x5a4034 }, { color: 0xb8c4a6, roofColor: 0x4f5b43 }, { color: 0x9aa6b8, roofColor: 0x3d4650 }, { color: 0xe0d3a8, roofColor: 0x8a4a3a }];
+  const bld = (x, z, w, d, h, doors, wins, i = 0) => { loot.push([x, z]); fp.push([x - w / 2 - 1.5, z - d / 2 - 1.5, x + w / 2 + 1.5, z + d / 2 + 1.5]); b.building(x, z, w, d, h, { tex: 'brick', tile: 3, ...PAL[(i + Math.abs((x * 3 + z) | 0)) % PAL.length], doors, windows: wins }); };
   const crate = (x, z, s = 1.5, h = 1.4) => b.solid('crate', x, z, s, s, h, { tex: 'crate', color: 0x9a6c3c, rot: ((x * 7 + z * 3) | 0) & 3, rough: 0.9 });
   const barrel = (x, z) => b.solid('barrel', x, z, 0.9, 0.9, 1.0, { color: 0x7a4a2a, tint: 0xb5703c, rough: 0.85 });
-  const T = Object.fromEntries(ISLE_TOWNS.map((t) => [t.id, t]));
-  // --- Rusty Docks: stacked containers and two sheds
-  { const t = T.docks; const cols = [0xb23a2f, 0x2f6fb2, 0xc7842b, 0x3f8f5a, 0x7a5aa0];
-    for (let i = 0; i < 9; i++) { const x = t.x - 24 + (i % 3) * 12 + R() * 2, z = t.z - 16 + Math.floor(i / 3) * 14 + R() * 2; b.box(x, z, 2.5, 6.5, 2.6, { tex: 'metal', color: cols[i % 5], tile: 2 }); if (i % 2) b.box(x, z, 2.5, 6.5, 2.6, { tex: 'metal', color: cols[(i + 2) % 5], tile: 2, y0: 2.6 }); }
-    bld(t.x + 18, t.z - 4, 11, 8, 4, ['nx'], ['pz'], 0); bld(t.x + 8, t.z + 20, 9, 7, 3.6, ['nz'], ['px'], 1); crate(t.x - 4, t.z + 4); barrel(t.x + 1, t.z + 6); }
-  // --- Pinewood: a small main street
-  { const t = T.town;
-    for (const [dx, dz, w, d, door] of [[-16, -9, 10, 8, 'pz'], [-2, -10, 9, 8, 'pz'], [13, -9, 11, 8, 'pz'], [-14, 11, 9, 9, 'nz'], [2, 12, 12, 8, 'nz'], [17, 11, 8, 8, 'nz']]) bld(t.x + dx, t.z + dz, w, d, 3.8, [door], ['px', 'nx'], dx);
-    crate(t.x - 6, t.z + 1); crate(t.x + 7, t.z - 1, 1.6, 1.0); barrel(t.x + 1, t.z + 2); b.solid('car', t.x + 9, t.z + 2, 4.3, 1.9, 1.5, { color: 0x4b5a6b, tint: 0x8fa6c0, rough: 0.9 }); }
-  // --- Quarry: rock stacks, a hut and a lookout tower
-  { const t = T.quarry; for (let i = 0; i < 14; i++) { const a = R() * 6.283, r = 6 + R() * 22, w = 2 + R() * 4, h = 1.6 + R() * 3.4; b.box(t.x + Math.cos(a) * r, t.z + Math.sin(a) * r, w, w * (0.8 + R() * 0.5), h, { tex: 'concrete', color: 0x8d8070, tile: 2 }); }
-    bld(t.x - 6, t.z + 2, 8, 6, 3.4, ['px'], ['nz'], 2); b.box(t.x + 12, t.z - 4, 5, 5, 0.5, { tex: 'wood', color: 0x6a4a2a, y0: 7.5 }); for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) b.box(t.x + 12 + dx, t.z - 4 + dz, 0.4, 0.4, 7.5, { tex: 'wood', color: 0x4a3318 });
-    b.stairs(t.x + 6.5, t.z - 4, 'px', 15, 1.6, 0.5, 0.6, { tex: 'wood', color: 0x6a4a2a }); }
-  // --- Old Farm: barn, farmhouse, silo
-  { const t = T.farm; bld(t.x + 4, t.z - 10, 16, 11, 5.2, ['pz', 'nx'], ['px'], 3); bld(t.x - 12, t.z + 10, 9, 8, 3.6, ['px'], ['nz', 'pz'], 1); b.cyl(t.x + 20, t.z + 6, 3, 9, { tex: 'metal', color: 0xb8b8b0 });
-    for (let i = 0; i < 5; i++) b.box(t.x - 6 + i * 3.2, t.z + 22, 2.2, 1.6, 1.1, { tex: 'wood', color: 0xc9b35a, tile: 2 }); crate(t.x + 6, t.z + 8); barrel(t.x - 2, t.z + 2); }
-  // --- Central Plaza: ring of shops around a fountain
-  { const t = T.plaza; b.cyl(t.x, t.z, 3, 1.0, { tex: 'concrete', color: 0xa8a8a8 });
-    for (const [dx, dz, w, d, door] of [[-18, -14, 11, 8, 'pz'], [0, -17, 10, 8, 'pz'], [18, -14, 11, 8, 'pz'], [-18, 14, 11, 8, 'nz'], [0, 17, 10, 8, 'nz'], [18, 14, 11, 8, 'nz']]) bld(t.x + dx, t.z + dz, w, d, 4.2, [door], ['px', 'nx'], dx + dz);
-    b.solid('car', t.x - 8, t.z + 6, 4.3, 1.9, 1.5, { color: 0x6e5d4b, tint: 0xb59a78, rough: 0.9 }); b.solid('car', t.x + 8, t.z - 6, 4.3, 1.9, 1.5, { color: 0x8f2f2f, tint: 0xc05a5a, rough: 0.9, rot: 2 });
-    for (const [x, z] of [[-9, 0], [9, 0], [0, -9], [0, 9]]) crate(t.x + x, t.z + z, 1.5, 1.0); }
-  // --- Factory: long hall, side shed, silos and pipes
-  { const t = T.factory; bld(t.x - 2, t.z - 6, 26, 16, 6.5, ['nx', 'pz'], ['px', 'nz'], 2); bld(t.x + 16, t.z + 16, 10, 8, 4, ['nz'], ['px'], 0);
-    for (let i = 0; i < 3; i++) b.cyl(t.x - 16 + i * 8, t.z + 20, 2.8, 8.5, { tex: 'metal', color: 0x9aa0a6 }); for (let i = 0; i < 6; i++) barrel(t.x - 10 + i * 1.3, t.z + 8); crate(t.x + 14, t.z - 2); crate(t.x + 14, t.z + 1, 1.5, 1.0); }
-  // --- Willow Village: four cottages and a well
-  { const t = T.village; for (const [dx, dz, door] of [[-14, -10, 'pz'], [10, -12, 'pz'], [-10, 12, 'nz'], [14, 10, 'nz']]) bld(t.x + dx, t.z + dz, 9, 8, 3.5, [door], ['px', 'nx'], dx); b.cyl(t.x, t.z, 1.2, 1.0, { tex: 'brick', color: 0x9c8466 }); crate(t.x + 4, t.z - 2); barrel(t.x - 3, t.z + 3); }
-  // --- Airfield: hangar, control tower, fuel drums
-  { const t = T.airfield; bld(t.x - 14, t.z - 6, 28, 14, 6, ['pz', 'nz'], ['px'], 2); bld(t.x + 18, t.z + 8, 7, 7, 9, ['nx'], ['pz'], 1); for (let i = 0; i < 5; i++) barrel(t.x + 2 + i * 1.3, t.z + 10); crate(t.x + 8, t.z - 4); crate(t.x + 8, t.z - 1.5, 1.5, 1.0); b.deco(t.x, t.z + 22, 80, 4, 0.05, { tex: 'plain', color: 0x4a4d52, y0: 0.01 }); }
-  // --- Grand Hotel: wide three-storey block with a courtyard
-  { const t = T.hotel; bld(t.x - 8, t.z - 14, 28, 10, 8.5, ['pz', 'nz'], ['px', 'nx'], 0); bld(t.x + 14, t.z + 4, 10, 18, 8.5, ['nx'], ['pz', 'nz'], 4); bld(t.x - 14, t.z + 8, 9, 9, 3.8, ['px'], ['nz'], 1); crate(t.x - 2, t.z); crate(t.x + 2, t.z + 3, 1.4, 1.0); barrel(t.x + 4, t.z - 2);
-    b.cyl(t.x - 1, t.z + 10, 2.2, 1.0, { tex: 'concrete', color: 0xb8b0a0 }); }
-  // --- trees and rocks in the gaps (kept out of the towns)
+  const car = (x, z, c = 0x4b5a6b, rot = 0) => b.solid('car', x, z, 4.3, 1.9, 1.5, { color: c, tint: c + 0x303030, rough: 0.9, rot });
+  const free = (x0, z0, x1, z1) => !fp.some((f) => x1 > f[0] && x0 < f[2] && z1 > f[1] && z0 < f[3]);
+  const inb = (x, z, m = 14) => x > B.x0 + m && x < B.x1 - m && z > B.z0 + m && z < B.z1 - m;
+  const DOORS = [['px'], ['nx'], ['pz'], ['nz'], ['px', 'nz'], ['nx', 'pz']], WINS = [['px', 'nx'], ['pz', 'nz'], ['px'], ['nz', 'pz', 'nx']];
+  // buildings dropped into free ground around (cx, cz): the doors face the centre so there is always a way in
+  const infill = (cx, cz, n, radius, hMax = 4.6) => {
+    for (let i = 0, k = 0; i < n * 14 && k < n; i++) {
+      const a = R() * 6.283, r = 10 + R() * radius, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r, w = 6 + R() * 8, d = 6 + R() * 7;
+      if (!inb(x, z) || !free(x - w / 2, z - d / 2, x + w / 2, z + d / 2)) continue; k++;
+      const dx = cx - x, dz = cz - z, face = Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 'px' : 'nx') : (dz > 0 ? 'pz' : 'nz');
+      bld(x, z, w, d, 3.4 + R() * (hMax - 3.4), [face, ...(R() < 0.4 ? [pickOne(DOORS)[0]] : [])], pickOne(WINS), i);
+    }
+  };
+  const pickOne = (arr) => arr[Math.floor(R() * arr.length)];
+  const props = (cx, cz, n, radius) => { for (let i = 0; i < n; i++) { const a = R() * 6.283, r = 4 + R() * radius, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (!inb(x, z) || !free(x - 2, z - 2, x + 2, z + 2)) continue; const k = R(); if (k < 0.34) crate(x, z, 1.4 + R() * 0.4, 1 + R() * 0.5); else if (k < 0.6) barrel(x, z); else if (k < 0.8) car(x, z, pickOne([0x4b5a6b, 0x8f2f2f, 0x6e5d4b, 0x3f6a4a, 0xb0a070]), (R() * 4) | 0); else b.box(x, z, 2 + R() * 3, 0.6, 1.1, { tex: 'concrete', color: 0xa8a090 }); } };
+  // ---- hand-built town cores
+  const TYPES = {
+    docks(t) { const cols = [0xb23a2f, 0x2f6fb2, 0xc7842b, 0x3f8f5a, 0x7a5aa0];
+      for (let i = 0; i < 12; i++) { const x = t.x - 26 + (i % 4) * 12 + R() * 2, z = t.z - 16 + Math.floor(i / 4) * 14 + R() * 2; fp.push([x - 3, z - 5, x + 3, z + 5]); b.box(x, z, 2.5, 6.5, 2.6, { tex: 'metal', color: cols[i % 5], tile: 2 }); if (i % 2) b.box(x, z, 2.5, 6.5, 2.6, { tex: 'metal', color: cols[(i + 2) % 5], tile: 2, y0: 2.6 }); }
+      bld(t.x + 22, t.z - 4, 11, 8, 4, ['nx'], ['pz'], 0); bld(t.x + 10, t.z + 22, 9, 7, 3.6, ['nz'], ['px'], 1); b.box(t.x - 4, t.z + 30, 4, 40, 0.6, { tex: 'wood', color: 0x6a4a2a, tile: 2 }); crate(t.x - 4, t.z + 4); barrel(t.x + 1, t.z + 6); },
+    town(t) { for (const [dx, dz, w, d, door] of [[-18, -10, 10, 8, 'pz'], [-3, -11, 9, 8, 'pz'], [13, -10, 11, 8, 'pz'], [-16, 11, 9, 9, 'nz'], [2, 12, 12, 8, 'nz'], [18, 11, 8, 8, 'nz']]) bld(t.x + dx, t.z + dz, w, d, 3.8 + (R() < 0.3 ? 3.4 : 0), [door], ['px', 'nx'], dx);
+      crate(t.x - 6, t.z + 1); crate(t.x + 7, t.z - 1, 1.6, 1.0); barrel(t.x + 1, t.z + 2); car(t.x + 9, t.z + 2); },
+    quarry(t) { for (let i = 0; i < 20; i++) { const a = R() * 6.283, r = 6 + R() * 28, w = 2 + R() * 4, h = 1.6 + R() * 3.8; fp.push([t.x + Math.cos(a) * r - 3, t.z + Math.sin(a) * r - 3, t.x + Math.cos(a) * r + 3, t.z + Math.sin(a) * r + 3]); b.box(t.x + Math.cos(a) * r, t.z + Math.sin(a) * r, w, w * (0.8 + R() * 0.5), h, { tex: 'concrete', color: 0x8d8070, tile: 2 }); }
+      bld(t.x - 8, t.z + 2, 8, 6, 3.4, ['px'], ['nz'], 2); b.box(t.x + 14, t.z - 4, 5, 5, 0.5, { tex: 'wood', color: 0x6a4a2a, y0: 7.5 }); for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) b.box(t.x + 14 + dx, t.z - 4 + dz, 0.4, 0.4, 7.5, { tex: 'wood', color: 0x4a3318 });
+      b.stairs(t.x + 8.5, t.z - 4, 'px', 15, 1.6, 0.5, 0.6, { tex: 'wood', color: 0x6a4a2a }); b.cyl(t.x + 24, t.z + 14, 3, 9, { tex: 'metal', color: 0xa8a8a0 }); },
+    farm(t) { bld(t.x + 4, t.z - 10, 16, 11, 5.2, ['pz', 'nx'], ['px'], 3); bld(t.x - 12, t.z + 10, 9, 8, 3.6, ['px'], ['nz', 'pz'], 1); b.cyl(t.x + 20, t.z + 6, 3, 9, { tex: 'metal', color: 0xb8b8b0 });
+      for (let i = 0; i < 6; i++) b.box(t.x - 6 + i * 3.2, t.z + 24, 2.2, 1.6, 1.1, { tex: 'wood', color: 0xc9b35a, tile: 2 }); crate(t.x + 6, t.z + 8); barrel(t.x - 2, t.z + 2); },
+    plaza(t) { b.cyl(t.x, t.z, 3, 1.0, { tex: 'concrete', color: 0xa8a8a8 });
+      for (const [dx, dz, w, d, door] of [[-20, -15, 11, 8, 'pz'], [0, -18, 10, 8, 'pz'], [20, -15, 11, 8, 'pz'], [-20, 15, 11, 8, 'nz'], [0, 18, 10, 8, 'nz'], [20, 15, 11, 8, 'nz'], [-30, 0, 8, 12, 'px'], [30, 0, 8, 12, 'nx']]) bld(t.x + dx, t.z + dz, w, d, 4.2 + (dx === 0 ? 3.4 : 0), [door], ['px', 'nx'], dx + dz);
+      car(t.x - 8, t.z + 6, 0x6e5d4b); car(t.x + 8, t.z - 6, 0x8f2f2f, 2); for (const [x, z] of [[-9, 0], [9, 0], [0, -9], [0, 9]]) crate(t.x + x, t.z + z, 1.5, 1.0); },
+    factory(t) { bld(t.x - 2, t.z - 6, 28, 16, 6.5, ['nx', 'pz'], ['px', 'nz'], 2); bld(t.x + 18, t.z + 16, 10, 8, 4, ['nz'], ['px'], 0); bld(t.x - 24, t.z + 8, 9, 9, 4, ['px'], ['nz'], 4);
+      for (let i = 0; i < 3; i++) b.cyl(t.x - 16 + i * 8, t.z + 24, 2.8, 8.5, { tex: 'metal', color: 0x9aa0a6 }); for (let i = 0; i < 6; i++) barrel(t.x - 10 + i * 1.3, t.z + 10); crate(t.x + 16, t.z - 2); crate(t.x + 16, t.z + 1, 1.5, 1.0); },
+    village(t) { for (const [dx, dz, door] of [[-16, -10, 'pz'], [10, -14, 'pz'], [-10, 14, 'nz'], [16, 10, 'nz'], [-26, 4, 'px'], [28, -4, 'nx']]) bld(t.x + dx, t.z + dz, 9, 8, 3.5, [door], ['px', 'nx'], dx); b.cyl(t.x, t.z, 1.2, 1.0, { tex: 'brick', color: 0x9c8466 }); crate(t.x + 4, t.z - 2); barrel(t.x - 3, t.z + 3); },
+    airfield(t) { bld(t.x - 16, t.z - 6, 30, 14, 6, ['pz', 'nz'], ['px'], 2); bld(t.x + 22, t.z + 8, 7, 7, 9, ['nx'], ['pz'], 1); bld(t.x + 6, t.z - 22, 14, 9, 4, ['pz'], ['px'], 3); for (let i = 0; i < 6; i++) barrel(t.x + 2 + i * 1.3, t.z + 10); crate(t.x + 8, t.z - 4); crate(t.x + 8, t.z - 1.5, 1.5, 1.0);
+      b.deco(t.x, t.z + 26, 120, 6, 0.05, { tex: 'plain', color: 0x4a4d52, y0: 0.01 }); for (let i = 0; i < 6; i++) b.deco(t.x - 50 + i * 20, t.z + 26, 6, 0.8, 0.06, { tex: 'plain', color: 0xe8e8e8, y0: 0.02 }); },
+    hotel(t) { bld(t.x - 8, t.z - 16, 30, 10, 8.5, ['pz', 'nz'], ['px', 'nx'], 0); bld(t.x + 16, t.z + 4, 10, 20, 8.5, ['nx'], ['pz', 'nz'], 4); bld(t.x - 16, t.z + 10, 9, 9, 3.8, ['px'], ['nz'], 1); bld(t.x + 2, t.z + 24, 14, 8, 4, ['nz'], ['px'], 2); crate(t.x - 2, t.z); crate(t.x + 2, t.z + 3, 1.4, 1.0); barrel(t.x + 4, t.z - 2); b.cyl(t.x - 1, t.z + 10, 2.2, 1.0, { tex: 'concrete', color: 0xb8b0a0 }); },
+  };
+  for (const t of ISLE_TOWNS) { TYPES[t.t](t); infill(t.x, t.z, t.t === 'plaza' ? 9 : 7, 42); props(t.x, t.z, 12, 40); }
+  // ---- compounds, farms, gas stations and camps in the countryside
   const nearTown = (x, z, r) => ISLE_TOWNS.some((t) => Math.hypot(x - t.x, z - t.z) < r);
-  const leaf = [0x2f6b34, 0x3a7a3a, 0x285a30, 0x4a8a3a];
-  for (let i = 0, n = 0; i < 700 && n < 150; i++) { const x = B.x0 + 8 + R() * (B.x1 - B.x0 - 16), z = B.z0 + 8 + R() * (B.z1 - B.z0 - 16); if (nearTown(x, z, 32)) continue; n++;
-    const h = 5 + R() * 3; b.cyl(x, z, 0.35, 3.2, { tex: 'wood', color: 0x5a3b1e, tile: 2 }); b.cone(x, z, 1.6 + R() * 0.8, h, { y0: 2.4, color: leaf[n % 4] }); }
-  for (let i = 0, n = 0; i < 400 && n < 40; i++) { const x = B.x0 + 8 + R() * (B.x1 - B.x0 - 16), z = B.z0 + 8 + R() * (B.z1 - B.z0 - 16); if (nearTown(x, z, 26)) continue; n++; const w = 1.6 + R() * 2.4; b.box(x, z, w, w * (0.8 + R() * 0.6), 1 + R() * 1.6, { tex: 'concrete', color: 0x8a8578, tile: 2 }); }
-  // open fields get a few low walls and wrecks for cover
-  for (let i = 0, n = 0; i < 300 && n < 14; i++) { const x = B.x0 + 12 + R() * (B.x1 - B.x0 - 24), z = B.z0 + 12 + R() * (B.z1 - B.z0 - 24); if (nearTown(x, z, 24)) continue; n++; b.box(x, z, R() < 0.5 ? 6 : 0.7, R() < 0.5 ? 0.7 : 6, 1.2, { tex: 'brick', color: 0xb0a090 }); }
+  const compounds = [];
+  for (let i = 0, n = 0; i < 600 && n < 34; i++) {
+    const x = B.x0 + 24 + R() * 592, z = B.z0 + 24 + R() * 592; if (nearTown(x, z, 70) || compounds.some((c) => Math.hypot(c[0] - x, c[1] - z) < 60)) continue; n++; compounds.push([x, z]);
+    const k = R();
+    if (k < 0.3) { bld(x, z, 12, 9, 3.6, ['pz'], ['px', 'nx'], n); b.box(x + 14, z, 8, 5, 3, { tex: 'wood', color: 0x7a5a38 }); fp.push([x + 9, z - 4, x + 19, z + 4]); props(x, z, 6, 14); }                       // lone house + shed
+    else if (k < 0.55) { for (let j = 0; j < 3; j++) b.box(x - 7 + j * 7, z, 3, 3, 2.2, { tex: 'metal', color: [0xb23a2f, 0x2f6fb2, 0x3f8f5a][j], tile: 2 }); bld(x, z + 12, 9, 7, 3.4, ['nz'], ['px'], n); barrel(x + 6, z + 2); barrel(x + 7, z + 3); crate(x - 9, z + 9); }    // gas station / depot
+    else if (k < 0.8) { b.box(x, z, 6, 6, 0.5, { tex: 'wood', color: 0x6a4a2a, y0: 8.5 }); for (const [dx, dz] of [[-2.4, -2.4], [2.4, -2.4], [-2.4, 2.4], [2.4, 2.4]]) b.box(x + dx, z + dz, 0.45, 0.45, 8.5, { tex: 'wood', color: 0x4a3318 }); b.stairs(x + 3.6, z, 'px', 17, 1.6, 0.5, 0.6, { tex: 'wood', color: 0x6a4a2a }); crate(x - 6, z + 4); props(x, z, 4, 12); }   // watchtower
+    else { for (let j = 0; j < 4; j++) { const a = j * 1.57 + 0.5; b.box(x + Math.cos(a) * 6, z + Math.sin(a) * 6, 3.6, 3.6, 2.2, { tex: 'plain', color: [0x6b7a52, 0x7a8a5a][j & 1] }); } crate(x, z, 1.6, 1.2); crate(x + 2, z + 1.5, 1.4, 1.0); barrel(x - 2, z + 1); }                   // camp
+    fp.push([x - 15, z - 12, x + 15, z + 16]);
+  }
+  // ---- roads (flat strips, visual only) joining the towns
+  const road = (x0, z0, x1, z1, y) => { const w = 5; if (Math.abs(x1 - x0) > 0.1) b.deco((x0 + x1) / 2, z0, Math.abs(x1 - x0), w, 0.05, { tex: 'plain', color: 0x56585c, y0: y }); if (Math.abs(z1 - z0) > 0.1) b.deco(x1, (z0 + z1) / 2, w, Math.abs(z1 - z0), 0.05, { tex: 'plain', color: 0x56585c, y0: y + 0.002 }); };
+  const T = Object.fromEntries(ISLE_TOWNS.map((t) => [t.id, t]));
+  [['docks', 'pine'], ['pine', 'quarry'], ['quarry', 'lake'], ['docks', 'farm'], ['pine', 'mid'], ['quarry', 'factory'], ['lake', 'power'], ['farm', 'mid'], ['mid', 'plaza'], ['plaza', 'factory'], ['factory', 'power'], ['farm', 'willow'], ['mid', 'market'], ['plaza', 'hotel'], ['power', 'harbor'], ['willow', 'market'], ['market', 'hotel'], ['hotel', 'harbor'], ['willow', 'church'], ['market', 'airfield'], ['hotel', 'resort'], ['church', 'airfield'], ['airfield', 'resort'], ['plaza', 'market']]
+    .forEach(([a, c], i) => road(T[a].x, T[a].z, T[c].x, T[c].z, 0.012 + (i % 7) * 0.003));
+  // ---- forests (dense clusters) and scattered trees
+  const leaf = [0x2f6b34, 0x3a7a3a, 0x285a30, 0x4a8a3a, 0x356b2a], tree = (x, z, n) => { const h = 5 + R() * 4; b.cyl(x, z, 0.35, 3.2, { tex: 'wood', color: 0x5a3b1e, tile: 2 }); b.cone(x, z, 1.6 + R() * 0.9, h, { y0: 2.4, color: leaf[n % 5] }); };
+  for (let c = 0, n = 0; c < 400 && n < 15; c++) {
+    const cx = B.x0 + 40 + R() * 560, cz = B.z0 + 40 + R() * 560; if (nearTown(cx, cz, 70)) continue; n++;
+    for (let i = 0, k = 0; i < 90 && k < 36; i++) { const a = R() * 6.283, r = Math.sqrt(R()) * 32, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (!inb(x, z, 8) || nearTown(x, z, 48) || !free(x - 1, z - 1, x + 1, z + 1)) continue; k++; tree(x, z, k); }
+  }
+  for (let i = 0, n = 0; i < 1500 && n < 260; i++) { const x = B.x0 + 8 + R() * 624, z = B.z0 + 8 + R() * 624; if (nearTown(x, z, 52) || !free(x - 1, z - 1, x + 1, z + 1)) continue; n++; tree(x, z, n); }
+  for (let i = 0, n = 0; i < 900 && n < 130; i++) { const x = B.x0 + 8 + R() * 624, z = B.z0 + 8 + R() * 624; if (nearTown(x, z, 40) || !free(x - 3, z - 3, x + 3, z + 3)) continue; n++; const w = 1.6 + R() * 3; b.box(x, z, w, w * (0.8 + R() * 0.6), 1 + R() * 2, { tex: 'concrete', color: 0x8a8578, tile: 2 }); }
+  for (let i = 0, n = 0; i < 700 && n < 40; i++) { const x = B.x0 + 14 + R() * 612, z = B.z0 + 14 + R() * 612; if (nearTown(x, z, 50) || !free(x - 4, z - 4, x + 4, z + 4)) continue; n++; const hz = R() < 0.5; b.box(x, z, hz ? 8 : 0.7, hz ? 0.7 : 8, 1.2, { tex: 'brick', color: 0xb0a090 }); }
   // water beyond the shore (visual only) and invisible walls at the edge
-  b.deco(0, 0, 900, 900, 0.2, { tex: 'plain', color: 0x2f7fb8, y0: -0.3 });
+  b.deco(0, 0, 1800, 1800, 0.2, { tex: 'plain', color: 0x2f7fb8, y0: -0.3 });
   const t = 4, H = 400, wall = (x, z, w, d) => b.boxes.push({ x0: x - w / 2, x1: x + w / 2, y0: -1, y1: H, z0: z - d / 2, z1: z + d / 2, mat: 'concrete' });
-  wall(0, B.z0 - t / 2, 308, t); wall(0, B.z1 + t / 2, 308, t); wall(B.x0 - t / 2, 0, t, 300); wall(B.x1 + t / 2, 0, t, 300);
+  wall(0, B.z0 - t / 2, 648, t); wall(0, B.z1 + t / 2, 648, t); wall(B.x0 - t / 2, 0, t, 640); wall(B.x1 + t / 2, 0, t, 640);
   return { ...{
-    id: 'isle', sky: [0x4f9ae0, 0xcfe6f5], fog: [0xbfd9ec, 90, 330],
+    id: 'isle', sky: [0x4f9ae0, 0xcfe6f5], fog: [0xbfd9ec, 120, 380],
     hemi: [0xfff4dc, 0x6a7a52, 1.05], sun: { color: 0xfff1d0, intensity: 3.3, pos: [-60, 90, 40] },
-    ground: { tex: 'sand', color: 0x7ea25a, tile: 8, size: [304, 304] }, impact: 0xa89a7a,
-  }, bounds: ISLE_BOUNDS, boxes: b.boxes, visuals: b.visuals, spawns: SPAWNS, navStep: 5, br: true, towns: ISLE_TOWNS, loot };
+    ground: { tex: 'sand', color: 0x7ea25a, tile: 8, size: [644, 644] }, impact: 0xa89a7a,
+  }, bounds: ISLE_BOUNDS, boxes: b.boxes, visuals: b.visuals, spawns: SPAWNS, navStep: 6, br: true, towns: ISLE_TOWNS, loot };
 }
 
 export const MAP_INFO = {
@@ -896,7 +922,7 @@ export const MAP_INFO = {
   catacombs: { name: 'Catacombs', desc: 'Tight concrete rooms around a central hall. Close fights in dim light.', thumb: 'linear-gradient(135deg,#39414a,#8a8e95 55%,#4a4e55)' },
   ruins: { name: 'Ruins', desc: 'Broken stone walls, archways and a raised temple platform in the open.', thumb: 'linear-gradient(135deg,#5a9bd8,#f2e2bc 55%,#a89878)' },
   plaza: { name: 'Plaza', desc: 'City square with a fountain, shopfronts, a parked bus and market stalls.', thumb: 'linear-gradient(135deg,#5aa0e0,#c9a07a 55%,#8c8e92)' },
-  isle: { name: 'Isle of Iron', desc: 'Battle Royale island: nine towns, woods and quarries. 300 x 300 m.', thumb: 'linear-gradient(135deg,#2f7fb8,#7ea25a 60%,#c9b27c)' },
+  isle: { name: 'Isle of Iron', desc: 'Battle Royale island: sixteen towns, compounds, forests and quarries. 640 x 640 m.', thumb: 'linear-gradient(135deg,#2f7fb8,#7ea25a 60%,#c9b27c)' },
   frostbite: { name: 'Frostbite', desc: 'Snow compound with watchtowers for long-range duels.', thumb: 'linear-gradient(135deg,#4f6f93,#dfe9f2 60%,#8a6a45)' },
 };
 

@@ -2,8 +2,8 @@
 // random attachments, armour plates and medkits, loot the players you kill, and stay inside the storm circle that keeps shrinking.
 // Last one alive wins. Offline: you + 19 bots.
 import * as THREE from 'three';
-import { WEAPONS, PRIMARIES, SECONDARIES, ATT, SLOTS, SKINS, setSlot, setSkin, cleanMask, withAtt, attList } from './weapons.js?v=0.22.0';
-import { ISLE_TOWNS } from './maps.js?v=0.22.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, randomMask, withAtt, attList } from './weapons.js?v=0.23.0';
+import { ISLE_TOWNS } from './maps.js?v=0.23.0';
 
 const V3 = THREE.Vector3, rand = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)], clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const RARITY = [
@@ -13,8 +13,8 @@ export const RARITY = [
   { id: 'epic', name: 'EPIC', css: '#b266ff', hex: 0xb266ff, w: 7, att: [5, 6], hold: 1.7 },
   { id: 'legendary', name: 'LEGENDARY', css: '#ffb02e', hex: 0xffb02e, w: 3, att: [6, 8], hold: 2.1 },
 ];
-const STAGES = [{ hold: 40, shrink: 45, r: 115, dmg: 2 }, { hold: 30, shrink: 40, r: 70, dmg: 4 }, { hold: 25, shrink: 35, r: 38, dmg: 7 }, { hold: 20, shrink: 30, r: 16, dmg: 11 }, { hold: 15, shrink: 25, r: 0, dmg: 16 }];
-const HELI_ALT = 125, HELI_SPEED = 22, CHUTE_V = 6.5;
+const STAGES = [{ hold: 60, shrink: 60, r: 300, dmg: 1.5 }, { hold: 50, shrink: 55, r: 190, dmg: 3 }, { hold: 40, shrink: 50, r: 110, dmg: 5 }, { hold: 35, shrink: 45, r: 60, dmg: 8 }, { hold: 25, shrink: 40, r: 25, dmg: 12 }, { hold: 20, shrink: 35, r: 0, dmg: 18 }];
+const HELI_ALT = 220, HELI_SPEED = 30, CHUTE_V = 6.5, ROUTE = 420, CUT = 320, PLAYER_CAR = 6;
 const STORM = { id: -2, name: 'THE STORM', team: 99, isPlayer: false, kills: 0, streak: 0, deaths: 0, pos: new V3(), weapon: null };
 const STORM_W = { id: 'storm', name: 'The Storm', cls: 'other', slot: 'primary' };
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -37,18 +37,18 @@ function css() {
 export class BattleRoyale {
   constructor(game) {
     const g = this.g = game; css();
-    this.t = 0; this.crates = []; this.canopies = new Map(); this.over = false; this.dropAlive = 0; this.stormT = 0;
+    this.t = 0; this.crates = []; this.canopies = new Map(); this.over = false; this.dropAlive = 0; this.stormT = 0; this.cullT = 0;
     this.towns = ISLE_TOWNS; this.placeN = 0;
     // ---- helicopter route: a line across the island at a random bearing
     const th = rand(0, Math.PI * 2); this.dir = new V3(Math.cos(th), 0, Math.sin(th)); this.side = new V3(-this.dir.z, 0, this.dir.x);
-    const off = rand(-35, 35); this.start = new V3(-this.dir.x * 190 + this.side.x * off, HELI_ALT, -this.dir.z * 190 + this.side.z * off);
-    this.heliT = 0; this.heliLen = 380 / HELI_SPEED; this.heli = this.makeHeli(); g.scene.add(this.heli); this.heliPos = this.start.clone();
+    const off = rand(-120, 120); this.start = new V3(-this.dir.x * ROUTE + this.side.x * off, HELI_ALT, -this.dir.z * ROUTE + this.side.z * off);
+    this.heliT = 0; this.heliLen = ROUTE * 2 / HELI_SPEED; this.heli = this.makeBus(); g.scene.add(this.heli); this.heliPos = this.start.clone();
     // ---- storm
-    const c0 = { x: rand(-25, 25), z: rand(-25, 25) }; this.zone = { cx: c0.x, cz: c0.z, r: 215, ph: 'hold', stage: 0, t: 25 + STAGES[0].hold, c0, r0: 215, c1: null, r1: 0 }; this.pickNext();
-    this.zoneMesh = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 220, 72, 1, true), new THREE.MeshBasicMaterial({ color: 0x8a3cff, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+    const c0 = { x: rand(-60, 60), z: rand(-60, 60) }; this.zone = { cx: c0.x, cz: c0.z, r: 480, ph: 'hold', stage: 0, t: 40 + STAGES[0].hold, c0, r0: 480, c1: null, r1: 0 }; this.pickNext();
+    this.zoneMesh = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 260, 96, 1, true), new THREE.MeshBasicMaterial({ color: 0x8a3cff, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, fog: false }));
     this.zoneMesh.position.y = 100; g.scene.add(this.zoneMesh); this.zoneMesh.frustumCulled = false;
     // ---- loot
-    this.placeCrates(); this.sunFix();
+    this.placeCrates(); this.sunFix(); this.collectStatics();
     // ---- hud
     this.el = document.createElement('div'); this.el.id = 'brhud'; this.el.innerHTML = '<div class="row"><b id="brAlive">ALIVE 20</b><b id="brKills">KILLS 0</b></div><div id="brZone"><span id="brArrow">&#9650;</span><span id="brZt"></span></div>';
     const mk = (id) => { const d = document.createElement('div'); d.id = id; document.body.appendChild(d); return d; };
@@ -63,15 +63,48 @@ export class BattleRoyale {
   }
 
   // ------------------------------------------------------------------ set up
-  makeHeli() {
-    const g = new THREE.Group(), m = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.2 });
-    const add = (geo, mat, x, y, z, parent = g) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); parent.add(o); return o; };
-    add(new THREE.BoxGeometry(2.8, 2.4, 7), m(0x3d4a3a), 0, 0, 0); add(new THREE.BoxGeometry(2.4, 1.2, 2.2), m(0x9fd0e8), 0, 0.6, -3.5);
-    add(new THREE.BoxGeometry(0.7, 0.8, 7.5), m(0x3d4a3a), 0, 0.5, 6.5); add(new THREE.BoxGeometry(0.2, 2.2, 1.4), m(0x2a3328), 0, 1.6, 9.8);
-    for (const sx of [-1, 1]) { add(new THREE.BoxGeometry(0.12, 0.12, 6), m(0x222), sx * 1.5, -1.5, 0); add(new THREE.BoxGeometry(0.1, 0.9, 0.1), m(0x222), sx * 1.5, -1.05, -1.5); add(new THREE.BoxGeometry(0.1, 0.9, 0.1), m(0x222), sx * 1.5, -1.05, 1.5); }
-    add(new THREE.BoxGeometry(0.3, 0.7, 0.3), m(0x222), 0, 1.5, 0);
-    this.rotor = new THREE.Group(); this.rotor.position.y = 1.9; g.add(this.rotor); add(new THREE.BoxGeometry(13, 0.07, 0.5), m(0x222), 0, 0, 0, this.rotor); add(new THREE.BoxGeometry(0.5, 0.07, 13), m(0x222), 0, 0, 0, this.rotor);
-    g.frustumCulled = false; return g;
+  // the battle bus: a flying steam train (locomotive + three open carriages with wings, rocket jets and a spinning propeller). Local -z is the front.
+  makeBus() {
+    const g = new THREE.Group(), M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.25, ...o });
+    const add = (geo, mat, x, y, z, parent = g, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); parent.add(o); return o; };
+    const BX = THREE.BoxGeometry, CY = THREE.CylinderGeometry, teal = M(0x14b8c8), orange = M(0xff8a1f), cream = M(0xf4ecd8), dark = M(0x23262b), brass = M(0xd9a441, { metalness: 0.7, roughness: 0.35 }), red = M(0xc0392b);
+    // carriages: floor 0 is where riders stand
+    for (let i = 0; i < 3; i++) {
+      const z = -8 + i * 14 + 6 - 6;       // centres at -8, 6, 20
+      add(new BX(3.8, 0.8, 13), dark, 0, -0.4, z); add(new BX(3.9, 0.25, 13.1), orange, 0, -0.05, z);
+      for (const sx of [-1, 1]) { add(new BX(0.16, 1.15, 13), teal, sx * 1.8, 0.58, z); add(new BX(0.2, 0.14, 13.1), orange, sx * 1.8, 1.2, z);
+        for (let k = 0; k < 6; k++) add(new BX(0.16, 1.6, 0.22), teal, sx * 1.8, 2.0, z - 5.9 + k * 2.36);
+        add(new BX(0.9, 0.5, 11.2), M(0x7a4a2a), sx * 1.2, 0.5, z);                                        // benches along both sides
+        for (let w = 0; w < 4; w++) add(new CY(0.55, 0.55, 0.18, 16), dark, sx * 1.95, -0.5, z - 4.5 + w * 3, g, 0, 0, Math.PI / 2); }
+      add(new BX(4.1, 0.22, 13.2), cream, 0, 2.95, z); add(new BX(3.9, 0.2, 13.0), teal, 0, 2.8, z);
+      add(new BX(3.8, 1.9, 0.2), teal, 0, 1.9, z + 6.4); add(new BX(1.4, 2.1, 0.12), cream, 0, 1.0, z - 6.55);                                   // rear wall with a door gap in front
+      for (const sx of [-1, 1]) { const w = add(new BX(13, 0.14, 3.4), i % 2 ? orange : cream, sx * 8.4, 1.6, z + (i - 1) * 0.0); w.rotation.z = sx * 0.04; add(new BX(0.14, 1.6, 0.14), dark, sx * 3.4, 0.9, z - 1.2, g, 0, 0, sx * 0.9); add(new BX(0.14, 1.6, 0.14), dark, sx * 3.4, 0.9, z + 1.2, g, 0, 0, sx * 0.9); }
+      const fl = add(new THREE.ConeGeometry(0.7, 3, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), 0, -2.3, z + 2, g, Math.PI); (this.jets || (this.jets = [])).push(fl);
+      const fl2 = add(new THREE.ConeGeometry(0.7, 3, 10, 1, true), fl.material, 0, -2.3, z - 2, g, Math.PI); this.jets.push(fl2);
+    }
+    // locomotive
+    const zl = -22;
+    add(new BX(3.8, 0.8, 11), dark, 0, -0.4, zl); add(new BX(3.9, 0.25, 11.1), red, 0, -0.05, zl);
+    add(new CY(1.5, 1.5, 7.5, 20), dark, 0, 1.7, zl - 1.5, g, Math.PI / 2, 0, 0);
+    for (let i = 0; i < 3; i++) add(new CY(1.56, 1.56, 0.28, 20), brass, 0, 1.7, zl - 4.2 + i * 2.2, g, Math.PI / 2, 0, 0);
+    add(new CY(0.55, 0.8, 1.6, 12), dark, 0, 3.6, zl - 3.8); add(new CY(0.95, 0.55, 0.5, 12), brass, 0, 4.55, zl - 3.8); add(new THREE.SphereGeometry(0.5, 12, 8), brass, 0, 3.4, zl - 1);
+    add(new BX(3.7, 3.4, 3.2), red, 0, 1.7, zl + 3.6); add(new BX(4.1, 0.3, 3.6), cream, 0, 3.5, zl + 3.6); for (const sx of [-1, 1]) add(new BX(0.1, 1.1, 1.3), M(0x9fd0e8, { transparent: true, opacity: 0.7 }), sx * 1.9, 2.0, zl + 3.6);
+    add(new BX(3.4, 0.2, 2.6), dark, 0, 0.1, zl - 6.8, g, -0.5, 0, 0); for (let k = 0; k < 5; k++) add(new BX(0.14, 1.0, 0.1), brass, -1.2 + k * 0.6, 0.4, zl - 7.2, g, -0.5, 0, 0);     // cow catcher
+    add(new THREE.SphereGeometry(0.45, 12, 8), new THREE.MeshBasicMaterial({ color: 0xfff2b0 }), 0, 1.9, zl - 5.3);
+    for (const sx of [-1, 1]) for (let w = 0; w < 3; w++) add(new CY(w === 1 ? 0.75 : 1.0, w === 1 ? 0.75 : 1.0, 0.22, 18), M(0xb0302a), sx * 1.95, -0.5, zl - 3 + w * 3, g, 0, 0, Math.PI / 2);
+    for (const sx of [-1, 1]) { add(new BX(12, 0.16, 3.6), M(0xff8a1f), sx * 7.8, 1.3, zl, g, 0, 0, sx * 0.04); add(new BX(0.16, 1.4, 0.16), dark, sx * 3.4, 0.7, zl - 1.2, g, 0, 0, sx * 0.9); }
+    this.prop = new THREE.Group(); this.prop.position.set(0, 1.7, zl - 7.5); g.add(this.prop); for (let k = 0; k < 3; k++) add(new BX(0.3, 3.4, 0.08), M(0xf0f0f0), 0, 0, 0, this.prop, 0, 0, k * 2.094); add(new THREE.SphereGeometry(0.35, 10, 8), brass, 0, 0, 0, this.prop);
+    this.smoke = []; for (let i = 0; i < 12; i++) { const o = add(new THREE.SphereGeometry(0.7, 8, 6), new THREE.MeshBasicMaterial({ color: 0xf2f2f2, transparent: true, opacity: 0.6, depthWrite: false }), 0, 4.8, zl - 3.8); o.userData.t = i / 12; this.smoke.push(o); }
+    g.traverse((o) => { if (o.isMesh) o.castShadow = false; }); g.frustumCulled = false; return g;
+  }
+  // the island has thousands of meshes: only the ones near the camera are drawn (fog hides the rest anyway)
+  collectStatics() {
+    this.statics = [];
+    for (const o of this.g.scene.children) { if (!o.geometry || !o.geometry.computeBoundingSphere || o.isLight || o.type === 'Points' || o === this.zoneMesh || o === this.heli) continue; o.geometry.computeBoundingSphere(); const bs = o.geometry.boundingSphere; if (bs && bs.radius < 60) this.statics.push({ o, r: bs.radius * Math.max(o.scale.x, o.scale.y, o.scale.z, 1) }); }
+  }
+  cull(cx, cz) {
+    const R = 340; for (const s of this.statics) { const p = s.o.position, dx = p.x - cx, dz = p.z - cz, rr = R + s.r; s.o.visible = dx * dx + dz * dz < rr * rr; }
+    for (const c of this.crates) c.g.visible = (c.x - cx) ** 2 + (c.z - cz) ** 2 < 300 * 300;
   }
   sunFix() {            // the sun's shadow box is only 110 m wide: let it follow the player across the big island
     this.sun = null; this.g.scene.traverse((o) => { if (o.isDirectionalLight && o.castShadow) this.sun = o; });
@@ -81,19 +114,15 @@ export class BattleRoyale {
     let r = Math.random() * RARITY.reduce((s, x) => s + x.w, 0), ri = 0; for (; ri < RARITY.length - 1; ri++) { r -= RARITY[ri].w; if (r < 0) break; }
     ri = Math.min(RARITY.length - 1, ri + (Math.random() < boost ? 1 : 0));
     const id = Math.random() < 0.85 ? pick(PRIMARIES) : pick(SECONDARIES), w = WEAPONS[id]; if (!w) return this.rollItem(boost);
-    let mask = 0, n = Math.round(rand(RARITY[ri].att[0], RARITY[ri].att[1]));
-    const slots = SLOTS.map((s) => s.id).filter((sid) => ((w.opts && w.opts[sid]) || []).length).sort(() => Math.random() - 0.5);
-    for (const sid of slots) { if (n <= 0) break; const a = ATT[pick(w.opts[sid])]; if (a) { mask = setSlot(mask, a.slot, a.v); n--; } }
-    if (ri >= 4 && Math.random() < 0.55 && w.slot !== 'melee') mask = setSkin(mask, 1 + Math.floor(Math.random() * (SKINS.length - 1)));
-    mask = cleanMask(w, mask);
+    const mask = randomMask(w, Math.round(rand(RARITY[ri].att[0], RARITY[ri].att[1])), ri >= 4 ? 0.55 : 0);
     return { id, mask, rarity: ri, plates: Math.random() < 0.5 ? (ri >= 3 ? 2 : 1) : 0, med: Math.random() < 0.3 };
   }
   placeCrates() {
-    const g = this.g, nav = g.nav, spots = [];
+    const g = this.g, nav = g.nav, spots = [], vn = nav.validIdx, node = () => nav.nodes[vn[Math.floor(Math.random() * vn.length)]];
     const free = (x, z) => !g.col.overlaps(x, 0.05, z, 0.7, 1.0);
-    for (const [x, z] of (g.map.loot || [])) if (free(x, z)) spots.push({ x, z, boost: 0.35 });         // inside buildings: better odds
-    for (const t of this.towns) for (let i = 0; i < 3; i++) { const n = nav.nodes[nav.validIdx[Math.floor(Math.random() * nav.validIdx.length)]]; for (let k = 0; k < 60; k++) { const q = nav.nodes[nav.validIdx[Math.floor(Math.random() * nav.validIdx.length)]]; if (Math.hypot(q.x - t.x, q.z - t.z) < 24) { spots.push({ x: q.x, z: q.z, boost: 0.15 }); break; } } void n; }
-    for (let i = 0; i < 16; i++) { const q = nav.nodes[nav.validIdx[Math.floor(Math.random() * nav.validIdx.length)]]; spots.push({ x: q.x, z: q.z, boost: 0 }); }
+    for (const [x, z] of (g.map.loot || [])) if (Math.random() < 0.7 && free(x, z)) spots.push({ x, z, boost: 0.35 });          // inside buildings: better odds
+    for (const t of this.towns) for (let i = 0, k = 0; i < 400 && k < 4; i++) { const q = node(); if (Math.hypot(q.x - t.x, q.z - t.z) < 38) { spots.push({ x: q.x, z: q.z, boost: 0.15 }); k++; } }
+    for (let i = 0; i < 45; i++) { const q = node(); spots.push({ x: q.x, z: q.z, boost: 0 }); }
     for (const s of spots) this.addCrate(s.x, s.z, this.rollItem(s.boost));
   }
   addCrate(x, z, item, drop = false) {
@@ -111,21 +140,25 @@ export class BattleRoyale {
   // ------------------------------------------------------------------ actors
   place(a, first) {              // called from Game.spawn: everyone starts in the helicopter
     const g = this.g; if (!a.starter) { const s = { ...withAtt(WEAPONS.m1911, 0), starter: true, reserve: 24 }; a.weapons = [s, { ...s }]; a.weapon = a.weapons[0]; a.starter = true; }
-    g.placeActor(a, this.start.x, this.start.z, Math.atan2(-this.side.x, -this.side.z), true, HELI_ALT - 2);
+    g.placeActor(a, this.start.x, this.start.z, Math.atan2(-this.side.x, -this.side.z), true, HELI_ALT);
     a.armor = 0; a.looted = 0; a.stormAcc = 0; a.air = 'heli'; a.brHold = 0;
     if (!a.isPlayer) {
-      const t = Math.random() < 0.75 ? pick(this.towns) : { x: rand(-100, 100), z: rand(-100, 100) };
-      a.tx = clamp(t.x + rand(-22, 22), -138, 138); a.tz = clamp(t.z + rand(-22, 22), -138, 138);
-      const tp = ((a.tx - this.start.x) * this.dir.x + (a.tz - this.start.z) * this.dir.z) / HELI_SPEED;      // when the heli is nearest to the landing spot
-      a.jumpAt = clamp(tp - rand(1.0, 2.2), 0.8, this.heliLen - 1);
-      a.pos.y = HELI_ALT - 2; a.mesh.root.visible = false;
+      const loot = this.g.map.loot || [], perp = (x, z) => Math.abs((x - this.start.x) * this.side.x + (z - this.start.z) * this.side.z), along = (x, z) => ((x - this.start.x) * this.dir.x + (z - this.start.z) * this.dir.z) / HELI_SPEED;
+      let cand = Math.random() < 0.55 ? this.towns.map((t) => ({ x: t.x + rand(-26, 26), z: t.z + rand(-26, 26) })) : loot.map(([x, z]) => ({ x, z }));
+      cand = cand.filter((c) => perp(c.x, c.z) < 190 && along(c.x, c.z) > 4 && along(c.x, c.z) < this.heliLen - 3);
+      let t = null; this.used = this.used || [];
+      for (let i = 0; i < 12; i++) { const c = cand.length ? pick(cand) : { x: rand(-150, 150), z: rand(-150, 150) }; t = c; if (!this.used.some((u) => Math.hypot(u.x - c.x, u.z - c.z) < 34)) break; }      // spread the landings out
+      this.used.push(t);
+      a.tx = clamp(t.x, -312, 312); a.tz = clamp(t.z, -312, 312);
+      a.jumpAt = clamp(along(a.tx, a.tz) - rand(2.6, 5.5), 0.8, this.heliLen - 1);
+      a.pos.y = HELI_ALT; a.mesh.root.visible = false;
     }
     return true;
   }
   alive() { return this.g.actors.filter((a) => a.alive && !a.dummy && !a.zombie); }
   jump(a) {
-    a.air = 'fall'; a.vel.set(this.dir.x * HELI_SPEED * 0.6, 0, this.dir.z * HELI_SPEED * 0.6); a.pos.x += this.side.x * 0.5; a.pos.z += this.side.z * 0.5;
-    if (a.mesh) a.mesh.root.visible = !a.isPlayer; if (a.isPlayer) this.g.hud.center('SKYDIVE! SPACE = PARACHUTE', 2);
+    a.air = 'fall'; a.vel.set(this.dir.x * HELI_SPEED * 0.6, 0, this.dir.z * HELI_SPEED * 0.6); a.pos.y -= 1.5;
+    if (a.mesh) a.mesh.root.visible = true; if (a.isPlayer) this.g.hud.center('SKYDIVE! SPACE = PARACHUTE', 2);
   }
   addCanopy(a) {
     if (this.canopies.has(a)) return; const col = pick([0xd04a3a, 0x3a7ad0, 0xe0c040, 0x3aa86a, 0xc060d0, 0xf0f0f0]);
@@ -138,7 +171,7 @@ export class BattleRoyale {
   updateAir(a, dt) {
     const g = this.g, p = a.isPlayer, k = g.keys;
     if (a.air === 'heli') {
-      const hp = this.heliPos; a.pos.set(hp.x + this.side.x * 2.4, hp.y - 2.4, hp.z + this.side.z * 2.4); a.vel.set(0, 0, 0);
+      const hp = this.heliPos, o = (a.isPlayer ? 0 : (a.id % 5 - 2) * 0.3); a.pos.set(hp.x - this.dir.x * (PLAYER_CAR + o) + this.side.x * o, hp.y + 0.02, hp.z - this.dir.z * (PLAYER_CAR + o) + this.side.z * o); a.vel.set(0, 0, 0);
       if (p) { const sp = !!k.Space; if (g.matchT >= 0 && ((sp && !this.spaceWas) || this.heliT >= this.heliLen - 0.2)) this.jump(a); this.spaceWas = sp; }
       else if (this.heliT >= a.jumpAt || this.heliT >= this.heliLen - 0.2) this.jump(a);
       return;
@@ -148,16 +181,16 @@ export class BattleRoyale {
     if (p) {
       const fwd = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), str = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0), fx = -Math.sin(a.yaw), fz = -Math.cos(a.yaw), rx = Math.cos(a.yaw), rz = -Math.sin(a.yaw);
       wx = fx * fwd + rx * str; wz = fz * fwd + rz * str; const l = Math.hypot(wx, wz); if (l > 0) { wx /= l; wz /= l; }
-      const sp = !!k.Space; if (a.air === 'fall' && ((sp && !this.spaceWas && h < HELI_ALT - 10) || h < 62)) { a.air = 'chute'; this.addCanopy(a); g.hud.center('PARACHUTE OPEN', 1.2); } this.spaceWas = sp;
-      if (a.air === 'fall') { hs = fwd > 0 ? (a.pitch < -0.5 ? 30 : 17) : 5; vy = a.pitch < -0.6 ? -64 : -42; } else { hs = fwd > 0 ? 12 : fwd < 0 ? 3 : 5; vy = -CHUTE_V; }
+      const sp = !!k.Space; if (a.air === 'fall' && ((sp && !this.spaceWas && h < HELI_ALT - 10) || h < 70)) { a.air = 'chute'; this.addCanopy(a); g.hud.center('PARACHUTE OPEN', 1.2); } this.spaceWas = sp;
+      if (a.air === 'fall') { hs = fwd > 0 ? (a.pitch < -0.5 ? 34 : 19) : 5; vy = a.pitch < -0.6 ? -64 : -42; } else { hs = fwd > 0 ? 14 : fwd < 0 ? 3 : 5; vy = -CHUTE_V; }
     } else {
       const dx = a.tx - a.pos.x, dz = a.tz - a.pos.z, d = Math.hypot(dx, dz) || 1; wx = dx / d; wz = dz / d;
-      if (a.air === 'fall' && h < 70 + (a.id % 5) * 6) { a.air = 'chute'; this.addCanopy(a); }
-      const left = a.air === 'fall' ? (h - 70) / 45 + 70 / CHUTE_V : h / CHUTE_V; hs = clamp(d / Math.max(0.8, left), 0, a.air === 'fall' ? 28 : 13); vy = a.air === 'fall' ? -45 : -CHUTE_V;
+      if (a.air === 'fall' && h < 78 + (a.id % 5) * 6) { a.air = 'chute'; this.addCanopy(a); }
+      const left = a.air === 'fall' ? (h - 78) / 45 + 78 / CHUTE_V : h / CHUTE_V; hs = clamp(d / Math.max(0.8, left), 0, a.air === 'fall' ? 34 : 15); vy = a.air === 'fall' ? -45 : -CHUTE_V;
       a.yaw = Math.atan2(-wx, -wz); a.pitch = 0;
     }
     const kk = Math.min(1, 3 * dt); a.vel.x += (wx * hs - a.vel.x) * kk; a.vel.z += (wz * hs - a.vel.z) * kk; a.vel.y += (vy - a.vel.y) * Math.min(1, 4 * dt);
-    a.pos.x = clamp(a.pos.x + a.vel.x * dt, -146, 146); a.pos.z = clamp(a.pos.z + a.vel.z * dt, -146, 146); a.pos.y += a.vel.y * dt;
+    a.pos.x = clamp(a.pos.x + a.vel.x * dt, -316, 316); a.pos.z = clamp(a.pos.z + a.vel.z * dt, -316, 316); a.pos.y += a.vel.y * dt;
     const c = this.canopies.get(a); if (c) { c.position.set(a.pos.x, a.pos.y + 3.4, a.pos.z); c.rotation.y = a.yaw; }
     const ng = this.groundY(a);
     if (a.pos.y <= ng + 0.02) {                                                    // touch down
@@ -195,10 +228,17 @@ export class BattleRoyale {
     if (a.air) return null; const z = this.zone;
     if (Math.hypot(a.pos.x - z.cx, a.pos.z - z.cz) > z.r - 6) { const ang = Math.atan2(a.pos.z - z.cz, a.pos.x - z.cx), rr = Math.max(0, z.r - 14); return { x: z.cx + Math.cos(ang) * rr * 0.5, z: z.cz + Math.sin(ang) * rr * 0.5 }; }
     if (a.looted < 3 || a.weapon.starter) {
-      let best = null, bd = 95; for (const c of this.crates) { if (c.open || c.reach === false) continue; const d = Math.hypot(c.x - a.pos.x, c.z - a.pos.z) * (c.drop ? 0.7 : 1); if (d < bd) { bd = d; best = c; } }
+      let best = null, bd = a.looted ? 95 : 150; for (const c of this.crates) { if (c.open || c.reach === false) continue; const d = Math.hypot(c.x - a.pos.x, c.z - a.pos.z) * (c.drop ? 0.7 : 1); if (d < bd) { bd = d; best = c; } }
       if (best) { if (best.reach === undefined) { const n = this.g.nav.nodes[this.g.nav.nearest(best.x, best.z)]; best.reach = !!n && Math.hypot(n.x - best.x, n.z - best.z) < 5; if (!best.reach) return this.botGoal(a); } a.brTarget = best; return { x: best.x, z: best.z }; }
     }
-    return null;
+    // geared up: drift towards the next circle through new ground (and into whoever is there) instead of hunting across the whole island
+    const g = this.g, nav = g.nav, ro = a.roam;
+    if (!ro || Math.hypot(ro.x - a.pos.x, ro.z - a.pos.z) < 8 || g.time - ro.t > 30 || Math.hypot(ro.x - z.cx, ro.z - z.cz) > z.r - 10) {
+      let pick = null; const tx = z.c1 ? z.c1.x : z.cx, tz = z.c1 ? z.c1.z : z.cz;
+      for (let i = 0; i < 40 && !pick; i++) { const n = nav.nodes[nav.validIdx[Math.floor(Math.random() * nav.validIdx.length)]]; const dz0 = Math.hypot(n.x - a.pos.x, n.z - a.pos.z); if (dz0 > 25 && dz0 < 130 && Math.hypot(n.x - z.cx, n.z - z.cz) < z.r - 12 && Math.hypot(n.x - tx, n.z - tz) < Math.hypot(a.pos.x - tx, a.pos.z - tz) + 40) pick = { x: n.x, z: n.z, t: g.time }; }
+      a.roam = pick || null; 
+    }
+    return a.roam || null;
   }
 
   // ------------------------------------------------------------------ zone
@@ -215,10 +255,10 @@ export class BattleRoyale {
 
   // ------------------------------------------------------------------ per frame
   update(dt) {
-    const g = this.g, p = g.player; if (g.matchT < 0) { this.syncHeli(); return; }
+    const g = this.g, p = g.player; if (g.matchT < 0) { this.syncHeli(); if (!this.statics.length) this.collectStatics(); return; }
     this.t += dt;
     if (this.heliT < this.heliLen + 6) this.heliT += dt;
-    this.syncHeli();
+    this.syncHeli(); this.cullT -= dt; if (this.cullT <= 0) { this.cullT = 0.3; const cam = g.camera.position; this.cull(cam.x, cam.z); }
     if (this.t > 0.5) this.updateZone(dt);
     // storm damage + bots opening crates
     const S = STAGES[Math.min(this.zone.stage, STAGES.length - 1)];
@@ -242,13 +282,15 @@ export class BattleRoyale {
     } else this.q('brPrompt').style.display = 'none';
     // crate lids / beams
     for (const c of this.crates) if (c.open && c.openT < 1) { c.openT = Math.min(1, c.openT + dt * 2.5); c.lid.rotation.x = -c.openT * 1.9; c.beam.material.opacity = 0.25 * (1 - c.openT); if (c.openT >= 1) c.beam.visible = false; }
-    if (this.heliT > this.heliLen + 4) this.heli.visible = false;
+    if (this.heliT > this.heliLen + 6) this.heli.visible = false;
     if (this.sun) { this.sun.position.set(p.pos.x + this.sunOff.x, this.sunOff.y, p.pos.z + this.sunOff.z); this.sun.target.position.set(p.pos.x, 0, p.pos.z); this.sun.target.updateMatrixWorld(); }
     this.updateHud(p);
   }
   syncHeli() {
     const hp = this.heliPos, t = this.heliT; hp.set(this.start.x + this.dir.x * HELI_SPEED * t, HELI_ALT + Math.sin(t * 1.3) * 0.4, this.start.z + this.dir.z * HELI_SPEED * t);
-    this.heli.position.copy(hp); this.heli.rotation.y = Math.atan2(this.dir.x, this.dir.z) + Math.PI; this.rotor.rotation.y += 0.9;
+    this.heli.position.copy(hp); this.heli.rotation.y = Math.atan2(-this.dir.x, -this.dir.z); this.prop.rotation.z += 0.7;
+    for (const j of this.jets) j.scale.set(1, 0.75 + Math.random() * 0.5, 1);
+    for (const o of this.smoke) { o.userData.t = (o.userData.t + 0.012) % 1; const u = o.userData.t; o.position.set(Math.sin(u * 9) * 0.3, 4.8 + u * 7, -25.8 + u * 14); o.scale.setScalar(0.5 + u * 2.4); o.material.opacity = 0.6 * (1 - u); }
   }
   updateHud(p) {
     const z = this.zone, n = this.alive().length, q = this.q;
@@ -261,6 +303,7 @@ export class BattleRoyale {
     q('brStorm').style.opacity = out && !p.air && p.alive ? '1' : '0';
     const j = q('brJump'); if (p.air === 'heli') { j.style.display = 'block'; j.innerHTML = `HELICOPTER - PRESS <b>SPACE</b> TO JUMP<br><span style="font-size:14px;font-weight:600">drop zone: look around, then pick your town (${Math.max(0, Math.ceil(this.heliLen - this.heliT))}s left)</span>`; } else if (p.air === 'fall') { j.style.display = 'block'; j.innerHTML = 'FREEFALL - W TO GLIDE, LOOK DOWN TO DIVE<br><span style="font-size:14px;font-weight:600">SPACE opens the parachute</span>'; } else j.style.display = 'none';
   }
+  drawRadar(c, S) { const z = this.zone; c.strokeStyle = 'rgba(190,110,255,0.95)'; c.lineWidth = 2 / S; c.beginPath(); c.arc(z.cx, z.cz, Math.max(0.1, z.r), 0, 6.283); c.stroke(); if (z.c1 && z.ph === 'hold' && z.r1 > 0) { c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 1.2 / S; c.beginPath(); c.arc(z.c1.x, z.c1.z, z.r1, 0, 6.283); c.stroke(); } }
   placement() { const p = this.g.player; return p.alive ? 1 : (p.place || this.alive().length + 1); }
   winnerTeam() { const a = this.alive(); return a.length ? a[0].team : null; }
   checkEnd() {

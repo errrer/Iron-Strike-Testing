@@ -397,3 +397,11 @@ export const CAMOS = [
 ];
 export const SKIN_PRICE = 5000;
 export const camoReqText = (c) => ({ free: 'Unlocked', level: `Reach level ${c.req.n}`, kills: `${c.req.n} kills with this gun`, heads: `${c.req.n} headshots with this gun`, buy: `$${(c.req.price || 0).toLocaleString('en-US')} skin` })[c.req.t];
+
+// A random attachment set (n attachments, each from the gun's own options) and sometimes a skin: used for crate loot and for bot loadouts
+export function randomMask(w, n, skinChance = 0) {
+  let mask = 0; const slots = SLOTS.map((s) => s.id).filter((sid) => ((w.opts && w.opts[sid]) || []).length).sort(() => Math.random() - 0.5);
+  for (const sid of slots) { if (n <= 0) break; const list = w.opts[sid], a = ATT[list[Math.floor(Math.random() * list.length)]]; if (a) { mask = setSlot(mask, a.slot, a.v); n--; } }
+  if (skinChance > 0 && w.slot !== 'melee' && Math.random() < skinChance) mask = setSkin(mask, 1 + Math.floor(Math.random() * (SKINS.length - 1)));
+  return cleanMask(w, mask);
+}

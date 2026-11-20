@@ -13,7 +13,11 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Bot {
   constructor(game, actor, diffKey) {
-    this.g = game; this.a = actor; this.d = DIFF[diffKey] || DIFF.normal;
+    this.g = game; this.a = actor; const base = DIFF[diffKey] || DIFF.normal, jt = (x, y) => x + Math.random() * (y - x);
+    // every bot is its own "player": its own reflexes, aim and habits
+    this.d = { ...base, react: base.react * jt(0.75, 1.4), err: base.err * jt(0.7, 1.5), turn: base.turn * jt(0.85, 1.2), sight: base.sight * jt(0.9, 1.15) };
+    { const r = Math.random(); this.style = actor.weapon && actor.weapon.cls === 'sniper' ? 'hold' : r < 0.3 ? 'rush' : r < 0.75 ? 'mix' : r < 0.9 ? 'hold' : 'lurk'; }
+    this.stopT = 0; this.holdT = 0; this.retreatT = 0; this.utilT = 3 + Math.random() * 8;
     this.path = []; this.pi = 0; this.repathT = 0;
     this.target = null; this.seen = false; this.reactT = 0; this.thinkT = Math.random() * 0.2;
     this.strafe = Math.random() < 0.5 ? 1 : -1; this.strafeT = 1;
@@ -23,10 +27,11 @@ export class Bot {
     this.headAim = false; this.steadyT = 0;
   }
 
-  reset() { this.path = []; this.pi = 0; this.target = null; this.seen = false; this.memPos = null; this.memT = 0; this.reactT = 0.4; this.pause = 0.4; }
+  reset() { this.path = []; this.pi = 0; this.target = null; this.seen = false; this.memPos = null; this.memT = 0; this.reactT = 0.4; this.pause = 0.4; this.holdT = 0; this.retreatT = 0; }
 
   onHurt(attacker) {
     if (!attacker || attacker === this.a || attacker.team === this.a.team) return;
+    if (this.a.hp < 38 && Math.random() < 0.7 && this.retreatT <= 0) { this.retreatT = 2 + Math.random() * 2.5; this.useUtil(true); }
     if (!this.seen) { this.memPos = attacker.pos.clone(); this.memT = 4; this.reactT = Math.min(this.reactT, 0.25); this.target = attacker; }
   }
 
@@ -52,6 +57,15 @@ export class Bot {
     }
   }
 
+  // bots throw their grenades like people do: frags at mid range, flashes to push, smoke when they are losing
+  useUtil(smokeOnly) {
+    const a = this.a, g = this.g, t = this.target; if (!g.utils || g.net || !t || !a.utilLeft || !a.utilIds) return;
+    const dist = Math.hypot(t.pos.x - a.pos.x, t.pos.z - a.pos.z);
+    for (let i = 0; i < 2; i++) {
+      if (!a.utilLeft[i]) continue; const id = a.utilIds[i];
+      if (smokeOnly ? id === 'smoke' : (id === 'frag' && dist > 9 && dist < 30) || (id === 'flash' && dist > 6 && dist < 22) || (id === 'smoke' && a.hp < 45 && dist > 7)) { g.utils.throwFor(a, i, id === 'smoke' ? { x: a.pos.x + (t.pos.x - a.pos.x) * 0.25, y: a.pos.y, z: a.pos.z + (t.pos.z - a.pos.z) * 0.25 } : t.pos); return; }
+    }
+  }
   chooseGoal() {
     const a = this.a, g = this.g, nav = g.nav;
     let gx, gz;
@@ -110,25 +124,37 @@ export class Bot {
     }
 
     // ----- movement -----
-    let speed = 4.6 * d.speed * w.moveMul;
+    let speed = 4.6 * d.speed * w.moveMul, crouch = false;
+    this.retreatT -= dt; this.utilT -= dt;
     if (aim) {
       const fx = -Math.sin(wantYaw), fz = -Math.cos(wantYaw);
-      const ideal = IDEAL_RANGE[w.cls] || 14;
+      const ideal = (IDEAL_RANGE[w.cls] || 14) * (this.style === 'rush' ? 0.6 : this.style === 'hold' ? 1.35 : 1);
       let f = 0;
       if (dist > ideal * 1.5) f = 1; else if (dist < ideal * 0.55) f = -1;
-      if (this.strafeT <= 0) { this.strafeT = 0.7 + Math.random() * 1.6; if (Math.random() < 0.6) this.strafe *= -1; }
-      if (f === 1 && dist > ideal * 2.2) {
+      if (this.strafeT <= 0) { this.strafeT = 0.7 + Math.random() * 1.6; if (Math.random() < 0.6) this.strafe *= -1; if (Math.random() < 0.35) this.stopT = 0.15 + Math.random() * 0.3; }          // peek-and-shoot: stop for a moment
+      if (this.utilT <= 0 && this.reactT <= 0) { this.utilT = 4 + Math.random() * 7; this.useUtil(false); }
+      if (this.retreatT > 0) {                                                       // hurt: back off, break line of sight, keep shooting
+        wish.x = -fx + (-fz) * this.strafe * 0.6; wish.z = -fz + fx * this.strafe * 0.6; speed *= 1.2;
+      } else if (f === 1 && dist > ideal * 2.2) {
         if (!this.followPath(wish)) { wish.x = fx; wish.z = fz; }
       } else {
-        const sa = w.cls === 'sniper' ? 0.25 : 0.85;
+        const sa = w.cls === 'sniper' || this.style === 'hold' ? 0.25 : 0.85;
         wish.x = fx * f + (-fz) * this.strafe * sa; wish.z = fz * f + fx * this.strafe * sa;
+        if (this.stopT > 0) { this.stopT -= dt; wish.x = 0; wish.z = 0; }
       }
+      if (dist < 13 && this.style !== 'hold' && Math.random() < dt * 0.6) this.wantJump = true;                                              // jump-shots up close
+      crouch = w.cls === 'sniper' || (this.style === 'hold' && dist > 24 && this.stopT > 0);
       speed *= 0.8; moving = true;
     } else {
       if (this.repathT <= 0 && this.memPos && this.memT > 0) this.chooseGoal();
-      moving = this.followPath(wish);
-      if (moving) wantYaw = Math.atan2(-wish.x, -wish.z);
+      if (this.holdT > 0) { this.holdT -= dt; moving = false; crouch = this.style === 'lurk'; wantYaw = a.yaw + Math.sin(g.time * 0.8 + a.id) * 0.6; }
+      else {
+        moving = this.followPath(wish);
+        if (!moving && !(this.memPos && this.memT > 0) && (this.style === 'hold' || this.style === 'lurk') && Math.random() < 0.5) this.holdT = 3 + Math.random() * 7;          // camp a corner for a while
+      }
+      if (moving) { wantYaw = Math.atan2(-wish.x, -wish.z); speed *= 1.22; }
     }
+    a.sprint = !aim && moving;
     const wl = Math.hypot(wish.x, wish.z);
     if (wl > 0.001) { wish.x /= wl; wish.z /= wl; }
 
@@ -139,7 +165,7 @@ export class Bot {
       this.lastX = a.pos.x; this.lastZ = a.pos.z; this.stuckT = 0;
     }
     const jump = this.wantJump; this.wantJump = false;
-    g.moveActor(a, moving ? wish.x : 0, moving ? wish.z : 0, speed, dt, jump, false);
+    g.moveActor(a, moving ? wish.x : 0, moving ? wish.z : 0, speed, dt, jump, crouch);
 
     // ----- turning -----
     const maxTurn = d.turn * dt * (aim ? 1 : 0.7);

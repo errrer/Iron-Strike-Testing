@@ -27,6 +27,15 @@ export class Utilities {
     g.sound.beep(false); g.hud.center(`${u.name.toUpperCase()} OUT`, 0.6);
     return true;
   }
+  // a bot throws utility `slot` (id from its own pair) at a point: lobbed so it lands there
+  throwFor(a, slot, tp) {
+    const g = this.g, id = a.utilIds[slot], u = UTILS[id]; if (!u || !a.utilLeft[slot]) return false; a.utilLeft[slot] = 0;
+    const x = a.pos.x, y = a.pos.y + 1.4, z = a.pos.z, dx = tp.x - x, dz = tp.z - z, dist = Math.hypot(dx, dz) || 1, T = Math.min(1.6, Math.max(0.5, dist / 16)), vh = dist / T, vy = ((tp.y || a.pos.y) + 0.3 - y + 9 * T * T) / T;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshStandardMaterial({ color: u.color, metalness: 0.5, roughness: 0.5 }));
+    m.position.set(x + dx / dist * 0.5, y, z + dz / dist * 0.5); this.group.add(m);
+    this.items.push({ id, m, v: new THREE.Vector3(dx / dist * vh, vy, dz / dist * vh), t: u.fuse, owner: a });
+    return true;
+  }
   update(dt) {
     const g = this.g;
     for (let i = this.items.length - 1; i >= 0; i--) {
@@ -50,7 +59,7 @@ export class Utilities {
   inSmoke(x, y, z) { for (const s of this.smokes) if ((x - s.x) ** 2 + (y - s.y) ** 2 + (z - s.z) ** 2 < 4.6 * 4.6) return true; return false; }
   los(x, y, z, e) { const dx = e.pos.x - x, dy = e.pos.y + 1.2 - y, dz = e.pos.z + 0 - z, d = Math.hypot(dx, dy, dz) || 1; return !this.g.col.rayThrough(x, y, z, dx / d, dy / d, dz / d, d - 0.3); }
   detonate(it) {
-    const g = this.g, p = g.player, x = it.m.position.x, y = it.m.position.y, z = it.m.position.z;
+    const g = this.g, p = it.owner || g.player, x = it.m.position.x, y = it.m.position.y, z = it.m.position.z, pl = g.player;
     if (it.id === 'frag') {
       const R = 7; this.puff(x, y, z, 0xffa030, 0.5, 11, 0.45, 0.85);
       g.burst(x, y + 0.2, z, 0xff8a1f, 16, 7); g.burst(x, y + 0.2, z, 0x555555, 8, 4); g.sound.hurt();
@@ -66,7 +75,7 @@ export class Utilities {
         const d = Math.hypot(e.pos.x - x, e.pos.z - z); if (d > 22 || !this.los(x, y, z, e)) continue;
         const fx = -Math.sin(e.yaw), fz = -Math.cos(e.yaw), tx = (x - e.pos.x) / (d || 1), tz = (z - e.pos.z) / (d || 1), facing = fx * tx + fz * tz;
         const k = (1 - d / 22) * (0.35 + 0.65 * Math.max(0, (facing + 0.2) / 1.2));
-        if (e === p) this.blind = Math.max(this.blind, 0.8 + 3.8 * k), this.ov.style.opacity = 1;
+        if (e === pl) this.blind = Math.max(this.blind, 0.8 + 3.8 * k), this.ov.style.opacity = 1;
         else e.stunT = Math.max(e.stunT || 0, 0.8 + 3.2 * k);
       }
     } else {

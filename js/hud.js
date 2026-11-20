@@ -42,7 +42,7 @@ export class HUD {
     this.el.zmhud.classList.toggle('hidden', !game.mode.zm);
     this.el.modeTag.textContent = `${game.mode.name} - ${game.cfg.mapName}` + (game.net ? ` - ROOM ${game.net.code}` : '');
     // static radar map
-    const b = game.map.bounds, S = 4, cv = document.createElement('canvas');
+    const b = game.map.bounds, S = (b.x1 - b.x0) > 300 ? 1.25 : 4, cv = document.createElement('canvas');
     cv.width = (b.x1 - b.x0) * S; cv.height = (b.z1 - b.z0) * S;
     const c = cv.getContext('2d');
     c.fillStyle = 'rgba(40,52,64,0.55)'; c.fillRect(0, 0, cv.width, cv.height);
@@ -216,7 +216,7 @@ export class HUD {
   }
 
   drawRadar(game) {
-    const c = this.rctx, R = 75, S = 2.3, p = game.player, b = game.map.bounds;
+    const c = this.rctx, R = 75, S = game.br ? 0.95 : 2.3, p = game.player, b = game.map.bounds;
     c.clearRect(0, 0, 150, 150);
     c.save(); c.beginPath(); c.arc(R, R, R - 1, 0, Math.PI * 2); c.clip();
     c.fillStyle = 'rgba(8,12,16,0.72)'; c.fillRect(0, 0, 150, 150);
@@ -231,6 +231,7 @@ export class HUD {
       c.beginPath(); c.arc(a.pos.x, a.pos.z, 1.5, 0, Math.PI * 2); c.fill();
     }
     if (game.obj) game.obj.drawRadar(c);
+    if (game.br) game.br.drawRadar(c, S);
     c.restore();
     // player marker + ring
     c.save(); c.translate(R, R); c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(0, -7); c.lineTo(5, 6); c.lineTo(0, 3); c.lineTo(-5, 6); c.closePath(); c.fill(); c.restore();

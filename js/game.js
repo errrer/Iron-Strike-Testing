@@ -1,26 +1,27 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.22.0';
-import { canon } from './keybinds.js?v=0.22.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS } from './weapons.js?v=0.22.0';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.22.0';
-import { buildMap } from './maps.js?v=0.22.0';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.22.0';
-import { buildWorld } from './world.js?v=0.22.0';
-import { Bot } from './bots.js?v=0.22.0';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.22.0';
-import { buildSoldier, SKIN } from './soldier.js?v=0.22.0';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.22.0';
-import { Zombies, PERKS } from './zombies.js?v=0.22.0';
-import { BattleRoyale } from './br.js?v=0.22.0';
-import { inspectFor, inspectPose } from './inspect.js?v=0.22.0';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.22.0';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.22.0';
-import { Objectives } from './objectives.js?v=0.22.0';
-import { Utilities } from './utils.js?v=0.22.0';
-import { Streaks, STREAKS } from './streaks.js?v=0.22.0';
-import { GoreX } from './gorex.js?v=0.22.0';
-import { Gore } from './gore.js?v=0.22.0';
+import { MOD } from './supermod.js?v=0.23.0';
+import { canon } from './keybinds.js?v=0.23.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.23.0';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.23.0';
+import { buildMap } from './maps.js?v=0.23.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.23.0';
+import { buildWorld } from './world.js?v=0.23.0';
+import { Bot } from './bots.js?v=0.23.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.23.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.23.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.23.0';
+import { Zombies, PERKS } from './zombies.js?v=0.23.0';
+import { BattleRoyale } from './br.js?v=0.23.0';
+import { inspectFor, inspectPose } from './inspect.js?v=0.23.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.23.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.23.0';
+import { Objectives } from './objectives.js?v=0.23.0';
+import { Utilities } from './utils.js?v=0.23.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.23.0';
+import { GoreX } from './gorex.js?v=0.23.0';
+import { Gore } from './gore.js?v=0.23.0';
 
+const pick3 = (a) => a[Math.floor(Math.random() * a.length)];
 const V3 = THREE.Vector3;
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -41,7 +42,7 @@ export const MODES = {
   kc: { id: 'kc', name: 'Kill Confirmed', team: true, perSide: 5, scoreLimit: 40, time: 600, obj: 'kc', solo: true, blurb: 'Kills drop dog tags - grab red to confirm, blue to deny (offline)' },
   snd: { id: 'snd', name: 'Search & Destroy', team: true, perSide: 5, scoreLimit: 4, time: 1500, obj: 'snd', oneLife: true, solo: true, blurb: 'One life. Attack: plant at A or B (hold E). Defend: stop it. First to 4 rounds (offline)' },
   zm: { id: 'zm', name: 'Zombies', team: true, coop: true, zm: true, perSide: 0, scoreLimit: 0, time: 0, blurb: 'Survive endless rounds of zombies. Solo or 4-player co-op.' },
-  br: { id: 'br', name: 'Battle Royale', team: false, count: 20, scoreLimit: 9999, time: 99999, br: true, solo: true, blurb: 'Drop from a helicopter onto the island with a pistol. Open crates for guns with random attachments, beat the storm, be the last one alive (offline, 19 bots)' },
+  br: { id: 'br', name: 'Battle Royale', team: false, count: 50, scoreLimit: 9999, time: 99999, br: true, solo: true, blurb: 'Ride the flying train over a huge island, drop with a pistol, open crates for guns with random attachments, beat the storm, be the last one alive (third person, offline, 49 bots)' },
   gg: { id: 'gg', name: 'Gun Game', team: false, count: 8, scoreLimit: 9999, time: 900, gg: true, blurb: 'Every kill upgrades your gun. A knife kill sets the victim back. Kill with the one-shot Golden Gun to win' },
   sandbox: { id: 'sandbox', name: 'Sandbox', team: false, count: 1, scoreLimit: 0, time: 0, sandbox: true, blurb: 'No score, no clock. Spawn dummies (B), swap your loadout any time (Esc)' },
 };
@@ -327,7 +328,7 @@ export class Game {
     const mode = this.mode;
     const mk = (id, name, team, isPlayer, prim, sec, ap, as) => this.makeActor(id, name, team, isPlayer, prim, sec, ap, as);
     const names = CALLSIGNS.slice().sort(() => Math.random() - 0.5);
-    for (let i = names.length; i < 40; i++) names.push(CALLSIGNS[i % CALLSIGNS.length] + (1 + Math.floor(i / CALLSIGNS.length)));
+    for (let i = names.length; i < 90; i++) names.push(CALLSIGNS[i % CALLSIGNS.length] + (1 + Math.floor(i / CALLSIGNS.length)));
     this.player = mk(0, 'You', 0, true, cfg.primary, cfg.secondary, cfg.attP | 0, cfg.attS | 0);
     this.actors.push(this.player);
     if (mode.zm) { /* no bots: just you (and your co-op friends online) against the zombies */ }
@@ -418,8 +419,11 @@ export class Game {
   }
 
   makeActor(id, name, team, isPlayer, prim, sec, ap = 0, as = 0) {
+    const pickRand = !prim;
     if (!prim) prim = BOT_PRIMARY_POOL[Math.floor(Math.random() * BOT_PRIMARY_POOL.length)];
     if (!sec) sec = SECONDARIES[Math.floor(Math.random() * SECONDARIES.length)];
+    if (!isPlayer && pickRand && !ap) ap = randomMask(WEAPONS[prim], Math.floor(Math.random() * 5), 0.12);          // bots build their guns like players do
+    if (!isPlayer && pickRand && !as) as = randomMask(WEAPONS[sec], Math.floor(Math.random() * 3), 0.05);
     let weapons = [withAtt(WEAPONS[prim], ap), withAtt(WEAPONS[sec], as)];
     if (this.mode && this.mode.gg) { const gw = WEAPONS[GG_LADDER[0]]; weapons = [gw, gw]; }
     return {
@@ -461,7 +465,7 @@ export class Game {
     a.pos.set(x, y, z); a.tgt = a.remote ? new V3(x, y, z) : null;
     a.vel.set(0, 0, 0);
     a.yaw = yaw; a.pitch = 0; a.ibuf = [];
-    if (a.isPlayer) a.utilLeft = [1, 1];
+    a.utilLeft = [1, 1]; if (!a.utilIds) a.utilIds = a.isPlayer ? null : [pick3(['frag', 'frag', 'flash']), pick3(['flash', 'smoke', 'frag'])];
     a.hp = 100; a.alive = true; a.reloading = false; a.reloadT = 0; a.switchT = 0.4; a.fireCd = 0.3; a.cur = 0; a.weapon = a.weapons[0];
     a.ammo = a.weapons.map((w) => ({ mag: w.mag, res: w.reserve })); a.crouch = false; a.slideT = 0; a.mantle = null; a.h = 1.8; a.eye = 1.65; a.heat = 0; a.recoilDebt = 0; a.ads = 0;
     a.protT = first ? 0 : 2; a.deathT = 0; a.lastHurt = -99; a.recoilBias = 0;
@@ -475,7 +479,7 @@ export class Game {
   // top of whatever solid thing is under (x, z), up to yMax (0 = floor)
   groundAt(x, yMax, z, hw = 0.3) {
     let g = 0;
-    for (const b of this.col.boxes) if (b.y1 <= yMax + 0.01 && b.y1 > g && x + hw > b.x0 && x - hw < b.x1 && z + hw > b.z0 && z - hw < b.z1) g = b.y1;
+    for (const b of this.col.near(x - hw, z - hw, x + hw, z + hw)) if (b.y1 <= yMax + 0.01 && b.y1 > g && x + hw > b.x0 && x - hw < b.x1 && z + hw > b.z0 && z - hw < b.z1) g = b.y1;
     return g;
   }
 
@@ -1236,9 +1240,19 @@ export class Game {
     this.fireShot(a, dir, w.cls === 'shotgun' ? w.spread : w.spread * 0.3, dmgMul);
   }
 
+  // bots hear gunfire (less so if it is suppressed) and go and look
+  hearShot(src, w) {
+    if (this.mode.zm) return; const r = 85 * (w.quiet || 1);
+    for (const e of this.actors) {
+      const b = e.brain; if (!b || !e.alive || e === src || e.team === src.team || b.seen) continue;
+      const d = Math.hypot(e.pos.x - src.pos.x, e.pos.z - src.pos.z); if (d > r || Math.random() > 1 - d / r * 0.7) continue;
+      if (!b.memPos || b.memT < 1) { b.memPos = src.pos.clone(); b.memPos.x += (Math.random() - 0.5) * d * 0.2; b.memPos.z += (Math.random() - 0.5) * d * 0.2; b.memT = 4.5; b.repathT = 0; }
+    }
+  }
   fireShot(a, dir, spread, dmgMul = 1) {
     const w = a.weapon, am = a.ammo[a.cur];
     am.mag--; if (a.isPlayer && MOD.infAmmo) am.mag++;
+    this.hearShot(a, w);
     a.fireCd = 60 / w.rpm / ((a.perks & 8) ? 1.4 : 1) / (a.isPlayer ? MOD.fireRate : 1); a.lastShot = this.time;
     const eyeH = a.isPlayer ? a.eye : 1.6;
     const ox = a.pos.x, oy = a.pos.y + eyeH, oz = a.pos.z;
@@ -1562,6 +1576,7 @@ export class Game {
       if (a.zombie) animateZombie(this, a, m, dt); else animateSoldier(this, a, m, dt);
       m.root.visible = true;
       if (a.protT > 0) m.root.visible = Math.floor(this.time * 12) % 2 === 0;
+      if (a.air === 'heli') m.root.visible = false;          // everybody rides inside the bus unseen
     } else {
       m.body.rotation.x = Math.min(1, a.deathT * 3) * (Math.PI / 2);
       m.root.visible = a.deathT < 2.6;
@@ -1611,8 +1626,8 @@ export class Game {
       bob -= this.landDip;
     }
     const w = p.weapon;
-    const scoped = w.scope && p.ads > 0.88 && p.alive;
-    this.tp = this.settings.view === 'third' && !scoped;
+    const scoped = !this.mode.br && w.scope && p.ads > 0.88 && p.alive;
+    this.tp = (this.settings.view === 'third' || this.mode.br) && !scoped;
     cam.position.set(p.pos.x, p.pos.y + eye + bob, p.pos.z);
     if (this.tp) {
       // over-the-shoulder camera, pulled in when a wall is in the way
@@ -1682,7 +1697,7 @@ export class Game {
   updateViewmodel(dt) {
     const p = this.player, vm = this.vm, w = p.weapon, S = this.vmS;
     if (!vm) return;
-    const scoped = w.scope && p.ads > 0.88 && p.alive;
+    const scoped = !this.mode.br && w.scope && p.ads > 0.88 && p.alive;
     this.vmRoot.visible = p.alive && !scoped && !this.tp;
     this.hud.setScope(scoped);
     const clampf = clamp, sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
