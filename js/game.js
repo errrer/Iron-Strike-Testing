@@ -1,26 +1,26 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.24.0';
-import { canon } from './keybinds.js?v=0.24.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.24.0';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.24.0';
-import { buildMap } from './maps.js?v=0.24.0';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.24.0';
-import { buildWorld } from './world.js?v=0.24.0';
-import { Bot } from './bots.js?v=0.24.0';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.24.0';
-import { loadTeto, makeTeto, tetoReady, TETO_SKIN, TETO_SLEEVE, TETO_CUFF } from './teto.js?v=0.24.0';
-import { buildSoldier, SKIN } from './soldier.js?v=0.24.0';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.24.0';
-import { Zombies, PERKS } from './zombies.js?v=0.24.0';
-import { BattleRoyale } from './br.js?v=0.24.0';
-import { inspectFor, inspectPose } from './inspect.js?v=0.24.0';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.24.0';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.24.0';
-import { Objectives } from './objectives.js?v=0.24.0';
-import { Utilities } from './utils.js?v=0.24.0';
-import { Streaks, STREAKS } from './streaks.js?v=0.24.0';
-import { GoreX } from './gorex.js?v=0.24.0';
-import { Gore } from './gore.js?v=0.24.0';
+import { MOD } from './supermod.js?v=0.24.1';
+import { canon } from './keybinds.js?v=0.24.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.24.1';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.24.1';
+import { buildMap } from './maps.js?v=0.24.1';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.24.1';
+import { buildWorld } from './world.js?v=0.24.1';
+import { Bot } from './bots.js?v=0.24.1';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.24.1';
+import { loadTeto, makeTeto, tetoReady, TETO_SKIN, TETO_SLEEVE, TETO_CUFF } from './teto.js?v=0.24.1';
+import { buildSoldier, SKIN } from './soldier.js?v=0.24.1';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.24.1';
+import { Zombies, PERKS } from './zombies.js?v=0.24.1';
+import { BattleRoyale } from './br.js?v=0.24.1';
+import { inspectFor, inspectPose } from './inspect.js?v=0.24.1';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.24.1';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.24.1';
+import { Objectives } from './objectives.js?v=0.24.1';
+import { Utilities } from './utils.js?v=0.24.1';
+import { Streaks, STREAKS } from './streaks.js?v=0.24.1';
+import { GoreX } from './gorex.js?v=0.24.1';
+import { Gore } from './gore.js?v=0.24.1';
 
 const pick3 = (a) => a[Math.floor(Math.random() * a.length)];
 const V3 = THREE.Vector3;
@@ -1672,7 +1672,10 @@ export class Game {
     this.updateAimSway(p, dt);
     cam.rotation.set(p.pitch + (this.landDip || 0) * 0.5 + this.swY - S.mvk * 0.12 + (Math.random() - 0.5) * 0.004 * S.shake, p.yaw + this.swX + (Math.random() - 0.5) * 0.004 * S.shake, roll + S.slk * 0.045 + (Math.random() - 0.5) * 0.01 * S.shake, 'YXZ');
     this.killcam(p, cam, dt);
-    if (p.mesh) p.mesh.root.visible = this.tp && p.mesh.root.visible;
+    if (p.mesh) {                                                // third person: if a wall squeezes the camera into the body, hide the body instead of clipping through it
+      const cd = Math.hypot(cam.position.x - p.pos.x, cam.position.z - p.pos.z);
+      p.mesh.root.visible = this.tp && p.mesh.root.visible && (cd > 0.9 || Math.abs(cam.position.y - (p.pos.y + 1.4)) > 0.9);
+    }
     const zoom = lerp(1, this.tp ? Math.min(w.zoom, 1.25) : w.zoom, p.ads);
     const fov = this.settings.fov / zoom;
     if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
