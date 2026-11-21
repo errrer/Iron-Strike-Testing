@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.25.0';
-import { makeReal } from './realguns.js?v=0.25.0';
-import { skinKit } from './skinkits.js?v=0.25.0';
+import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.25.1';
+import { makeReal } from './realguns.js?v=0.25.1';
+import { skinKit } from './skinkits.js?v=0.25.1';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -13,7 +13,7 @@ import { skinKit } from './skinkits.js?v=0.25.0';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.25.0';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.25.1';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -673,7 +673,7 @@ function buildTextured(w, data) {
     muzzle: V(...data.muzzle), sightY: data.sightY, pistol: true,
     grip: V(gx, gy, gz), fore: V(-0.014, gy - 0.02, gz - 0.01),                              // trigger hand / support hand (the box hands + the soldier's IK use these)
     mount: V(0, data.sightY - 0.002, 0.02), under: V(0, fb.min[1] + 0.07, -0.05), side: V(0.019, A.frame[1] + 0.008, -0.05),
-    textured: true, handRight: V(0.031, gy, mb.max[2] + 0.006), handLeft: V(-0.031, gy - 0.012, mb.max[2] - 0.004),
+    textured: true, handRight: V(0.036, gy - 0.017, mb.max[2] + 0.012), handLeft: V(-0.038, gy - 0.034, mb.max[2] + 0.004),
   };
   return g;
 }

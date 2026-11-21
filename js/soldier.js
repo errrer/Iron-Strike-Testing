@@ -109,7 +109,7 @@ export const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return
 
 // Poses one arm so the middle of its palm reaches target T (body space). Returns the distance it missed by.
 export function solveArm(sh, T, side) {
-  const S = [sh.position.x, sh.position.y, sh.position.z], L1 = sh.userData.L1 || ARM.L1, L2 = sh.userData.L2 || ARM.L2;   // custom bodies (Teto) set their own arm lengths
+  const S = [sh.position.x, sh.position.y, sh.position.z], { L1, L2 } = ARM;
   let d = [T[0] - S[0], T[1] - S[1], T[2] - S[2]]; const dist = Math.hypot(...d), reach = L1 + L2 - 0.004;
   const u = norm(d), dd = Math.min(reach, Math.max(Math.abs(L1 - L2) + 0.01, dist));
   const a = (L1 * L1 - L2 * L2 + dd * dd) / (2 * dd), h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
@@ -147,7 +147,7 @@ export function holdGun(m, pitchRot, o = {}) {
   const g = rotX(grip, pitchRot), f = rotX(fore, pitchRot);
   let sx = 0, sy = 0, sz = 0;
   // long guns: if the foregrip is out of the support arm's reach, pull the whole gun in toward that shoulder
-  { const S = m.arms[0].position, off = [pistol ? 0.03 : 0, -0.04, 0], ud = m.arms[0].userData, reach = (ud.L1 ? ud.L1 + ud.L2 : ARM.L1 + ARM.L2) - 0.02;
+  { const S = m.arms[0].position, off = [pistol ? 0.03 : 0, -0.04, 0], reach = ARM.L1 + ARM.L2 - 0.02;
     const T = [HR[0] - g[0] + f[0] + off[0], HR[1] - g[1] + f[1] + off[1], HR[2] - g[2] + f[2] + off[2]];
     const d = [S.x - T[0], S.y - T[1], S.z - T[2]], dl = Math.hypot(d[0], d[1], d[2]);
     if (dl > reach) { const k = (dl - reach) / dl; sx = d[0] * k; sy = d[1] * k; sz = d[2] * k; } }

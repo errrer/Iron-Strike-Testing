@@ -1,26 +1,25 @@
-import { Game, MODES, mpMode } from './game.js?v=0.25.0';
-import { Net, cleanCode, cleanName } from './net.js?v=0.25.0';
-import { UTILS, UTIL_IDS } from './utils.js?v=0.25.0';
-import { watchForEgg, watchWord } from './easter.js?v=0.25.0';
-import { Azam } from './azam.js?v=0.25.0';
-import { loadArms } from './arms.js?v=0.25.0';
-import { loadTeto } from './teto.js?v=0.25.0';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.25.0';
-import { Sound } from './audio.js?v=0.25.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.25.0';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.25.0';
-import { loadProps } from './props.js?v=0.25.0';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.25.0';
-import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.25.0';
-import { initMapMaker } from './mapmaker.js?v=0.25.0';
-import { RaceMode } from './race.js?v=0.25.0';
-import { initSupermod, MOD } from './supermod.js?v=0.25.0';
-import { initKeybinds } from './keybinds.js?v=0.25.0';
-import { Gunsmith } from './gunsmith.js?v=0.25.0';
-import { SkinsUI } from './skinsui.js?v=0.25.0';
-import { WeaponPreview } from './wpreview.js?v=0.25.0';
-import { initTouch, blockZoom } from './touch.js?v=0.25.0';
-import { initGamepad } from './gamepad.js?v=0.25.0';
+import { Game, MODES, mpMode } from './game.js?v=0.25.1';
+import { Net, cleanCode, cleanName } from './net.js?v=0.25.1';
+import { UTILS, UTIL_IDS } from './utils.js?v=0.25.1';
+import { watchForEgg, watchWord } from './easter.js?v=0.25.1';
+import { Azam } from './azam.js?v=0.25.1';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.25.1';
+import { Sound } from './audio.js?v=0.25.1';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.25.1';
+import { loadArms } from './arms.js?v=0.25.1';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.25.1';
+import { loadProps } from './props.js?v=0.25.1';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.25.1';
+import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.25.1';
+import { initMapMaker } from './mapmaker.js?v=0.25.1';
+import { RaceMode } from './race.js?v=0.25.1';
+import { initSupermod, MOD } from './supermod.js?v=0.25.1';
+import { initKeybinds } from './keybinds.js?v=0.25.1';
+import { Gunsmith } from './gunsmith.js?v=0.25.1';
+import { SkinsUI } from './skinsui.js?v=0.25.1';
+import { WeaponPreview } from './wpreview.js?v=0.25.1';
+import { initTouch, blockZoom } from './touch.js?v=0.25.1';
+import { initGamepad } from './gamepad.js?v=0.25.1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -517,10 +516,6 @@ function toast(text) {
 }
 const azam = new Azam(game);
 watchWord('azam', () => { azam.set(!azam.on); toast(azam.on ? 'AZAM MODE ACTIVATED' : 'AZAM MODE OFF'); });
-watchWord('teto', () => {
-  if (game.teto) { game.setTeto(false); toast('TETO MODE OFF'); return; }
-  loadTeto().then((ok) => { if (!ok) { toast('TETO COULD NOT LOAD'); return; } game.setTeto(true); toast('TETO MODE ACTIVATED  (model by onlinesaipa)'); });
-});
 watchForEgg(() => { game.setRichtofen(!game.richtofen); toast(game.richtofen ? 'EASTER EGG ACTIVATED' : 'EASTER EGG OFF'); });
 
 // ---------------- loop ----------------

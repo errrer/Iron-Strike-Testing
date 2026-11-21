@@ -18,32 +18,7 @@ export class Vector3 {
 }
 export class Color { constructor(c) { this.c = c; } setHex(c) { this.c = c; return this; } getHex() { return this.c; } }
 class Rot { constructor() { this.x = 0; this.y = 0; this.z = 0; this.order = 'XYZ'; } set(x, y, z, o) { this.x = x; this.y = y; this.z = z; if (o) this.order = o; } }
-export class Quaternion {
-  constructor(x = 0, y = 0, z = 0, w = 1) { this.x = x; this.y = y; this.z = z; this.w = w; }
-  set(x, y, z, w) { this.x = x; this.y = y; this.z = z; this.w = w; return this; }
-  copy(q) { return this.set(q.x, q.y, q.z, q.w); }
-  clone() { return new Quaternion(this.x, this.y, this.z, this.w); }
-  invert() { this.x = -this.x; this.y = -this.y; this.z = -this.z; return this; }
-  multiplyQuaternions(a, b) {
-    const x = a.x * b.w + a.w * b.x + a.y * b.z - a.z * b.y, y = a.y * b.w + a.w * b.y + a.z * b.x - a.x * b.z, z = a.z * b.w + a.w * b.z + a.x * b.y - a.y * b.x, w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z;
-    return this.set(x, y, z, w);
-  }
-  multiply(b) { return this.multiplyQuaternions(this, b); }
-  setFromUnitVectors(a, b) {
-    let r = a.x * b.x + a.y * b.y + a.z * b.z + 1;
-    if (r < 1e-6) return this.set(0, 0, 1, 0);
-    return this.set(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x, r).normalize();
-  }
-  normalize() { const l = Math.hypot(this.x, this.y, this.z, this.w) || 1; return this.set(this.x / l, this.y / l, this.z / l, this.w / l); }
-  setFromEuler(e) {
-    const q = (ax, a) => { const s = Math.sin(a / 2), c = Math.cos(a / 2); return new Quaternion(ax === 'x' ? s : 0, ax === 'y' ? s : 0, ax === 'z' ? s : 0, c); };
-    const m = { x: q('x', e.x), y: q('y', e.y), z: q('z', e.z) }; const o = e.order || 'XYZ';
-    const r = new Quaternion(); for (const ch of o.toLowerCase()) r.multiply(m[ch]); return this.copy(r);
-  }
-}
 class Obj {
-  get quaternion() { if (!this._q) this._q = new Quaternion(); if (this.rotation && !this._qfix) this._q.setFromEuler(this.rotation); return this._q; }
-  set quaternion(v) { this._q = v; this._qfix = true; }
   constructor() { this.position = new Vector3(); this.rotation = new Rot(); this.scale = new Vector3(1, 1, 1); this.children = []; this.visible = true; this.userData = {}; this.parent = null; }
   add(c) { this.children.push(c); c.parent = this; return this; }
   remove(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); }
@@ -55,9 +30,6 @@ class Obj {
 export class Scene extends Obj { constructor() { super(); this.background = null; this.fog = null; } }
 export class Group extends Obj {}
 export class Mesh extends Obj { constructor(g, m) { super(); this.geometry = g; this.material = m; } }
-export class Bone extends Obj { constructor() { super(); this._q = new Quaternion(); this._qfix = true; } }
-export class Skeleton { constructor(b) { this.bones = b; } }
-export class SkinnedMesh extends Mesh { bind(s) { this.skeleton = s; } }
 export class Sprite extends Obj { constructor(m) { super(); this.material = m; } }
 export class Points extends Obj { constructor(g, m) { super(); this.geometry = g; this.material = m; } }
 export class PerspectiveCamera extends Obj { constructor(fov, aspect) { super(); this.fov = fov; this.aspect = aspect; } }

@@ -60,6 +60,7 @@ function fromTo(a, b) {                                        // minimal rotati
 }
 const mulV = (R, v) => [R[0] * v[0] + R[3] * v[1] + R[6] * v[2], R[1] * v[0] + R[4] * v[1] + R[7] * v[2], R[2] * v[0] + R[5] * v[1] + R[8] * v[2]];
 
+export const ARM_SCALE = 0.8;
 export const FINGERS = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'];
 
 export class ArmRig {
@@ -118,6 +119,9 @@ export class ArmRig {
       if (cf && cf[2]) L = mmul(L, withT(axisAngle(sd.flex[cf[0]][cf[1]], cf[2]), [0, 0, 0]));
       out[i] = mmul(out[p], L);
     }
+    // the model's hands are big next to the guns: scale the whole arm about the wrist
+    const k = o.scale === undefined ? ARM_SCALE : o.scale;
+    if (k !== 1) for (const i of sd.members) { const m = out[i]; for (let j = 0; j < 9; j++) m[j] *= k; for (let j = 0; j < 3; j++) m[12 + j] = P[j] + k * (m[12 + j] - P[j]); }
     return out;
   }
 }
@@ -153,4 +157,4 @@ export function placeHands(u, lh, trig = 0, extra = {}) {
   return { right: R, left: Lh };
 }
 // shoulder anchors (where the forearms come from: behind and below the camera, in gun space)
-export const SHOULDER = { Left: [-0.2, -0.34, 0.5], Right: [0.2, -0.34, 0.5] };
+export const SHOULDER = { Left: [-0.22, -0.5, 0.5], Right: [0.22, -0.5, 0.5] };
