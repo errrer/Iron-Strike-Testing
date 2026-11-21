@@ -86,6 +86,13 @@ export const WEAPONS = {
     spread: 0.034, adsSpread: 0.012, recoil: 0.0042, recoilYaw: 0.0035, range: [8, 22], minMul: 0.45, pellets: 1,
     zoom: 1.2, scope: false, moveMul: 1.1, snd: { f: 3000, len: 0.07, thump: 0.4 }, builder: 'glock', attach: ['dot', 'laser'],
   },
+  g19: {
+    id: 'g19', name: 'G19', slot: 'secondary', cls: 'pistol', desc: 'Compact 9mm. Reliable semi-auto, quick on the draw and easy to control.',
+    dmg: 26, hs: 1.5, rpm: 520, auto: false, mag: 15, reserve: 90, reload: 1.35,
+    spread: 0.02, adsSpread: 0.004, recoil: 0.0075, recoilYaw: 0.003, range: [12, 30], minMul: 0.55, pellets: 1,
+    zoom: 1.25, scope: false, moveMul: 1.09, snd: { f: 2300, len: 0.09, thump: 0.65 }, builder: 'glock', attach: ['dot', 'laser'],
+    asset: { id: 'g19', textured: true, ownSights: true },
+  },
   m1911: {
     id: 'm1911', name: 'M1911', slot: 'secondary', cls: 'pistol', desc: 'Classic .45. Accurate semi-auto, three shots to kill.',
     dmg: 36, hs: 1.5, rpm: 420, auto: false, mag: 8, reserve: 48, reload: 1.4,
@@ -169,7 +176,7 @@ knife('k_zephyr', 'Zephyr', 'All mobility: you run, jump and slide far faster wi
 knife('k_tomahawk', 'Tomahawk', 'Throwing axe. Hits hard, a bit slow.', { dmg: 72, cd: 0.62, reach: 2.8, speed: 1.08 });
 
 export const PRIMARIES = ['vmp', 'super46', 'mp5', 'mp7', 'ump', 'p90', 'pp19', 'kriss', 'm4a1', 'm16', 'aug', 'famas', 'ak47', 'ak74', 'scar', 'g36', 'fal', 'hk417', 'lmg', 'rpk', 'pkm', 'm60', 'sks', 'mk14', 'kar98k', 'r700', 'awp', 'reaper', 'barrett', 'm680', 'spas12', 'ksg', 'aa12', 'saiga'];
-export const SECONDARIES = ['g18', 'tec9', 'cz75', 'm1911', 'usp', 'five7', 'skorp', 'mac10', 'magnum', 'python', 'revolver44', 'judge', 'deagle'];
+export const SECONDARIES = ['g19', 'g18', 'tec9', 'cz75', 'm1911', 'usp', 'five7', 'skorp', 'mac10', 'magnum', 'python', 'revolver44', 'judge', 'deagle'];
 
 // Stats shown on the loadout / gunsmith screens: a 0..100 style number per row plus a 0..1 bar. `good` says which way is better.
 export function weaponStats(w) {

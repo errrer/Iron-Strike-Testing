@@ -1,25 +1,26 @@
-import { Game, MODES, mpMode } from './game.js?v=0.24.0';
-import { Net, cleanCode, cleanName } from './net.js?v=0.24.0';
-import { UTILS, UTIL_IDS } from './utils.js?v=0.24.0';
-import { watchForEgg, watchWord } from './easter.js?v=0.24.0';
-import { Azam } from './azam.js?v=0.24.0';
-import { loadTeto } from './teto.js?v=0.24.0';
-import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.24.0';
-import { Sound } from './audio.js?v=0.24.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.24.0';
-import { loadModels, tickCamos } from './gunmodels.js?v=0.24.0';
-import { loadProps } from './props.js?v=0.24.0';
-import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.24.0';
-import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.24.0';
-import { initMapMaker } from './mapmaker.js?v=0.24.0';
-import { RaceMode } from './race.js?v=0.24.0';
-import { initSupermod, MOD } from './supermod.js?v=0.24.0';
-import { initKeybinds } from './keybinds.js?v=0.24.0';
-import { Gunsmith } from './gunsmith.js?v=0.24.0';
-import { SkinsUI } from './skinsui.js?v=0.24.0';
-import { WeaponPreview } from './wpreview.js?v=0.24.0';
-import { initTouch, blockZoom } from './touch.js?v=0.24.0';
-import { initGamepad } from './gamepad.js?v=0.24.0';
+import { Game, MODES, mpMode } from './game.js?v=0.25.0';
+import { Net, cleanCode, cleanName } from './net.js?v=0.25.0';
+import { UTILS, UTIL_IDS } from './utils.js?v=0.25.0';
+import { watchForEgg, watchWord } from './easter.js?v=0.25.0';
+import { Azam } from './azam.js?v=0.25.0';
+import { loadArms } from './arms.js?v=0.25.0';
+import { loadTeto } from './teto.js?v=0.25.0';
+import { HUD, XH_STYLES, cleanXh, styleCrosshair } from './hud.js?v=0.25.0';
+import { Sound } from './audio.js?v=0.25.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, weaponStats, withAtt, KNIVES, CAMOS, cleanMask, migrateOldMask, camoOf, attList, skinOf, SKINS, RARITY } from './weapons.js?v=0.25.0';
+import { loadModels, tickCamos } from './gunmodels.js?v=0.25.0';
+import { loadProps } from './props.js?v=0.25.0';
+import { MAP_IDS, MAP_INFO, ZM_MAPS } from './maps.js?v=0.25.0';
+import { rankName, UNLOCK, gunPrice } from './progress.js?v=0.25.0';
+import { initMapMaker } from './mapmaker.js?v=0.25.0';
+import { RaceMode } from './race.js?v=0.25.0';
+import { initSupermod, MOD } from './supermod.js?v=0.25.0';
+import { initKeybinds } from './keybinds.js?v=0.25.0';
+import { Gunsmith } from './gunsmith.js?v=0.25.0';
+import { SkinsUI } from './skinsui.js?v=0.25.0';
+import { WeaponPreview } from './wpreview.js?v=0.25.0';
+import { initTouch, blockZoom } from './touch.js?v=0.25.0';
+import { initGamepad } from './gamepad.js?v=0.25.0';
 
 const $ = (id) => document.getElementById(id);
 
@@ -56,7 +57,7 @@ function showFatal(msg) {
 let game, hud, sound;
 try {
   hud = new HUD(); sound = new Sound();
-  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gfx: ['low', 'medium', 'high', 'ultra'].includes(cfg.gfx) ? cfg.gfx : 'high', gore: cfg.gore !== false, extremeGore: cfg.extremeGore === true, ragdoll: cfg.ragdoll !== false, unlockAll: cfg.unlockAll === true };
+  const settings = { sens: cfg.sens, fov: cfg.fov, view: cfg.view, gfx: ['low', 'medium', 'high', 'ultra'].includes(cfg.gfx) ? cfg.gfx : 'high', gore: cfg.gore !== false, extremeGore: cfg.extremeGore === true, ragdoll: cfg.ragdoll !== false, armModel: cfg.armModel !== false, unlockAll: cfg.unlockAll === true };
   game = new Game($('c'), hud, sound, settings);
   window.__game = game;
 } catch (err) {
@@ -216,6 +217,17 @@ slider([['fov', 'fovOut'], ['fov2', 'fovOut2']], 'fov', (v) => String(Math.round
 cfg.touchSens = cfg.touchSens || 1;
 slider([['tsens', 'tsensOut'], ['tsens2', 'tsensOut2']], 'touchSens', (v) => v.toFixed(2), (v) => { game.settings.touchSens = v; });
 slider([['vol', 'volOut'], ['vol2', 'volOut2']], 'vol', (v) => v.toFixed(2), (v) => { sound.volume = v; if (sound.master) sound.master.gain.value = v; });
+
+// rigged first-person arms toggle (main menu + pause menu)
+for (const id of ['arm', 'arm2']) {
+  const el = $(id); if (!el) continue;
+  el.checked = cfg.armModel !== false;
+  el.addEventListener('change', () => {
+    cfg.armModel = el.checked; game.settings.armModel = el.checked; for (const o of ['arm', 'arm2']) if ($(o)) $(o).checked = el.checked; save();
+    game.vmCache = {}; if (game.player && game.vmRoot) game.setPlayerVm();
+  });
+}
+loadArms().then((ok) => { if (ok) { game.vmCache = {}; if (game.player && game.vmRoot) game.setPlayerVm(); } });
 
 // ragdoll toggle (main menu + pause menu)
 for (const id of ['rag', 'rag2']) {

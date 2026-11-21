@@ -1,7 +1,7 @@
 // Euphoria-style active ragdoll. A dying soldier is a Verlet particle skeleton that is still "conscious" for a moment:
 // it staggers (stumble steps), clutches the wound, flails the free arm, braces for the fall with its hands, and only then
 // goes limp. The Verlet skeleton is mapped back onto the jointed soldier mesh (js/soldier.js) every frame.
-import { ARM, aim, inv, norm } from './soldier.js?v=0.24.0';
+import { ARM, aim, inv, norm } from './soldier.js?v=0.25.0';
 
 const H = 1 / 60, G = 20;
 // particle ids
@@ -12,9 +12,9 @@ const TEMPLATE = [
 const RAD = [0.1, 0.1, 0.11, 0.07, 0.07, 0.08, 0.08, 0.05, 0.05, 0.05, 0.05, 0.07, 0.07, 0.06, 0.06, 0.06];
 const L_THIGH = 0.42, L_SHIN = 0.38;
 // weapon -> shove given to the body (m/s)
-export const IMPULSE = { aa12: 5, dmr: 5, scar: 3.4, lmg: 3, deagle: 5, mp5: 2.1, p90: 1.8, skorp: 1.7, m680: 6.5, kar98k: 7, magnum: 4.5, ak47: 3, m4a1: 2.6, vmp: 2.2, super46: 1.9, g18: 1.8, m1911: 2.2 };
+export const IMPULSE = { aa12: 5, dmr: 5, scar: 3.4, lmg: 3, deagle: 5, mp5: 2.1, p90: 1.8, skorp: 1.7, m680: 6.5, kar98k: 7, magnum: 4.5, ak47: 3, m4a1: 2.6, vmp: 2.2, super46: 1.9, g18: 1.8, g19: 1.7, m1911: 2.2 };
 // how long the body keeps fighting before it goes limp (s)
-const CONSCIOUS = { aa12: 0.5, dmr: 0.55, scar: 0.8, lmg: 0.85, deagle: 0.8, mp5: 0.95, p90: 1.0, skorp: 1.1, m680: 0.45, kar98k: 0.5, magnum: 0.8, ak47: 0.85, m4a1: 0.9, vmp: 0.95, super46: 1.0, g18: 1.1, m1911: 1.0 };
+const CONSCIOUS = { aa12: 0.5, dmr: 0.55, scar: 0.8, lmg: 0.85, deagle: 0.8, mp5: 0.95, p90: 1.0, skorp: 1.1, m680: 0.45, kar98k: 0.5, magnum: 0.8, ak47: 0.85, m4a1: 0.9, vmp: 0.95, super46: 1.0, g18: 1.1, g19: 1.05, m1911: 1.0 };
 
 const rx = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c]; };
 const ry = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c]; };

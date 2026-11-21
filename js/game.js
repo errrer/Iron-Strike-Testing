@@ -1,26 +1,27 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.24.0';
-import { canon } from './keybinds.js?v=0.24.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.24.0';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.24.0';
-import { buildMap } from './maps.js?v=0.24.0';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.24.0';
-import { buildWorld } from './world.js?v=0.24.0';
-import { Bot } from './bots.js?v=0.24.0';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.24.0';
-import { loadTeto, makeTeto, tetoReady, TETO_SKIN, TETO_SLEEVE, TETO_CUFF } from './teto.js?v=0.24.0';
-import { buildSoldier, SKIN } from './soldier.js?v=0.24.0';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.24.0';
-import { Zombies, PERKS } from './zombies.js?v=0.24.0';
-import { BattleRoyale } from './br.js?v=0.24.0';
-import { inspectFor, inspectPose } from './inspect.js?v=0.24.0';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.24.0';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.24.0';
-import { Objectives } from './objectives.js?v=0.24.0';
-import { Utilities } from './utils.js?v=0.24.0';
-import { Streaks, STREAKS } from './streaks.js?v=0.24.0';
-import { GoreX } from './gorex.js?v=0.24.0';
-import { Gore } from './gore.js?v=0.24.0';
+import { MOD } from './supermod.js?v=0.25.0';
+import { canon } from './keybinds.js?v=0.25.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.25.0';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.25.0';
+import { buildMap } from './maps.js?v=0.25.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.25.0';
+import { buildWorld } from './world.js?v=0.25.0';
+import { Bot } from './bots.js?v=0.25.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.25.0';
+import { armsReady, makeArms } from './arms.js?v=0.25.0';
+import { loadTeto, makeTeto, tetoReady, TETO_SKIN, TETO_SLEEVE, TETO_CUFF } from './teto.js?v=0.25.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.25.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.25.0';
+import { Zombies, PERKS } from './zombies.js?v=0.25.0';
+import { BattleRoyale } from './br.js?v=0.25.0';
+import { inspectFor, inspectPose } from './inspect.js?v=0.25.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.25.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.25.0';
+import { Objectives } from './objectives.js?v=0.25.0';
+import { Utilities } from './utils.js?v=0.25.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.25.0';
+import { GoreX } from './gorex.js?v=0.25.0';
+import { Gore } from './gore.js?v=0.25.0';
 
 const pick3 = (a) => a[Math.floor(Math.random() * a.length)];
 const V3 = THREE.Vector3;
@@ -908,6 +909,8 @@ export class Game {
     const add = (w_, h_, d_, mt, x, y, z, rx = 0, ry = 0, rz = 0, parent = gun) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w_, h_, d_), mt); me.position.set(x, y, z); me.rotation.set(rx, ry, rz); parent.add(me); return me; };
     // trigger hand: the palm sits on the back of the grip, three fingers wrap round the front, the index finger rests on the
     // trigger, the thumb lies along the left side. The whole hand is raked to match the angle of the grip.
+    const useArms = this.settings.armModel !== false && !tt && w.cls !== 'melee' && armsReady();        // rigged arms + hands model instead of the blocky ones
+    const boxFrom = gun.children.length;
     const rake = u.pistol ? -0.3 : -0.36;
     const hand = new THREE.Group(); hand.position.set(G.x, G.y, G.z); hand.rotation.x = rake; gun.add(hand);
     add(0.05, 0.085, 0.034, glove, 0.0, 0.0, 0.034, 0, 0, 0, hand);                         // palm / back of the hand on the backstrap
@@ -930,6 +933,12 @@ export class Game {
       for (let i = 0; i < 4; i++) add(0.02, 0.05, 0.02, glove, F.x + 0.042, F.y - 0.022, F.z - 0.032 + i * 0.022, 0, 0, -0.35, lh);   // four fingers curled up the right side
       add(0.016, 0.05, 0.05, glove, F.x - 0.04, F.y - 0.018, F.z - 0.005, 0, 0, 0.3, lh);     // thumb up the left side
       { const sl = add(0.075, 0.07, 0.42, sleeve, F.x - 0.075, F.y - 0.1, F.z + 0.3, 0.38, -0.28, 0, lh); if (tt) add(0.084, 0.079, 0.03, cuffM, 0, 0, -0.205, 0, 0, 0, sl); }
+    }
+    let arms = null;
+    if (useArms) {
+      for (let i = boxFrom; i < gun.children.length; i++) if (gun.children[i] !== lh) gun.children[i].visible = false;
+      lh.traverse((o) => { if (o !== lh && o.isMesh) o.visible = false; });
+      arms = makeArms(); arms.u = u; gun.add(arms.root); arms.update(u, null, 0);
     }
     const flash = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: this.flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     flash.position.copy(u.muzzle); flash.visible = false; gun.add(flash);
@@ -958,7 +967,7 @@ export class Game {
       piv = new THREE.Group(); piv.position.set(G.x, G.y, G.z); root.remove(gun); gun.remove(armMesh); gun.position.set(-G.x, -G.y, -G.z); piv.add(gun); root.add(piv);
       arm = armMesh; arm.userData.base = { x: arm.rotation.x, y: arm.rotation.y, z: arm.rotation.z }; root.add(arm);
     }
-    return { root, gun, piv, arm, flash, sightY: u.sightY, lh, mags, slides, bolts, pumps, reach, cls: w.cls, id: w.id, pistol: u.pistol };
+    return { root, gun, piv, arm, arms, flash, sightY: u.sightY, lh, mags, slides, bolts, pumps, reach, cls: w.cls, id: w.id, pistol: u.pistol };
   }
 
   flashTexture() {
@@ -1867,6 +1876,7 @@ export class Game {
       this.vmRoot.rotation.set(rx * 0.3, ry * 0.5, rz * 0.2); vm.piv.rotation.set(rx * 0.7 + irx, ry * 0.5 + iry, rz * 0.8 + irz);
       const bs = vm.arm.userData.base; vm.arm.rotation.set(bs.x, bs.y, bs.z + rz * 0.3);
     } else this.vmRoot.rotation.set(rx, ry, rz);
+    if (vm.arms) vm.arms.update(vm.arms.u, vm.lh.position, clamp(kick * 4, 0, 1));
     vm.lh.position.set(vm.reach.x * hand, vm.reach.y * hand + handDy, vm.reach.z * hand + handDz + pumpBack * 0.08 * (vm.cls === 'shotgun' ? 1 : 0));
     for (const e of vm.slides) e.m.position.z = e.p.z + 0.032 * slideT;
     for (const e of vm.bolts) { e.m.position.z = e.p.z + 0.07 * boltOpen; e.m.position.y = e.p.y + 0.012 * boltOpen; }
