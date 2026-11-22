@@ -1,26 +1,26 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.25.1';
-import { canon } from './keybinds.js?v=0.25.1';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.25.1';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.25.1';
-import { buildMap } from './maps.js?v=0.25.1';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.25.1';
-import { buildWorld } from './world.js?v=0.25.1';
-import { Bot } from './bots.js?v=0.25.1';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.25.1';
-import { buildSoldier, SKIN } from './soldier.js?v=0.25.1';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.25.1';
-import { Zombies, PERKS } from './zombies.js?v=0.25.1';
-import { BattleRoyale } from './br.js?v=0.25.1';
-import { inspectFor, inspectPose } from './inspect.js?v=0.25.1';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.25.1';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.25.1';
-import { Objectives } from './objectives.js?v=0.25.1';
-import { Utilities } from './utils.js?v=0.25.1';
-import { Streaks, STREAKS } from './streaks.js?v=0.25.1';
-import { GoreX } from './gorex.js?v=0.25.1';
-import { armsReady, makeArms } from './arms.js?v=0.25.1';
-import { Gore } from './gore.js?v=0.25.1';
+import { MOD } from './supermod.js?v=0.25.2';
+import { canon } from './keybinds.js?v=0.25.2';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.25.2';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.25.2';
+import { buildMap } from './maps.js?v=0.25.2';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.25.2';
+import { buildWorld } from './world.js?v=0.25.2';
+import { Bot } from './bots.js?v=0.25.2';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.25.2';
+import { buildSoldier, SKIN } from './soldier.js?v=0.25.2';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.25.2';
+import { Zombies, PERKS } from './zombies.js?v=0.25.2';
+import { BattleRoyale } from './br.js?v=0.25.2';
+import { inspectFor, inspectPose } from './inspect.js?v=0.25.2';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.25.2';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.25.2';
+import { Objectives } from './objectives.js?v=0.25.2';
+import { Utilities } from './utils.js?v=0.25.2';
+import { Streaks, STREAKS } from './streaks.js?v=0.25.2';
+import { GoreX } from './gorex.js?v=0.25.2';
+import { armsReady, makeArms } from './arms.js?v=0.25.2';
+import { Gore } from './gore.js?v=0.25.2';
 
 const pick3 = (a) => a[Math.floor(Math.random() * a.length)];
 const V3 = THREE.Vector3;
@@ -1662,6 +1662,7 @@ export class Game {
     this.world.update(dt, cam.position);
     this.updateLaser(p, cam, scoped);
     this.updateViewmodel(dt);
+    for (const a of this.actors) if (a.isPlayer && a.mesh) a.mesh.root.visible = !!this.tp && a.mesh.root.visible;      // your own body is never drawn in first person (enforced right before drawing)
     this.renderer.clear();
     if (this.gfxQ.bloom && this.bloomRender(cam)) { /* world drawn through the bloom composer */ } else this.renderer.render(this.scene, cam);
     this.updateSunRays(cam, dt); this.updateMotes(cam, dt);
@@ -1761,12 +1762,13 @@ export class Game {
 
     // --- draw / weapon switch: gun swings up from below ------------------------------------------
     if (p.switchT > 0) {
-      const s = clamp(p.switchT / 0.38, 0, 1), e = s * s;
-      y -= e * 0.32; rx -= e * 0.75; rz += e * 0.3; x += e * 0.06;
+      const s = clamp(p.switchT / 0.38, 0, 1), e = s * s, ov = Math.sin(Math.PI * clamp(1 - s, 0, 1) * 1.0) * (1 - s) * 0.5;      // swings up from below, overshoots a touch and settles
+      y -= e * 0.32; rx -= e * 0.75; rz += e * 0.3; x += e * 0.06; y += ov * 0.02; rx += ov * 0.08;
     }
 
     // --- reload ----------------------------------------------------------------------------------
     let hand = 0, handDy = 0, handDz = 0;
+    const fT = { grab: 0, slap: 0, charge: 0, release: 0 };                         // finger-animation targets (see armrig.js)
     const sw = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };                       // animated offsets (reload turn, knife swings) - smoothed by a spring before they are applied
     let slideT = Math.max(S.slide, am.mag <= 0 && !p.reloading ? 1 : 0);            // pistol slide locks back on an empty gun
     let boltOpen = 0, pumpBack = 0;
@@ -1780,27 +1782,29 @@ export class Game {
       if (vm.cls === 'shotgun') {                                                   // shells pushed in one by one, then a pump
         const cyc = clamp((ph - 0.1) / 0.72, 0, 1) * 5, f = cyc - Math.floor(cyc);
         hand = sm(0.04, 0.12, ph) * (1 - sm(0.84, 0.92, ph)); handDy = -0.03 * Math.sin(Math.PI * f) * hand; handDz = 0.02 * Math.sin(Math.PI * f) * hand;
-        tilt = env * 1.1; if (ph > 0.1 && ph < 0.82) rk = Math.sin(Math.PI * f) * 0.025;
+        tilt = env * 1.1; if (ph > 0.1 && ph < 0.82) { rk = Math.sin(Math.PI * f) * 0.025; fT.grab = Math.sin(Math.PI * Math.min(1, f * 1.4)); }
         pumpBack = Math.max(pumpBack, Math.sin(Math.PI * clamp((ph - 0.86) / 0.12, 0, 1)));
       } else if (vm.cls === 'sniper') {                                             // open bolt, load the clip, close bolt
         hand = sm(0.18, 0.3, ph) * (1 - sm(0.62, 0.74, ph)); handDy = -0.02 * Math.sin(ph * 30) * hand * 0.3;
         boltOpen = Math.max(boltOpen, sm(0.06, 0.18, ph) * (1 - sm(0.74, 0.86, ph)));
-        tilt = env * 0.9; if (ph > 0.74 && ph < 0.82) rk = 0.03;
+        tilt = env * 0.9; if (ph > 0.74 && ph < 0.82) rk = 0.03; fT.grab = sm(0.3, 0.36, ph) * (1 - sm(0.56, 0.62, ph)); fT.charge = sm(0.12, 0.18, ph) * (1 - sm(0.22, 0.28, ph)) + sm(0.74, 0.78, ph) * (1 - sm(0.84, 0.88, ph));
       } else {
         hand = sm(0.02, 0.16, ph) * (1 - sm(0.72, 0.9, ph));
-        const pouch = Math.sin(Math.PI * clamp((ph - 0.3) / 0.2, 0, 1));            // hand goes down to fetch a fresh mag
-        handDy = (vm.pistol ? -0.012 : -0.02) * pouch; handDz = 0.02 * pouch;
+        const pq = sm(0.28, 0.4, ph) * (1 - sm(0.4, 0.62, ph));                        // hand goes down to the pouch, grabs a fresh mag and brings it up
+        const D = vm.pistol ? 0.07 : 0.13;
+        handDy = -D * pq; handDz = 0.03 * pq;
+        fT.grab = sm(0.36, 0.42, ph) * (1 - sm(0.6, 0.65, ph)); fT.release = sm(0.06, 0.1, ph) * (1 - sm(0.14, 0.18, ph)); fT.slap = sm(0.64, 0.67, ph) * (1 - sm(0.7, 0.74, ph));
         if (vm.mags.length) {
-          const drop = clamp((ph - 0.16) / 0.1, 0, 1), rise = clamp((ph - 0.46) / 0.16, 0, 1);
+          const drop = clamp((ph - 0.16) / 0.1, 0, 1);
           for (const e of vm.mags) {
             if (ph < 0.16) continue;
             if (ph < 0.26) { e.m.position.y = e.p.y - (drop * 0.06 + drop * drop * 0.4); e.m.position.z = e.p.z + drop * 0.03; }   // the old mag drops clean out of the well
-            else if (ph < 0.46) e.m.visible = false;
-            else { const k = 1 - (1 - rise) * (1 - rise); e.m.position.y = e.p.y - (1 - k) * 0.2; e.m.position.z = e.p.z + (1 - k) * 0.03; }   // the fresh one is pushed up into it
+            else if (ph < 0.4) e.m.visible = false;
+            else { e.m.position.y = e.p.y - D * pq - 0.015 * pq; e.m.position.z = e.p.z + 0.03 * pq; }   // the fresh one rides up in the hand and is pushed into the well
           }
         }
         if (ph > 0.64 && ph < 0.72) rk = Math.sin(Math.PI * (ph - 0.64) / 0.08) * 0.035;         // mag slap
-        if (ph > 0.8 && ph < 0.9 && !vm.pistol) { handDz -= Math.sin(Math.PI * (ph - 0.8) / 0.1) * 0.07; rk += 0.012; }   // charging handle
+        if (ph > 0.8 && ph < 0.9 && !vm.pistol) { const cp = Math.sin(Math.PI * (ph - 0.8) / 0.1); handDz -= cp * 0.07; rk += 0.012; fT.charge = cp > 0.15 ? 1 : 0; }   // charging handle
         if (am.mag <= 0 && vm.slides.length) slideT = ph < 0.72 ? 1 : 1 - sm(0.72, 0.78, ph);   // slide drops when the mag seats
       }
       // the gun turns and dips for the reload but always stays well inside the frame (nudged up and pushed away from the camera)
@@ -1849,8 +1853,12 @@ export class Game {
       this.vmRoot.rotation.set(rx * 0.3, ry * 0.5, rz * 0.2); vm.piv.rotation.set(rx * 0.7 + irx, ry * 0.5 + iry, rz * 0.8 + irz);
       const bs = vm.arm.userData.base; vm.arm.rotation.set(bs.x, bs.y, bs.z + rz * 0.3);
     } else this.vmRoot.rotation.set(rx, ry, rz);
-    if (vm.arms) vm.arms.update(vm.arms.u, vm.lh.position, clamp(kick * 4, 0, 1));
     vm.lh.position.set(vm.reach.x * hand, vm.reach.y * hand + handDy, vm.reach.z * hand + handDz + pumpBack * 0.08 * (vm.cls === 'shotgun' ? 1 : 0));
+    if (vm.arms) {                                                                    // fingers: eased towards their targets so nothing snaps
+      const fa = S.fa || (S.fa = {}), tg = { hand, grab: fT.grab, slap: fT.slap, charge: fT.charge, release: fT.release, trigOff: Math.max(p.reloading ? 1 : 0, S.sprint, S.inspectT > 0 ? 1 : 0, this.swing ? 1 : 0, S.mvk, S.slk * 0.5), draw: p.switchT > 0 ? clamp(p.switchT / 0.38, 0, 1) : 0, sprint: S.sprint * (1 - a), insp: S.inspectT > 0 ? 1 : 0, kick };
+      const kf = Math.min(1, dt * 16); for (const k in tg) fa[k] = (fa[k] || 0) + (tg[k] - (fa[k] || 0)) * kf;
+      fa.t = this.time; vm.arms.update(vm.arms.u, vm.lh.position, clamp(kick * 4, 0, 1), fa);
+    }
     for (const e of vm.slides) e.m.position.z = e.p.z + 0.032 * slideT;
     for (const e of vm.bolts) { e.m.position.z = e.p.z + 0.07 * boltOpen; e.m.position.y = e.p.y + 0.012 * boltOpen; }
     for (const e of vm.pumps) e.m.position.z = e.p.z + 0.085 * pumpBack;

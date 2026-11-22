@@ -1,7 +1,7 @@
 // First-person arms: the rigged arms + gloved hands model (assets/models/arms.json, baked by tools/bake-arms.py from arms.fbx).
 // js/armrig.js poses the forearm / hand / finger bones for the gun, this file wraps the result in a three.js SkinnedMesh.
 import * as THREE from 'three';
-import { ArmRig, placeHands, SHOULDER } from './armrig.js?v=0.25.1';
+import { ArmRig, placeHands, SHOULDER } from './armrig.js?v=0.25.2';
 
 let data = null, geo = null, mat = null, loading = null;
 const b64 = (s, Type) => { const bin = atob(s), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return new Type(u8.buffer); };
@@ -39,8 +39,8 @@ export function makeArms() {
   mesh.bind(new THREE.Skeleton(bones));                                   // bind pose = rig.bind, with the mesh still at the origin
   return {
     root: mesh,
-    update(u, lh, trig) {
-      const h = placeHands(u, lh, trig);
+    update(u, lh, trig, fa) {
+      const h = placeHands(u, lh, trig, { fa });
       rig.pose('Right', { P: h.right.P, Rt: h.right.Rt, S: SHOULDER.Right, curl: h.right.curl });
       rig.pose('Left', { P: h.left.P, Rt: h.left.Rt, S: SHOULDER.Left, curl: h.left.curl });
       for (let i = 0; i < rig.n; i++) { bones[i].matrix.fromArray(rig.out[i]); bones[i].matrixWorldNeedsUpdate = true; }
