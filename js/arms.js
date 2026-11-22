@@ -1,7 +1,7 @@
 // First-person arms: the rigged arms + gloved hands model (assets/models/arms.json, baked by tools/bake-arms.py from arms.fbx).
 // js/armrig.js poses the forearm / hand / finger bones for the gun, this file wraps the result in a three.js SkinnedMesh.
 import * as THREE from 'three';
-import { ArmRig, placeHands, SHOULDER } from './armrig.js?v=0.25.3';
+import { ArmRig, placeHands, SHOULDER } from './armrig.js?v=0.25.4';
 
 let data = null, geo = null, mat = null, loading = null;
 const b64 = (s, Type) => { const bin = atob(s), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return new Type(u8.buffer); };

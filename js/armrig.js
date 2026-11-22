@@ -151,14 +151,16 @@ export function placeHands(u, lh, trig = 0, extra = {}) {
   } else {
     R.P = [G[0] + 0.03, G[1] + 0.02, G[2] + 0.092]; R.Rt = mat3mul(axisAngle([1, 0, 0], pitchR + (-rake * 0.6 + rake * 0.55)), [1, 0, 0, 0, 1, 0, 0, 0, 1]);
     R.curl = [[0.2, 0.3, 0.2], [0.2 + 0.4 * trig, 0.3 + 0.5 * trig, 0.15], wrapC(0.9), wrapC(0.88), wrapC(0.82)];
-    const f = [0.35, 0.05, -0.93], n = [0.0, 1, 0.1];
+    const C = { dp: [-0.02, -0.025, 0.05], f: [0.3, 0.1, -0.95], n: [0.3, 0.95, 0] }, Gm = { dp: [-0.05, -0.05, -0.055], f: [0.95, -0.1, 0.15], n: [0.1, 0.2, 0.97] };   // handguard C-grip / holding the magazine
+    const gk = Math.min(1, fa.magGrab || 0), mix = (p, q) => p.map((v, i) => v + (q[i] - v) * gk);
+    const LL = Object.assign({ dp: mix(C.dp, Gm.dp), f: mix(C.f, Gm.f), n: mix(C.n, Gm.n) }, extra.L || {}), f = LL.f, n = LL.n;
     Lh.Rt = handFrame(f, n, HAND_L);
-    Lh.P = [F[0] - 0.05, F[1] - 0.045, F[2] + 0.045]; Lh.curl = [[0.45, 0.4, 0.3], wrapC(1.0), wrapC(1.0), wrapC(0.95), wrapC(0.9)];
+    Lh.P = [F[0] + LL.dp[0], F[1] + LL.dp[1], F[2] + LL.dp[2]]; Lh.curl = [[0.45, 0.4, 0.3], wrapC(0.9), wrapC(0.9), wrapC(0.85), wrapC(0.8)];
   }
   // ---- finger animation ----
   const open = (fa.hand || 0) * (1 - (fa.grab || 0)), slap = fa.slap || 0, ch = fa.charge || 0, insp = fa.insp || 0;
   for (let i = 1; i < 5; i++) {                                                                               // support hand: opens while it travels, closes round a mag, flat on the slap, hooks the charging handle
-    let m = 1 - 0.7 * open; m = Math.min(m, 1 - 0.85 * slap); if (ch) m = m * (1 - ch) + (i === 1 ? 0.45 : 0.8) * ch;
+    let m = 1 - (fa.magGrab ? 0.4 : 0.7) * open; m = Math.min(m, 1 - 0.85 * slap); if (ch) m = m * (1 - ch) + (i === 1 ? 0.45 : 0.8) * ch;
     m *= 1 - (fa.draw || 0) * 0.45; m *= 1 - (fa.sprint || 0) * 0.28;
     m *= 1 - insp * 0.5 * Math.max(0, Math.sin(T * 5.5 - i * 0.8));                                           // inspect: the fingers ripple
     m *= 1 + 0.025 * Math.sin(T * 1.3 + i);                                                                   // faint life in the grip
@@ -170,7 +172,6 @@ export function placeHands(u, lh, trig = 0, extra = {}) {
   R.curl[1] = R.curl[1].map((v, j) => v * (1 - off_) + [0.04, 0.05, 0.03][j] * off_ + (fa.draw || 0) * -0.1);
   R.curl[0] = R.curl[0].map((v, j) => v + (fa.release || 0) * [0.55, 0.45, 0.3][j]);                          // thumb presses the mag catch
   if (insp) for (let i = 1; i < 5; i++) R.curl[i] = scaleCurl([R.curl[i]], 1 - insp * 0.25 * Math.max(0, Math.sin(T * 4.3 + i * 0.9 + 1)))[0];
-  if (!u.pistol) Lh.Rt = mat3mul(axisAngle([1, 0, 0], 0.35 * open + 0.25 * slap), Lh.Rt);                      // palm tips up towards the magwell
   Lh.P = [Lh.P[0] + off[0], Lh.P[1] + off[1], Lh.P[2] + off[2]];
   return { right: R, left: Lh };
 }

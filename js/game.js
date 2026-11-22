@@ -1,26 +1,26 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.25.3';
-import { canon } from './keybinds.js?v=0.25.3';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.25.3';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.25.3';
-import { buildMap } from './maps.js?v=0.25.3';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.25.3';
-import { buildWorld } from './world.js?v=0.25.3';
-import { Bot } from './bots.js?v=0.25.3';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.25.3';
-import { buildSoldier, SKIN } from './soldier.js?v=0.25.3';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.25.3';
-import { Zombies, PERKS } from './zombies.js?v=0.25.3';
-import { BattleRoyale } from './br.js?v=0.25.3';
-import { inspectFor, inspectPose } from './inspect.js?v=0.25.3';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.25.3';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.25.3';
-import { Objectives } from './objectives.js?v=0.25.3';
-import { Utilities } from './utils.js?v=0.25.3';
-import { Streaks, STREAKS } from './streaks.js?v=0.25.3';
-import { GoreX } from './gorex.js?v=0.25.3';
-import { armsReady, makeArms } from './arms.js?v=0.25.3';
-import { Gore } from './gore.js?v=0.25.3';
+import { MOD } from './supermod.js?v=0.25.4';
+import { canon } from './keybinds.js?v=0.25.4';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.25.4';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.25.4';
+import { buildMap } from './maps.js?v=0.25.4';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.25.4';
+import { buildWorld } from './world.js?v=0.25.4';
+import { Bot } from './bots.js?v=0.25.4';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.25.4';
+import { buildSoldier, SKIN } from './soldier.js?v=0.25.4';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.25.4';
+import { Zombies, PERKS } from './zombies.js?v=0.25.4';
+import { BattleRoyale } from './br.js?v=0.25.4';
+import { inspectFor, inspectPose } from './inspect.js?v=0.25.4';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.25.4';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.25.4';
+import { Objectives } from './objectives.js?v=0.25.4';
+import { Utilities } from './utils.js?v=0.25.4';
+import { Streaks, STREAKS } from './streaks.js?v=0.25.4';
+import { GoreX } from './gorex.js?v=0.25.4';
+import { armsReady, makeArms } from './arms.js?v=0.25.4';
+import { Gore } from './gore.js?v=0.25.4';
 
 const pick3 = (a) => a[Math.floor(Math.random() * a.length)];
 const V3 = THREE.Vector3;
@@ -1855,7 +1855,7 @@ export class Game {
     } else this.vmRoot.rotation.set(rx, ry, rz);
     vm.lh.position.set(vm.reach.x * hand, vm.reach.y * hand + handDy, vm.reach.z * hand + handDz + pumpBack * 0.08 * (vm.cls === 'shotgun' ? 1 : 0));
     if (vm.arms) {                                                                    // fingers: eased towards their targets so nothing snaps
-      const fa = S.fa || (S.fa = {}), tg = { hand, grab: fT.grab, slap: fT.slap, charge: fT.charge, release: fT.release, trigOff: Math.max(p.reloading ? 1 : 0, S.sprint, S.inspectT > 0 ? 1 : 0, this.swing ? 1 : 0, S.mvk, S.slk * 0.5), draw: p.switchT > 0 ? clamp(p.switchT / 0.38, 0, 1) : 0, sprint: S.sprint * (1 - a), insp: S.inspectT > 0 ? 1 : 0, kick };
+      const fa = S.fa || (S.fa = {}), tg = { hand, grab: fT.grab, slap: fT.slap, charge: fT.charge, magGrab: vm.mags.length && p.reloading ? hand : 0, release: fT.release, trigOff: Math.max(p.reloading ? 1 : 0, S.sprint, S.inspectT > 0 ? 1 : 0, this.swing ? 1 : 0, S.mvk, S.slk * 0.5), draw: p.switchT > 0 ? clamp(p.switchT / 0.38, 0, 1) : 0, sprint: S.sprint * (1 - a), insp: S.inspectT > 0 ? 1 : 0, kick };
       const kf = Math.min(1, dt * 16); for (const k in tg) fa[k] = (fa[k] || 0) + (tg[k] - (fa[k] || 0)) * kf;
       fa.t = this.time; vm.arms.update(vm.arms.u, vm.lh.position, clamp(kick * 4, 0, 1), fa);
     }
