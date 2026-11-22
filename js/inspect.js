@@ -71,7 +71,7 @@ export const INSPECTS = {
   k_tomahawk: A(3.0, ['raise', 0.0, 0.18, { k: 0.5 }], ['toss', 0.18, 0.62, { h: 0.16, n: 1, dir: 1 }], ['wobble', 0.62, 0.9, { k: 0.1 }]),
 };
 // the new guns borrow the inspect routine of the gun whose model they use
-const ALIAS = { g19: 'm1911', mp7: 'mp5', pp19: 'p90', kriss: 'super46', aug: 'm4a1', famas: 'm4a1', ak74: 'ak47', g36: 'scar', hk417: 'scar', mk14: 'dmr', m60: 'lmg', pkm: 'rpk', r700: 'kar98k', awp: 'kar98k', barrett: 'kar98k', reaper: 'kar98k', spas12: 'm680', ksg: 'm680', saiga: 'aa12', usp: 'm1911', five7: 'm1911', tec9: 'g18', cz75: 'g18', python: 'magnum', judge: 'revolver44' };
+const ALIAS = { m4t: 'm4a1', g19: 'm1911', mp7: 'mp5', pp19: 'p90', kriss: 'super46', aug: 'm4a1', famas: 'm4a1', ak74: 'ak47', g36: 'scar', hk417: 'scar', mk14: 'dmr', m60: 'lmg', pkm: 'rpk', r700: 'kar98k', awp: 'kar98k', barrett: 'kar98k', reaper: 'kar98k', spas12: 'm680', ksg: 'm680', saiga: 'aa12', usp: 'm1911', five7: 'm1911', tec9: 'g18', cz75: 'g18', python: 'magnum', judge: 'revolver44' };
 // ...remixed so every gun still has its own: different length, mirrored sides/turns, retimed beats, softer or stronger moves
 Object.entries(ALIAS).forEach(([k, v], n) => {
   const s = INSPECTS[v]; if (!s || INSPECTS[k]) return;

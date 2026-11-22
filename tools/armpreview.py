@@ -27,10 +27,15 @@ if kind == 'pistol':
     for p in g['parts']:
         o = len(V); pp = np.array(p['positions']).reshape(-1, 3) * 100; V.extend(pp); VT.extend(np.array(p['uvs']).reshape(-1, 2)); ix = p['indices']
         for i in range(0, len(ix), 3): F.append(tuple((o + ix[i + j], o + ix[i + j], -1) for j in range(3)) + ('', 'm' if p['mat'] == 'metal' else 'p'))
+if kind == 'm4t':
+    mm = json.load(open(R + 'assets/models/m4t.json'))
+    for p in mm['parts']:
+        o = len(V); pp = np.array(p['positions']).reshape(-1, 3) * 100; V.extend(pp); VT.extend(np.array(p['uvs']).reshape(-1, 2)); ix = p['indices']
+        for i in range(0, len(ix), 3): F.append(tuple((o + ix[i + j], o + ix[i + j], -1) for j in range(3)) + ('', 'm' if p['mat'] == 'dark' else 'p'))
 V = np.array(V); VT = np.array(VT)
 CROP = float(sys.argv[3]) if len(sys.argv) > 3 else 24
 F = [f for f in F if max(V[f[k][0]][2] for k in range(3)) < CROP]
-rr.tex['m'] = np.full((8, 8, 4), (90, 150, 255, 255), np.uint8); rr.tex['p'] = np.full((8, 8, 4), (255, 120, 90, 255), np.uint8)
+rr.tex['m'] = np.full((8, 8, 4), (90, 150, 255, 255) if kind != 'm4t' else (60, 60, 70, 255), np.uint8); rr.tex['p'] = np.full((8, 8, 4), (255, 120, 90, 255) if kind != 'm4t' else (140, 120, 80, 255), np.uint8)
 # brighten the gun a little so it reads against the hands
 ims = [rr.render(V, VT, None, F, v, W=640, H=520) for v in [(90, 0), (0, 25), (-90, 0), (180 - 0.001, 80)]]
 Image.fromarray(np.concatenate([np.concatenate(ims[:2], 1), np.concatenate(ims[2:], 1)], 0)).save('/tmp/tt/arms_pose.png'); print('ok')

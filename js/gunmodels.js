@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.25.2';
-import { makeReal } from './realguns.js?v=0.25.2';
-import { skinKit } from './skinkits.js?v=0.25.2';
+import { getSlot, camoOf, skinOf, SKINS } from './weapons.js?v=0.25.3';
+import { makeReal } from './realguns.js?v=0.25.3';
+import { skinKit } from './skinkits.js?v=0.25.3';
 
 // ------------------------------------------------------------------------------------------------
 // Gun models.
@@ -13,7 +13,7 @@ import { skinKit } from './skinkits.js?v=0.25.2';
 // ------------------------------------------------------------------------------------------------
 
 export const MODEL_DATA = {};
-const MODEL_VER = '0.25.2';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
+const MODEL_VER = '0.25.3';        // bump when an assets/models/*.json changes so browsers don't keep the old copy
 
 export async function loadModels(weapons) {
   const jobs = [];
@@ -648,14 +648,15 @@ function bakedMat(color, name) {
 // ---- textured PBR models (the Glock 19): every baked part carries UVs and uses one of the model's texture sets
 // (base colour + OpenGL normal map + a packed ORM map: R = ambient occlusion, G = roughness, B = metalness).
 const TEXMATS = {};
-function texturedMats(id) {
+function texturedMats(id, keys = ['metal', 'plastic']) {
   if (TEXMATS[id]) return TEXMATS[id];
   const tl = new THREE.TextureLoader(), L = (f, srgb) => { const t = tl.load(`assets/models/${id}/${f}.jpg?v=${MODEL_VER}`); if (srgb && THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; if (t.anisotropy !== undefined) t.anisotropy = 4; return t; };
   const mk = (k, metal, extra) => { const orm = L(`${k}_orm`, false); return new THREE.MeshStandardMaterial({ map: L(`${k}_base`, true), normalMap: L(`${k}_normal`, false), roughnessMap: orm, metalnessMap: orm, aoMap: orm, roughness: 1, metalness: metal, envMapIntensity: 1, ...extra }); };
-  return (TEXMATS[id] = { metal: mk('metal', 0.9), plastic: mk('plastic', 1.0) });
+  const set = {}; for (const k of keys) set[k] = mk(k, k === 'metal' ? 0.9 : 1.0);
+  return (TEXMATS[id] = set);
 }
 function buildTextured(w, data) {
-  const g = new THREE.Group(), a = w.asset, tm = texturedMats(a.id), b = data.bounds, fb = data.frameBounds, mb = data.magBounds;
+  const g = new THREE.Group(), a = w.asset, tm = texturedMats(a.id, data.texKeys), b = data.bounds, fb = data.frameBounds, mb = data.magBounds;
   for (const part of data.parts) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(part.positions), 3));
@@ -663,10 +664,17 @@ function buildTextured(w, data) {
     geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(part.uvs), 2));
     geo.setIndex(part.indices);
     const me = new THREE.Mesh(geo, tm[part.mat] || tm.metal); me.castShadow = true;
-    if (part.name === 'GL_Slide') { me.userData.slide = true; me.userData.iron = false; }
+    if (part.tag === 'mag') me.userData.mag = true;                                       // generic tags written by the bake scripts
+    else if (part.tag === 'iron') me.userData.iron = true;
+    else if (part.name === 'GL_Slide') { me.userData.slide = true; me.userData.iron = false; }
     else if (part.name === 'GL_Magazine') me.userData.mag = true;
     else if (part.name === 'GL_Trigger') me.userData.trigger = true;
     g.add(me);
+  }
+  if (data.ud) {                                                                              // textured rifle: the bake script wrote every anchor
+    const u = data.ud, Vv = (c) => V(c[0], c[1], c[2]);
+    g.userData = { muzzle: Vv(data.muzzle), sightY: data.sightY, pistol: false, grip: Vv(u.grip), fore: Vv(u.fore), mount: Vv(u.mount), under: Vv(u.under), side: Vv(u.side), textured: true };
+    return g;
   }
   const A = data.anchors, gx = 0, gy = (fb.min[1] + fb.max[1]) / 2 + 0.012, gz = (mb.min[2] + mb.max[2]) / 2 + 0.006;
   g.userData = {

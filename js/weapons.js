@@ -24,6 +24,13 @@ export const WEAPONS = {
     zoom: 1.5, scope: false, moveMul: 1.0, snd: { f: 2600, len: 0.11, thump: 0.6 }, builder: 'ar', attach: ['dot', 'grip', 'laser'],
     asset: { id: 'm4a1', xmag: 'm4a1_xmag', grip: 'handle', fore: 'grip', foreOffset: [0, 0, 0], gripOffset: [0, 0, 0], mount: [0, 0.031, -0.12], under: [0, -0.032, -0.27], side: [0.02, 0.0, -0.3] },
   },
+  m4t: {
+    id: 'm4t', name: 'M4A1 TEST', slot: 'primary', cls: 'ar', desc: 'Test build of the M4A1 with a fully textured model. Balanced and easy to control.',
+    dmg: 26, hs: 1.4, rpm: 660, auto: true, mag: 30, reserve: 180, reload: 2.2,
+    spread: 0.028, adsSpread: 0.003, recoil: 0.0060, recoilYaw: 0.0030, range: [20, 50], minMul: 0.65, pellets: 1,
+    zoom: 1.5, scope: false, moveMul: 1.0, snd: { f: 2600, len: 0.11, thump: 0.6 }, builder: 'ar', attach: ['dot', 'grip', 'laser'],
+    asset: { id: 'm4t', textured: true, ownSights: true },
+  },
   ak47: {
     id: 'ak47', name: 'AK-47', slot: 'primary', cls: 'ar', desc: 'Hard-hitting rifle. Heavy recoil, big damage.',
     dmg: 33, hs: 1.4, rpm: 520, auto: true, mag: 30, reserve: 150, reload: 2.5,
@@ -175,7 +182,7 @@ knife('k_dagger', 'Dagger', 'Slim double-edged stiletto. Very quick, very short.
 knife('k_zephyr', 'Zephyr', 'All mobility: you run, jump and slide far faster with it out. It deals 1 damage but swings as fast as you can click.', { dmg: 1, cd: 0.03, reach: 2.2, speed: 1.85 });
 knife('k_tomahawk', 'Tomahawk', 'Throwing axe. Hits hard, a bit slow.', { dmg: 72, cd: 0.62, reach: 2.8, speed: 1.08 });
 
-export const PRIMARIES = ['vmp', 'super46', 'mp5', 'mp7', 'ump', 'p90', 'pp19', 'kriss', 'm4a1', 'm16', 'aug', 'famas', 'ak47', 'ak74', 'scar', 'g36', 'fal', 'hk417', 'lmg', 'rpk', 'pkm', 'm60', 'sks', 'mk14', 'kar98k', 'r700', 'awp', 'reaper', 'barrett', 'm680', 'spas12', 'ksg', 'aa12', 'saiga'];
+export const PRIMARIES = ['vmp', 'super46', 'mp5', 'mp7', 'ump', 'p90', 'pp19', 'kriss', 'm4a1', 'm4t', 'm16', 'aug', 'famas', 'ak47', 'ak74', 'scar', 'g36', 'fal', 'hk417', 'lmg', 'rpk', 'pkm', 'm60', 'sks', 'mk14', 'kar98k', 'r700', 'awp', 'reaper', 'barrett', 'm680', 'spas12', 'ksg', 'aa12', 'saiga'];
 export const SECONDARIES = ['g19', 'g18', 'tec9', 'cz75', 'm1911', 'usp', 'five7', 'skorp', 'mac10', 'magnum', 'python', 'revolver44', 'judge', 'deagle'];
 
 // Stats shown on the loadout / gunsmith screens: a 0..100 style number per row plus a 0..1 bar. `good` says which way is better.
