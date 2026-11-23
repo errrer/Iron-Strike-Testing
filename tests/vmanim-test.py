@@ -36,10 +36,15 @@ async () => {
     g.adsHeld = true; run('ads', 60); run('ads-fire', 30, (i) => { if (i % 5 === 0) { g.vmKick = Math.min(1.5, (g.vmKick || 0) + 0.55); g.vmS.slide = 1; g.vmS.cycle = 1; g.vmS.rand = Math.sin(i * 7); } }); g.adsHeld = false; run('unads', 60);
     p.ammo[p.cur].mag = Math.max(1, p.ammo[p.cur].mag - 3); g.startReload(p); run('reload', Math.ceil((p.weapon.reload + 0.5) * 60));
     p.ammo[p.cur].mag = 0; g.startReload(p); run('reload-empty', Math.ceil((p.weapon.reload + 0.5) * 60));
-    g.switchWeapon(p, 1 - p.cur); g.frame(1/60); prev = null; run('draw', 60);   // the model swap itself is a cut, the draw that follows must be smooth
+    const oldId = g.vm.id; g.switchWeapon(p, 1 - p.cur); const newId = p.weapon.id;
+    if (g.vm.id !== oldId) out.bad.push([id, 'old gun should stay up while it is holstered', g.vm.id, oldId]);
+    let sawOld = false; for (let i = 0; i < 3; i++) { g.frame(1/60); sample('holster'); sawOld = sawOld || g.vm.id === oldId; }
+    if (!sawOld) out.bad.push([id, 'no holster phase']);
+    run('draw', 60);                                                              // pose must stay continuous through the model swap
+    if (g.vm.id !== newId) out.bad.push([id, 'new gun never came up', g.vm.id, newId]);
     g.startInspect(); run('inspect', 200);
     out.stats[id] = { byTag: Object.fromEntries(Object.entries(byTag).map(([k, v]) => [k, v.map(x => +x.toFixed(3))])), n, maxPosStep: +maxP.toFixed(4), maxRotStep: +maxR.toFixed(4), x: box.x.map(v => +v.toFixed(3)), y: box.y.map(v => +v.toFixed(3)), z: box.z.map(v => +v.toFixed(3)), rot: +box.r.toFixed(2) };
-    if (maxP > 0.04 || maxR > 0.16) out.bad.push([id, 'jerky', maxP, maxR]);
+    for (const [tg, [dp, dr]] of Object.entries(byTag)) { const sw = tg === 'holster' || tg === 'draw'; if (dp > (sw ? 0.075 : 0.04) || dr > (sw ? 0.2 : 0.16)) out.bad.push([id, 'jerky', tg, dp, dr]); }
     if (box.x[0] < -0.45 || box.x[1] > 0.55 || box.y[0] < -0.62 || box.y[1] > 0.3 || box.z[0] < -0.75 || box.z[1] > -0.05 || box.r > 1.7) out.bad.push([id, 'out of frame', box]);
   }
   return out;

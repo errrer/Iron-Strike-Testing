@@ -1,7 +1,7 @@
 // First-person arms: the rigged arms + gloved hands model (assets/models/arms.json, baked by tools/bake-arms.py from arms.fbx).
 // js/armrig.js poses the forearm / hand / finger bones for the gun, this file wraps the result in a three.js SkinnedMesh.
 import * as THREE from 'three';
-import { ArmRig, placeHands, SHOULDER } from './armrig.js?v=0.25.5';
+import { ArmRig, placeHands, SHOULDER } from './armrig.js?v=0.25.6';
 
 let data = null, geo = null, mat = null, loading = null;
 const b64 = (s, Type) => { const bin = atob(s), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return new Type(u8.buffer); };
@@ -11,7 +11,7 @@ export function loadArms() {
   if (geo) return Promise.resolve(true);
   if (loading) return loading;
   if (!THREE.SkinnedMesh || !THREE.Skeleton || !THREE.Bone || !THREE.Matrix4) return Promise.resolve(false);
-  loading = fetch('assets/models/arms.json?v=0.25.5').then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((j) => {
+  loading = fetch('assets/models/arms.json?v=0.25.6').then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((j) => {
     data = j;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(b64(j.pos, Float32Array), 3));
@@ -20,7 +20,7 @@ export function loadArms() {
     g.setAttribute('skinIndex', new THREE.BufferAttribute(b64(j.si, Uint16Array), 4));
     g.setAttribute('skinWeight', new THREE.BufferAttribute(b64(j.sw, Float32Array), 4));
     g.setIndex(new THREE.BufferAttribute(b64(j.idx, Uint16Array), 1));
-    const t = new THREE.TextureLoader().load('assets/models/v_hands.jpg?v=0.25.5'); if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+    const t = new THREE.TextureLoader().load('assets/models/v_hands.jpg?v=0.25.6'); if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
     mat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
     geo = g;
     return true;
