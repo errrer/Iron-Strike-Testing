@@ -1,26 +1,26 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.25.4';
-import { canon } from './keybinds.js?v=0.25.4';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.25.4';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.25.4';
-import { buildMap } from './maps.js?v=0.25.4';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.25.4';
-import { buildWorld } from './world.js?v=0.25.4';
-import { Bot } from './bots.js?v=0.25.4';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.25.4';
-import { buildSoldier, SKIN } from './soldier.js?v=0.25.4';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.25.4';
-import { Zombies, PERKS } from './zombies.js?v=0.25.4';
-import { BattleRoyale } from './br.js?v=0.25.4';
-import { inspectFor, inspectPose } from './inspect.js?v=0.25.4';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.25.4';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.25.4';
-import { Objectives } from './objectives.js?v=0.25.4';
-import { Utilities } from './utils.js?v=0.25.4';
-import { Streaks, STREAKS } from './streaks.js?v=0.25.4';
-import { GoreX } from './gorex.js?v=0.25.4';
-import { armsReady, makeArms } from './arms.js?v=0.25.4';
-import { Gore } from './gore.js?v=0.25.4';
+import { MOD } from './supermod.js?v=0.25.5';
+import { canon } from './keybinds.js?v=0.25.5';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.25.5';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.25.5';
+import { buildMap } from './maps.js?v=0.25.5';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.25.5';
+import { buildWorld } from './world.js?v=0.25.5';
+import { Bot } from './bots.js?v=0.25.5';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.25.5';
+import { buildSoldier, SKIN } from './soldier.js?v=0.25.5';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.25.5';
+import { Zombies, PERKS } from './zombies.js?v=0.25.5';
+import { BattleRoyale } from './br.js?v=0.25.5';
+import { inspectFor, inspectPose } from './inspect.js?v=0.25.5';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.25.5';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.25.5';
+import { Objectives } from './objectives.js?v=0.25.5';
+import { Utilities } from './utils.js?v=0.25.5';
+import { Streaks, STREAKS } from './streaks.js?v=0.25.5';
+import { GoreX } from './gorex.js?v=0.25.5';
+import { armsReady, makeArms } from './arms.js?v=0.25.5';
+import { Gore } from './gore.js?v=0.25.5';
 
 const pick3 = (a) => a[Math.floor(Math.random() * a.length)];
 const V3 = THREE.Vector3;
@@ -1713,6 +1713,13 @@ export class Game {
     const clampf = clamp, sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
     const a = p.ads, t = this.time, sp = p.speed2 || 0;
     const am = p.ammo[p.cur];
+    const SPR = S.sp || (S.sp = {});                                              // under-damped springs: every animated offset chases its target with a little follow-through (each key is stepped once per frame)
+    const spr = (k, tg, w = 20, zt = 0.74) => {
+      const s = SPR[k] || (SPR[k] = [0, 0, tg]); if (/^[sij]r[xyz]$/.test(k)) { const d = tg - s[2]; if (Math.abs(d) > 3) s[0] += Math.round(d / 6.2832) * 6.2832; s[2] = tg; }      // full turns end back at 0: keep the spring on the shortest path
+      const n = Math.max(1, Math.ceil(dt * w / 0.5)), h = dt / n;
+      for (let i = 0; i < n; i++) { const acc = w * w * (tg - s[0]) - 2 * zt * w * s[1]; s[1] += acc * h; s[0] += s[1] * h; }
+      return s[0];
+    };
     // --- smoothed inputs --------------------------------------------------------------------------
     this.vmKick = Math.max(0, (this.vmKick || 0) - dt * 9);
     this.swayX += ((-this.mouseDX * 0.0006) - this.swayX) * Math.min(1, dt * 8); this.mouseDX = 0;
@@ -1730,15 +1737,19 @@ export class Game {
 
     // --- base pose: hip -> ADS ------------------------------------------------------
     const hip = [0.17, -0.19, -0.45], adsP = [0, -vm.sightY, -0.38 + (w.cls === 'pistol' ? 0.06 : 0)];
-    let x = lerp(hip[0], adsP[0], a), y = lerp(hip[1], adsP[1], a), z = lerp(hip[2], adsP[2], a);
+    const ae = a + (a * a * (3 - 2 * a) - a) * 0.6;                                // raising the sights starts a touch slower and settles in, like a real shoulder-up
+    let x = lerp(hip[0], adsP[0], ae), y = lerp(hip[1], adsP[1], ae), z = lerp(hip[2], adsP[2], ae);
     let rx = 0, ry = 0, rz = 0;
     const free = 1 - a * 0.85;                                   // motion is damped while aiming
 
     // --- walk / idle -----------------------------------------------------------------------------
-    if (p.onGround && sp > 0.5 && !p.sprint) {
-      const f = Math.min(1, sp / 5) * free , ph = t * 8;
-      x += Math.sin(ph) * 0.007 * f; y += Math.abs(Math.cos(ph)) * 0.009 * f - 0.002 * f; rz += Math.sin(ph) * 0.012 * f; ry += Math.sin(ph * 0.5) * 0.01 * f;
-    } else { y += Math.sin(t * 1.6) * 0.0015; x += Math.sin(t * 0.9) * 0.0008; }
+    const bt = p.bobT || 0, walkF = (p.onGround && !p.sprint ? clamp((sp - 0.3) / 4.7, 0, 1) : 0) * free;
+    if (walkF > 0) {                                                                // one step per camera bob: the gun lags the head, rolls and pitches into each footfall
+      const f = walkF;
+      x += Math.sin(bt * 0.5) * 0.008 * f; y += -Math.sin(bt - 0.7) * 0.0075 * f - 0.002 * f; z += (0.5 + 0.5 * Math.cos(bt - 0.3)) * 0.006 * f;
+      rx += Math.sin(bt - 1.1) * 0.012 * f; ry += Math.sin(bt * 0.5 + 0.8) * 0.012 * f; rz += Math.sin(bt * 0.5) * 0.014 * f;
+    }
+    y += Math.sin(t * 1.6) * 0.0015 * (1 - walkF); x += Math.sin(t * 0.9) * 0.0008 * (1 - walkF);
     if (!p.onGround) { y += clamp(p.vel.y * 0.004, -0.03, 0.03) * free; rx += clamp(-p.vel.y * 0.006, -0.06, 0.06) * free; }
     y -= S.land * 0.05 * free; rx -= S.land * 0.1 * free;
     rz -= S.strafe * 0.05 * free; x -= S.strafe * 0.01 * free;
@@ -1746,24 +1757,25 @@ export class Game {
     // --- sprint: gun dropped and swung across the body, arms pumping (2010-2015 style) ------------
     const sprint = S.sprint * (1 - a);
     if (sprint > 0.001) {
-      const ph = t * 11;
-      x += 0.05 * sprint + Math.sin(ph) * 0.012 * sprint; y += -0.055 * sprint + Math.abs(Math.cos(ph)) * 0.016 * sprint; z += 0.05 * sprint;
-      rx += -0.25 * sprint; ry += (0.62 + Math.sin(ph * 0.5) * 0.04) * sprint; rz += (0.06 + Math.sin(ph) * 0.035) * sprint;
+      const ph = bt * 0.95 + 0.4;                                                   // locked to the footfalls
+      x += 0.05 * sprint + Math.sin(ph) * 0.012 * sprint; y += -0.055 * sprint - Math.sin(ph - 0.6) * 0.012 * sprint; z += 0.05 * sprint + Math.cos(ph) * 0.008 * sprint;
+      rx += (-0.25 + Math.sin(ph * 2 - 0.8) * 0.03) * sprint; ry += (0.62 + Math.sin(ph * 0.5) * 0.04) * sprint; rz += (0.06 + Math.sin(ph) * 0.035) * sprint;
     }
 
     // --- ADS transition arc (the gun dips and comes in along a curve), breathing, strafe/step roll ------
     { const arc = Math.sin(Math.PI * clamp(a, 0, 1)); y -= arc * 0.014; z += arc * 0.012; rz += arc * 0.03;
-      const br = Math.sin(t * 1.35) * (a > 0.5 ? 0.0011 : 0.0016) * (sp < 0.5 ? 1 : 0.3); y += br; rx += br * 0.5;
-      if (p.onGround && sp > 0.5 && !p.sprint) { const sw = Math.sin(t * 8) * Math.min(1, sp / 5) * free; z += Math.abs(Math.sin(t * 8)) * 0.004 * free; ry += sw * 0.006; } }
+      const br = Math.sin(t * 1.35) * (a > 0.5 ? 0.0011 : 0.0016) * (sp < 0.5 ? 1 : 0.3); y += br; rx += br * 0.5; }
     // --- look sway + recoil kick -----------------------------------------------------------------
-    x += this.swayX * free; ry += this.swayX * 0.8 * free; y += (this.swayY || 0) * free; rx += (this.swayY || 0) * 0.6 * free;
+    x += this.swayX * free; y += (this.swayY || 0) * free;
+    ry += spr('lry', this.swayX * 0.8 * free, 13, 0.55); rx += spr('lrx', (this.swayY || 0) * 0.6 * free, 13, 0.55);      // turning the head swings the gun round a beat later and it settles with a small wobble
     const kick = this.vmKick;
-    z += kick * 0.035; rx += kick * 0.045; x += S.rand * kick * 0.012; rz += S.rand * kick * 0.04; ry += S.rand * kick * 0.015;
+    z += spr('kz', kick * 0.035, 34, 0.5); rx += spr('krx', kick * 0.045, 30, 0.45); x += spr('kx', S.rand * kick * 0.012, 28, 0.5);       // recoil: snaps back and up, overshoots a hair on the way home
+    rz += spr('krz', S.rand * kick * 0.04, 26, 0.42); ry += spr('kry', S.rand * kick * 0.015, 26, 0.5);
 
     // --- draw / weapon switch: gun swings up from below ------------------------------------------
     if (p.switchT > 0) {
       const s = clamp(p.switchT / 0.38, 0, 1), e = s * s, ov = Math.sin(Math.PI * clamp(1 - s, 0, 1) * 1.0) * (1 - s) * 0.5;      // swings up from below, overshoots a touch and settles
-      y -= e * 0.32; rx -= e * 0.75; rz += e * 0.3; x += e * 0.06; y += ov * 0.02; rx += ov * 0.08;
+      y -= e * 0.32; rx -= e * 0.75; rz += e * 0.3 + Math.sin((1 - s) * 7) * 0.05 * s; x += e * 0.06; y += ov * 0.02; rx += ov * 0.08; ry -= e * 0.22; z += e * 0.05;
     }
 
     // --- reload ----------------------------------------------------------------------------------
@@ -1805,6 +1817,9 @@ export class Game {
         }
         if (ph > 0.64 && ph < 0.72) rk = Math.sin(Math.PI * (ph - 0.64) / 0.08) * 0.035;         // mag slap
         if (ph > 0.8 && ph < 0.9 && !vm.pistol) { const cp = Math.sin(Math.PI * (ph - 0.8) / 0.1); handDz -= cp * 0.07; rk += 0.012; fT.charge = cp > 0.15 ? 1 : 0; }   // charging handle
+        { const lift = Math.sin(Math.PI * clamp((ph - 0.14) / 0.1, 0, 1)), tug = Math.sin(Math.PI * clamp((ph - 0.73) / 0.08, 0, 1)), slp = Math.sin(Math.PI * clamp((ph - 0.64) / 0.08, 0, 1));
+          rk += lift * 0.02 - tug * 0.02 - pq * 0.05;                              // the old mag leaves and the gun lifts a hair; it dips while the hand is down at the pouch; a tug on the seated mag
+          handDy -= tug * 0.012; sw.y -= slp * 0.008; sw.x -= pq * 0.012; }
         if (am.mag <= 0 && vm.slides.length) slideT = ph < 0.72 ? 1 : 1 - sm(0.72, 0.78, ph);   // slide drops when the mag seats
       }
       // the gun turns and dips for the reload but always stays well inside the frame (nudged up and pushed away from the camera)
@@ -1839,8 +1854,6 @@ export class Game {
       }
     }
     {                                                                                  // organic follow-through: every animated offset chases its target on a slightly under-damped spring (soft starts, tiny overshoot, no snapping)
-      const sp = S.sp || (S.sp = {}), spr = (k, t, w = 20, zt = 0.74) => { const s = sp[k] || (sp[k] = [0, 0, t]); if (/^[sij]r[xyz]$/.test(k)) { const d = t - s[2]; if (Math.abs(d) > 3) s[0] += Math.round(d / 6.2832) * 6.2832; s[2] = t; }      // full turns end back at 0: keep the spring on the shortest path
-      const acc = w * w * (t - s[0]) - 2 * zt * w * s[1]; s[1] += acc * dt; s[0] += s[1] * dt; return s[0]; };
       x += spr('sx', sw.x); y += spr('sy', sw.y); z += spr('sz', sw.z); rx += spr('srx', sw.rx); ry += spr('sry', sw.ry); rz += spr('srz', sw.rz);
       hand = Math.max(0, spr('h', hand, 15, 0.85)); handDy = spr('hdy', handDy, 15, 0.85); handDz = spr('hdz', handDz, 15, 0.85);       // support hand glides instead of snapping
       const wi = 11;
