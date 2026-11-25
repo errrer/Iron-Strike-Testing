@@ -2,8 +2,8 @@
 // blood mist, pooling and wall streaks that darken as they age, blood on your screen, organs / ribs / intestines / brain matter,
 // and full dismemberment for shotguns, snipers, headshots and explosives. Purely cosmetic and local to your screen.
 import * as THREE from 'three';
-import { bx, mat } from './soldier.js?v=0.25.6';
-import { GIBS } from './gore.js?v=0.25.6';
+import { bx, mat } from './soldier.js?v=0.26.0';
+import { GIBS } from './gore.js?v=0.26.0';
 
 const V3 = THREE.Vector3, rand = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];
 const G = () => new THREE.Group();

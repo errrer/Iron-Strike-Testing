@@ -50,4 +50,21 @@ for yy, w in ((y0 + 0.17 * (y1 - y0), 1.4), (y0 + 0.03 * (y1 - y0), 1.2)):
     col = np.where(sh[..., None], col * 0.7, col)
 col = np.clip(col, 0, 255)
 out = im.copy(); out[mk] = col[mk]
+# --- full-finger tactical gloves: every remaining skin pixel (finger / thumb islands) becomes dark leather-and-fabric, keeping the original shading so knuckle creases still read
+R_, G_, B_ = im[..., 0], im[..., 1], im[..., 2]
+skin = (R_ > 70) & (R_ > G_ + 6) & (G_ >= B_ - 6) & (R_ - B_ > 22) & ~mk
+skin = ndi.binary_dilation(skin, iterations=2) & ~mk & (im.max(2) > 25)
+lum = ndi.gaussian_filter(0.3 * R_ + 0.59 * G_ + 0.11 * B_, 2.2); lm = lum[skin].mean()
+shade = np.clip(1 + (lum / lm - 1) * 1.1, 0.55, 1.35)[..., None]
+leather = noise(3, 11)[..., None] * 0.35 + noise(9, 12)[..., None] * 0.65
+weave2 = (0.5 + 0.5 * np.sin(X * 2.6 + Y * 0.9)) * (0.5 + 0.5 * np.sin(Y * 2.6 - X * 0.9))
+glove = np.array([36., 36., 38.]) * (0.78 + 0.5 * leather) * (0.94 + 0.08 * weave2[..., None]) * shade
+hi = np.clip(shade[..., 0] - 1.05, 0, 0.3)[..., None] * np.array([70., 68., 66.])            # worn knuckle highlights
+glove = glove + hi
+dist = ndi.distance_transform_edt(skin)                                                      # stitching just inside every island edge
+dash = (np.sin((X + Y) * 1.3) > -0.15)
+stitch = (np.abs(dist - 4.5) < 0.75) & dash & skin
+glove = np.where(stitch[..., None], np.array([66., 64., 60.]), glove)
+glove = np.where(((np.abs(dist - 6.2) < 1.0) & skin)[..., None], glove * 0.72, glove)        # seam shadow
+out[skin] = np.clip(glove, 0, 255)[skin]
 Image.fromarray(out.astype(np.uint8)).save(R + 'assets/models/v_hands.jpg', quality=90); print('ok')
