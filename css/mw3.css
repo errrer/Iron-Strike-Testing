@@ -1,0 +1,61 @@
+/* MW3-style presentation (original artwork, no game assets): condensed type, flat angular panels, an ammo counter with a bullet row,
+   the killfeed under a square minimap, and a health bar that only shows once you are hurt. Loaded after style.css. */
+:root {
+  --mwfont: 'Bahnschrift Condensed', 'Bahnschrift', 'DIN Condensed', 'Roboto Condensed', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif;
+  --accent: #f2a93b; --accent2: #ffc462; --text: #ece9df; --dim: #a29f92; --ally: #5aa8e8; --enemy: #ee5b3a;
+}
+html, body { font-family: var(--mwfont); }
+.btn, .seg button, select, input, button { font-family: var(--mwfont); }
+.btn { border-radius: 0; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.14); border-left: 3px solid var(--accent); letter-spacing: 3px; font-weight: 600; }
+.btn:hover { background: rgba(242, 169, 59, 0.22); border-color: rgba(255, 255, 255, 0.5); border-left-color: var(--accent2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #17110a; }
+.btn.primary:hover { background: var(--accent2); }
+.panel { border-radius: 0; border-top: 2px solid var(--accent); background: rgba(16, 17, 15, 0.94); }
+.panel h1, .panel h2, .logo { font-weight: 700; }
+.card { border-radius: 0; }
+#menu { background: linear-gradient(115deg, rgba(8, 9, 8, 0.98), rgba(26, 27, 23, 0.95) 55%, rgba(10, 10, 9, 0.98)), repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 7px), #0a0b0a; }
+
+/* ---------- HUD ---------- */
+#hud { font-stretch: condensed; }
+#scorebar span { background: rgba(10, 11, 9, 0.62); font-size: 17px; letter-spacing: 3px; border-radius: 0 !important; backdrop-filter: none; }
+#scorebar span:first-child { border-bottom: 3px solid var(--ally); } #scorebar span:last-child { border-bottom: 3px solid var(--enemy); }
+#timer { min-width: 96px !important; font-size: 22px !important; font-weight: 700; }
+
+/* minimap: square, top-left; the killfeed hangs underneath it */
+#radar { left: 16px; top: 16px; width: 168px; height: 168px; border-radius: 0; border: 2px solid rgba(255, 255, 255, 0.38); background: rgba(8, 10, 8, 0.5); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6); }
+#killfeed { top: 200px; left: 16px; right: auto; justify-items: start; gap: 2px; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, 0.7); }
+#killfeed > *, .kf { background: rgba(0, 0, 0, 0.3); border: 0; border-left: 3px solid rgba(255, 255, 255, 0.32); border-radius: 0; padding: 2px 10px 2px 8px; }
+.kf.mine { background: rgba(0, 0, 0, 0.5); outline: none; border-left-color: var(--accent); }
+.kf .kfw { color: #c9c6b8; font-size: 13px; font-weight: 500; }
+
+/* ammo: big magazine count, reserve beside it, a row of bullets underneath */
+#ammo { right: 34px; bottom: 26px; min-width: 230px; text-shadow: 0 2px 6px #000; }
+#wname { background: none; padding: 0; margin-bottom: 2px; font-size: 14px; letter-spacing: 4px; color: #d4d1c4; font-weight: 600; }
+#amtxt { display: flex; align-items: baseline; justify-content: flex-end; gap: 10px; font-size: inherit; }
+#amtxt b { font-size: 68px; line-height: 0.9; font-weight: 700; color: #fff; letter-spacing: 1px; }
+#mag.low { color: #ff5a3d; }
+#res { font-size: 30px; font-weight: 600; color: #b8b5a8; margin: 0; }
+#ampips { display: flex; justify-content: flex-end; gap: 2px; height: 13px; margin-top: 7px; }
+#ampips i { display: block; width: 3px; height: 13px; background: #fff; border-radius: 1px 1px 0 0; box-shadow: 0 0 2px rgba(0, 0, 0, 0.9); }
+#ampips i.e { background: rgba(255, 255, 255, 0.2); }
+#ampips.low i:not(.e) { background: #ff5a3d; }
+#wsec { margin-top: 6px; font-size: 12px; letter-spacing: 2px; color: #8f8c80; }
+
+/* health only appears once you are hurt (the red edges do the rest); zombies / royale / sandbox keep it on */
+#health { left: 26px; bottom: 26px; opacity: 0; transition: opacity 0.4s; }
+#health.hurt { opacity: 1; }
+#hpbar { width: 170px; height: 6px; border-radius: 0; box-shadow: none; border-color: rgba(255, 255, 255, 0.35); }
+#hpfill { border-radius: 0; box-shadow: none; }
+#hptxt { font-size: 22px; font-weight: 700; }
+
+/* streak rewards sit above the ammo, right aligned */
+#streakbar { left: auto; right: 34px; bottom: 168px; justify-items: end; font-size: 14px; letter-spacing: 2px; }
+#streakbar div { background: rgba(0, 0, 0, 0.42); border-left: 0; border-right: 3px solid #6b6a60; border-radius: 0; padding: 3px 10px 3px 14px; text-align: right; }
+#streakbar div.ready { border-right-color: var(--accent); } #streakbar div.active { border-right-color: #7dffa0; }
+
+/* score popups beside the crosshair, like "+100 / headshot" */
+#xppop { left: calc(50% + 48px); top: 51%; transform: none; justify-items: start; letter-spacing: 1px; }
+#xppop div { color: #fff; font-size: 23px; font-weight: 700; }
+#xppop div.lvl { color: #ffd45e; font-size: 26px; }
+#msg { font-size: 34px; letter-spacing: 6px; top: 62%; font-weight: 600; }
+#modeTag { font-size: 12px; letter-spacing: 4px; }

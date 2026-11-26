@@ -1,7 +1,7 @@
 // Objective game modes (single player): Domination, Hardpoint, Kill Confirmed, Search & Destroy.
 // The game calls update(dt) every frame, onKill() for each kill and botGoal() when a bot picks where to go.
 import * as THREE from 'three';
-import { XP_REWARD } from './progress.js?v=0.26.0';
+import { XP_REWARD } from './progress.js?v=0.27.0';
 
 const C_ALLY = 0x58b4ff, C_ENEMY = 0xff5a4a, C_NEUTRAL = 0xcfd6dc, C_HOT = 0xffd45e;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -186,7 +186,7 @@ export class Objectives {
       for (const z of this.zones) {
         const who = g.actors.find((a) => a.alive && a.team === 0 && this.inZone(z, a) && (a.isPlayer ? g.keys.KeyE : true));
         if (who) {
-          this.useT += dt;
+          this.useT += dt; if (who.isPlayer) g.playerUsing = true;
           if (this.useT >= 3) { this.plant(z, who); this.useT = 0; }
           return;
         }
@@ -196,7 +196,7 @@ export class Objectives {
       this.bomb.t -= dt; this.bomb.mesh.rotation.y += dt;
       const z = this.bomb.zone, who = g.actors.find((a) => a.alive && a.team === 1 && this.inZone(z, a) && (a.isPlayer ? g.keys.KeyE : this.defuser(a)));
       if (who && !g.actors.some((a) => a.alive && a.team === 0 && this.inZone(z, a))) {
-        this.useT += dt; if (this.useT >= 5) { if (who.isPlayer) g.award(XP_REWARD.defuse, 'BOMB DEFUSED'); this.endRound(1, 'BOMB DEFUSED'); }
+        this.useT += dt; if (who.isPlayer) g.playerUsing = true; if (this.useT >= 5) { if (who.isPlayer) g.award(XP_REWARD.defuse, 'BOMB DEFUSED'); this.endRound(1, 'BOMB DEFUSED'); }
       } else this.useT = Math.max(0, this.useT - dt * 2);
       if (this.bomb && this.bomb.t <= 0) { const bz = this.bomb.zone; for (const a of g.actors) if (a.alive && Math.hypot(a.pos.x - bz.x, a.pos.z - bz.z) < 14) g.damage(a, a, 999, { id: 'bomb', name: 'Bomb' }, false); this.endRound(0, 'BOMB DETONATED'); }
     }

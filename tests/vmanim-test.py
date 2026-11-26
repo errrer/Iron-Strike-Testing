@@ -32,7 +32,11 @@ async () => {
     const run = (tag, frames, setup) => { for (let i = 0; i < frames; i++) { setup && setup(i); try { g.frame(1/60); } catch (e) { out.errors.push(id + ':' + tag + ' ' + e.stack); return; } sample(tag); } };
     run('idle', 60);
     g.keys = { KeyW: true }; run('walk', 120); g.keys = {};
-    g.keys = { KeyW: true, ShiftLeft: true }; run('sprint', 120); g.keys = {}; run('stop', 40);
+    g.keys = { KeyW: true, ShiftLeft: true }; run('sprint', 120); g.keys = {};
+    g.frame(1/60); if (!(p.sprintRecover > 0) || g.canFire(p)) out.bad.push([id, 'no sprint-out delay', p.sprintRecover]);
+    run('stop', 40); if (!(p.sprintRecover <= 0)) out.bad.push([id, 'sprint-out delay never ends', p.sprintRecover]);
+    run('use', 40, () => { g.playerUsing = true; }); run('use-out', 40);
+    run('streak', 70, (i) => { if (i === 0) g.vmS.streakT = 0.9; });
     g.adsHeld = true; run('ads', 60); run('ads-fire', 30, (i) => { if (i % 5 === 0) { g.vmKick = Math.min(1.5, (g.vmKick || 0) + 0.55); g.vmS.slide = 1; g.vmS.cycle = 1; g.vmS.rand = Math.sin(i * 7); } }); g.adsHeld = false; run('unads', 60);
     p.ammo[p.cur].mag = Math.max(1, p.ammo[p.cur].mag - 3); g.startReload(p); run('reload', Math.ceil((p.weapon.reload + 0.5) * 60));
     p.ammo[p.cur].mag = 0; g.startReload(p); run('reload-empty', Math.ceil((p.weapon.reload + 0.5) * 60));

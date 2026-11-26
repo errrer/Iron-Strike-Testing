@@ -21,7 +21,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 export class HUD {
   constructor() {
     this.el = {};
-    for (const id of ['hud', 'sbL', 'sbR', 'timer', 'radar', 'killfeed', 'crosshair', 'hitmarker', 'dmgind', 'vignette', 'hpfill', 'hptxt',
+    for (const id of ['hud', 'sbL', 'sbR', 'timer', 'radar', 'killfeed', 'health', 'ampips', 'crosshair', 'hitmarker', 'dmgind', 'vignette', 'hpfill', 'hptxt',
       'wname', 'mag', 'res', 'wsec', 'msg', 'scope', 'dead', 'deadTxt', 'deadSub', 'scoreboard', 'pause', 'endscreen', 'endTitle', 'endSub', 'endTable', 'modeTag', 'netinfo', 'sbhint', 'sbPanel', 'xppop', 'objhud', 'streakbar', 'zmhud', 'zmRound', 'zmPts', 'zmPerks', 'zmPU', 'zmPrompt']) this.el[id] = $(id);
     this.rctx = this.el.radar.getContext('2d');
     this.cache = {};
@@ -189,10 +189,12 @@ export class HUD {
     e.hpfill.style.background = hp > 60 ? '#5fd35f' : hp > 30 ? '#e6b422' : '#e04a3a';
     this.set('hptxt', String(hp));
     e.vignette.style.opacity = String(Math.max(0, (1 - hp / 100) * 0.9 - 0.05));
+    e.health.classList.toggle('hurt', hp < 100 || !!(game.mode.zm || game.mode.br || game.mode.sandbox));
     // ammo
     const am = p.ammo[p.cur];
     this.set('wname', w.name); this.set('mag', String(am.mag)); this.set('res', `/ ${am.res}`);
     e.mag.classList.toggle('low', am.mag <= Math.ceil(w.mag * 0.25));
+    this.pips(am.mag, w);
     const o = p.weapons[1 - p.cur]; this.set('wsec', `${p.cur === 0 ? '2' : '1'}  ${o.name}  ${p.ammo[1 - p.cur].mag}`);
     // reload / low ammo prompt
     if (this.msgT > 0) { this.msgT -= game.dt || 1 / 60; if (this.msgT <= 0) e.msg.classList.remove('show'); }
@@ -215,11 +217,21 @@ export class HUD {
     this.drawRadar(game);
   }
 
+  pips(mag, w) {                                          // the bullet row under the ammo counter: one pip per round (grouped on big magazines)
+    const el = this.el.ampips, key = `${w.id}:${w.mag}`;
+    if (this.pipKey !== key) {
+      this.pipKey = key; this.pipN = Math.min(w.mag, 40); this.pipLast = -1; el.innerHTML = '<i></i>'.repeat(this.pipN);
+    }
+    const n = Math.ceil(mag / w.mag * this.pipN - 1e-6);
+    if (n !== this.pipLast) { this.pipLast = n; const k = el.children; for (let i = 0; i < k.length; i++) k[i].classList.toggle('e', i >= n); }
+    el.classList.toggle('low', mag <= Math.ceil(w.mag * 0.25));
+  }
+
   drawRadar(game) {
-    const c = this.rctx, R = 75, S = game.br ? 0.95 : 2.3, p = game.player, b = game.map.bounds;
-    c.clearRect(0, 0, 150, 150);
-    c.save(); c.beginPath(); c.arc(R, R, R - 1, 0, Math.PI * 2); c.clip();
-    c.fillStyle = 'rgba(8,12,16,0.72)'; c.fillRect(0, 0, 150, 150);
+    const SZ = 168, c = this.rctx, R = SZ / 2, S = game.br ? 1.05 : 2.5, p = game.player, b = game.map.bounds;
+    c.clearRect(0, 0, SZ, SZ);
+    c.save(); c.beginPath(); c.rect(1, 1, SZ - 2, SZ - 2); c.clip();
+    c.fillStyle = 'rgba(8,12,16,0.72)'; c.fillRect(0, 0, SZ, SZ);
     c.translate(R, R); c.rotate(p.yaw); c.scale(S, S); c.translate(-p.pos.x, -p.pos.z);
     c.drawImage(this.radarMap, b.x0, b.z0, b.x1 - b.x0, b.z1 - b.z0);
     for (const a of game.actors) {
@@ -235,6 +247,7 @@ export class HUD {
     c.restore();
     // player marker + ring
     c.save(); c.translate(R, R); c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(0, -7); c.lineTo(5, 6); c.lineTo(0, 3); c.lineTo(-5, 6); c.closePath(); c.fill(); c.restore();
-    c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 2; c.beginPath(); c.arc(R, R, R - 1, 0, Math.PI * 2); c.stroke();
+    c.save(); c.fillStyle = 'rgba(255,255,255,0.85)'; c.font = '700 13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';      // north marker rides the edge as you turn
+    const nx = Math.sin(p.yaw), ny = -Math.cos(p.yaw), k = (R - 11) / Math.max(Math.abs(nx), Math.abs(ny), 0.001); c.fillText('N', R + nx * k, R + ny * k); c.restore();
   }
 }

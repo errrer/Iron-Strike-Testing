@@ -1,4 +1,4 @@
-import { labelFor } from './keybinds.js?v=0.26.0';
+import { labelFor } from './keybinds.js?v=0.27.0';
 // Killstreak rewards (offline matches): earn them with kills in a row, then press the number key.
 //   3 kills  UAV        - every enemy shows on the radar for 25 s            (key 7)
 //   5 kills  SENTRY GUN - an automatic turret guards the spot for 60 s       (key 8)
@@ -43,7 +43,7 @@ export class Streaks {
       this.mark(spot);
       g.hud.center('AIRSTRIKE INBOUND', 1.6);
     }
-    this.ready[id]--; g.sound.beep(false);
+    this.ready[id]--; g.sound.beep(false); g.vmS.streakT = 0.9;      // the gun dips while the hands work the radio / marker
     return true;
   }
 

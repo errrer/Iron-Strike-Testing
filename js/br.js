@@ -2,8 +2,8 @@
 // random attachments, armour plates and medkits, loot the players you kill, and stay inside the storm circle that keeps shrinking.
 // Last one alive wins. Offline: you + 19 bots.
 import * as THREE from 'three';
-import { WEAPONS, PRIMARIES, SECONDARIES, randomMask, withAtt, attList } from './weapons.js?v=0.26.0';
-import { ISLE_TOWNS } from './maps.js?v=0.26.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, randomMask, withAtt, attList } from './weapons.js?v=0.27.0';
+import { ISLE_TOWNS } from './maps.js?v=0.27.0';
 
 const V3 = THREE.Vector3, rand = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)], clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const RARITY = [

@@ -1,26 +1,26 @@
 import * as THREE from 'three';
-import { MOD } from './supermod.js?v=0.26.0';
-import { canon } from './keybinds.js?v=0.26.0';
-import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.26.0';
-import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.26.0';
-import { buildMap } from './maps.js?v=0.26.0';
-import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.26.0';
-import { buildWorld } from './world.js?v=0.26.0';
-import { Bot } from './bots.js?v=0.26.0';
-import { makeRichtofen, richtofenReady } from './easter.js?v=0.26.0';
-import { buildSoldier, SKIN } from './soldier.js?v=0.26.0';
-import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.26.0';
-import { Zombies, PERKS } from './zombies.js?v=0.26.0';
-import { BattleRoyale } from './br.js?v=0.26.0';
-import { inspectFor, inspectPose } from './inspect.js?v=0.26.0';
-import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.26.0';
-import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.26.0';
-import { Objectives } from './objectives.js?v=0.26.0';
-import { Utilities } from './utils.js?v=0.26.0';
-import { Streaks, STREAKS } from './streaks.js?v=0.26.0';
-import { GoreX } from './gorex.js?v=0.26.0';
-import { armsReady, makeArms } from './arms.js?v=0.26.0';
-import { Gore } from './gore.js?v=0.26.0';
+import { MOD } from './supermod.js?v=0.27.0';
+import { canon } from './keybinds.js?v=0.27.0';
+import { WEAPONS, PRIMARIES, SECONDARIES, KNIVES, withAtt, cleanMask, CAMOS, randomMask } from './weapons.js?v=0.27.0';
+import { buildGun, makeEnv, camoQ } from './gunmodels.js?v=0.27.0';
+import { buildMap } from './maps.js?v=0.27.0';
+import { Colliders, NavGraph, GRAVITY, raySphere, rayAABB } from './physics.js?v=0.27.0';
+import { buildWorld } from './world.js?v=0.27.0';
+import { Bot } from './bots.js?v=0.27.0';
+import { makeRichtofen, richtofenReady } from './easter.js?v=0.27.0';
+import { buildSoldier, SKIN } from './soldier.js?v=0.27.0';
+import { animateSoldier, animateZombie, resetJoints } from './anim.js?v=0.27.0';
+import { Zombies, PERKS } from './zombies.js?v=0.27.0';
+import { BattleRoyale } from './br.js?v=0.27.0';
+import { inspectFor, inspectPose } from './inspect.js?v=0.27.0';
+import { Ragdoll, makeRagdoll } from './ragdoll.js?v=0.27.0';
+import { Progress, XP_REWARD, UNLOCK, rankName } from './progress.js?v=0.27.0';
+import { Objectives } from './objectives.js?v=0.27.0';
+import { Utilities } from './utils.js?v=0.27.0';
+import { Streaks, STREAKS } from './streaks.js?v=0.27.0';
+import { GoreX } from './gorex.js?v=0.27.0';
+import { armsReady, makeArms } from './arms.js?v=0.27.0';
+import { Gore } from './gore.js?v=0.27.0';
 
 const pick3 = (a) => a[Math.floor(Math.random() * a.length)];
 const V3 = THREE.Vector3;
@@ -73,6 +73,8 @@ const PEN = { pistol: 0.45, smg: 0.55, shotgun: 0.3, ar: 0.9, dmr: 1.3, lmg: 1.2
 const MATRES = { glass: 0.1, windows: 0.15, wood: 0.4, crate: 0.45, plain: 0.5, sand: 0.7, snow: 0.3, tile: 0.8, brick: 1.0, concrete: 1.5, metal: 1.8 };
 export function gunPen(w) { if (w.pen !== undefined) return w.pen; const b = PEN[w.cls] !== undefined ? PEN[w.cls] : 0.6; return b * (0.75 + 0.5 * Math.min(1, (w.dmg || 30) / (w.cls === 'shotgun' ? 20 : 60))); }
 
+const ADS_RATE = { pistol: 15, smg: 14, shotgun: 11, ar: 11.5, dmr: 10, lmg: 8.5, sniper: 9.5 };            // how fast the sights come up, per class (the lighter the gun, the quicker)
+const SPRINT_OUT = { pistol: 0.1, smg: 0.12, shotgun: 0.18, ar: 0.16, dmr: 0.2, lmg: 0.26, sniper: 0.22 };   // seconds before you can fire after you stop sprinting
 const HOLSTER_T = 0.12, DRAW_T = 0.32;                      // putting the old gun away, then bringing the new one up (the player's switch takes both)
 
 export class Game {
@@ -107,7 +109,7 @@ export class Game {
     this.tracers = []; this.particles = [];
     this.net = null; this.hist = []; this.richtofen = false;
     this.knifeId = 'k_combat'; this.knifeOut = false; this.swing = null; this.vHeld = false; this.vHandled = false; this.vDownT = 0;
-    this.vmS = { sprint: 0, strafe: 0, land: 0, slide: 0, cycle: 0, inspectT: 0, lastVy: 0, wasGround: true, rand: 0, shake: 0, slk: 0, mvk: 0 };
+    this.vmS = { sprint: 0, strafe: 0, land: 0, slide: 0, cycle: 0, inspectT: 0, lastVy: 0, wasGround: true, rand: 0, shake: 0, slk: 0, mvk: 0, cuePh: -1, cueShell: 0, use: 0, streakT: 0 };
     this.vmCache = {};
     this.resize();
     this.bindEvents();
@@ -1032,7 +1034,7 @@ export class Game {
     }
     for (const a of this.actors) {
       if (!a.alive) continue;
-      a.fireCd -= dt; a.switchT -= dt;
+      a.fireCd -= dt; a.switchT -= dt; if (a.sprintRecover > 0) a.sprintRecover -= dt;
       if (a.remote && a.fireCd < -0.25) a.fireCd = -0.25;
       if (a.reloading && !a.remote) { a.reloadT -= dt; if (a.reloadT <= 0) this.finishReload(a); }
       if (a.heat > 0) a.heat = Math.max(0, a.heat - dt * 3);
@@ -1162,7 +1164,7 @@ export class Game {
     if (!list.length) gr.bleed(() => this.stumpPos(v, { x: 0, y: 1.25, z: -0.1 }), 1.4, 0.7);   // torso wound
   }
 
-  canFire(a) { return a.alive && this.matchT >= 0 && a.switchT <= 0 && !a.reloading && !a.mantle && a.fireCd <= 0 && a.ammo[a.cur].mag > 0; }
+  canFire(a) { return a.alive && this.matchT >= 0 && a.switchT <= 0 && !(a.sprintRecover > 0) && !a.reloading && !a.mantle && a.fireCd <= 0 && a.ammo[a.cur].mag > 0; }
 
   // ---- melee: tap V = quick lunge with your knife (one hit kills), hold V = take the knife out (LMB slashes), tap/1/2 to put it away
   knifeW() {                                               // the equipped knife (with its camo / skin, if any, as an attachment mask the model builder paints)
@@ -1210,7 +1212,6 @@ export class Game {
     const am = a.ammo[a.cur], w = a.weapon;
     if (!a.alive || a.reloading || am.mag >= w.mag || (am.res <= 0 && !a.brain) || a.switchT > 0) return;
     a.reloading = true; a.reloadT = w.reload * ((a.perks & 4) ? 0.5 : 1) * (a.isPlayer && MOD.fastReload ? 0.05 : 1);
-    if (a.isPlayer) this.sound.reload(0);
   }
   finishReload(a) {
     const am = a.ammo[a.cur], w = a.weapon;
@@ -1218,7 +1219,6 @@ export class Game {
     const need = w.mag - am.mag;
     if (a.brain) { am.mag = w.mag; return; }           // bots never run dry
     const take = Math.min(need, am.res); am.mag += take; am.res -= take;
-    if (a.isPlayer) this.sound.reload(1);
   }
   switchWeapon(a, idx) {
     if (!a.alive || idx === a.cur || a.switchT > 0.1) return;
@@ -1512,8 +1512,9 @@ export class Game {
     }
     p.eye += ((down ? 0.6 : p.slideT > 0 ? 0.9 : p.crouch ? 1.12 : 1.65) - p.eye) * Math.min(1, dt * 12);
     { const S = this.vmS; S.slk += ((p.slideT > 0 ? 1 : 0) - S.slk) * Math.min(1, dt * 10); S.mvk += ((p.mantle ? Math.sin(Math.PI * Math.min(1, p.mantle.t / p.mantle.dur)) : 0) - S.mvk) * Math.min(1, dt * 16); }
-    p.ads += ((ads ? 1 : 0) - p.ads) * Math.min(1, dt * 11);
-    p.sprint = sprint;
+    p.ads += ((ads ? 1 : 0) - p.ads) * Math.min(1, dt * (ADS_RATE[w.cls] || 11) * (ads ? 1 : 1.4));
+    if (this._wasSprint && !sprint) p.sprintRecover = SPRINT_OUT[w.cls] ?? 0.15;      // the gun has to come back up before it will fire
+    this._wasSprint = sprint; p.sprint = sprint;
     p.speed2 = Math.hypot(p.vel.x, p.vel.z);
 
     // recoil recovery
@@ -1557,7 +1558,7 @@ export class Game {
     p.heat = Math.min(1, p.heat + 0.12);
     // every shot rolls its own recoil: random climb (sometimes a big jolt), and a horizontal drift that random-walks through a burst
     const big = Math.random() < 0.12 ? 1.5 : 1;
-    const kick = MOD.noRecoil ? 0 : w.recoil * (0.5 + Math.random() * 1.0) * big * (1 - p.ads * 0.3);
+    const kick = MOD.noRecoil ? 0 : w.recoil * (0.5 + Math.random() * 1.0) * big * (1 - p.ads * 0.3) * (p.heat < 0.14 ? 1.3 : 1);      // the first round of a burst kicks hardest
     p.recoilBias = clamp(p.recoilBias + (Math.random() - 0.5) * 1.1, -1.3, 1.3);
     const yawKick = ((Math.random() - 0.5) * 1.2 + p.recoilBias * 0.3) * w.recoilYaw * 0.45 * (1 - p.ads * 0.5) * (MOD.noRecoil ? 0 : 1);   // horizontal kick kept small: it moves the real aim
     p.pitch = clamp(p.pitch + kick, -1.5, 1.5); p.recoilDebt += kick * 0.85;
@@ -1837,11 +1838,23 @@ export class Game {
           handDy -= tug * 0.012; sw.y -= slp * 0.008; sw.x -= pq * 0.012; }
         if (am.mag <= 0 && vm.slides.length) slideT = ph < 0.72 ? 1 : 1 - sm(0.72, 0.78, ph);   // slide drops when the mag seats
       }
+      { const at = (name, t0) => { if (S.cuePh < t0 && ph >= t0) this.sound.cue(name); }, cp = S.cuePh;      // every click and clack is played from the animation, so it lands with the hands
+        if (vm.cls === 'shotgun') { const si = Math.floor(clamp((ph - 0.1) / 0.72, 0, 1) * 5 + 0.5); if (si > (S.cueShell || 0)) { S.cueShell = si; this.sound.cue('shell'); } at('pump', 0.86); }
+        else if (vm.cls === 'sniper') { at('boltback', 0.1); at('magin', 0.34); at('boltfwd', 0.78); }
+        else if (revolver) { at('release', 0.1); at('shell', 0.5); at('magin', 0.8); }
+        else { at('release', 0.08); at('magout', 0.2); at('rustle', 0.3); at('magin', 0.655); at('tug', 0.77); if (!tact && !vm.pistol) { at('boltback', 0.82); at('boltfwd', 0.89); } else if (!tact && vm.pistol) at('boltfwd', 0.74); }
+        S.cuePh = ph; void cp; }
       // the gun turns and dips for the reload but always stays well inside the frame (nudged up and pushed away from the camera)
       const k = revolver ? 1.3 : vm.pistol ? 0.8 : 1;
       sw.y += tilt * (vm.pistol ? 0.07 : 0.05); sw.x -= tilt * 0.03 * k; sw.z -= tilt * 0.05; sw.rz += tilt * (revolver ? 0.6 : vm.pistol ? 0.38 : 0.46) * k * (1 - a); sw.rx += (-tilt * 0.22 * k + rk) * (1 - a * 0.7); sw.ry += tilt * 0.15 * k;
     }
     this.camBump = spr('cb', camT, 24, 0.5);
+    if (!p.reloading) { S.cuePh = -1; S.cueShell = 0; }
+    // planting / defusing (hold E) and calling in a streak: the gun dips away and the hands go to work
+    S.use += ((this.playerUsing && p.alive ? 1 : 0) - S.use) * Math.min(1, dt * 9); this.playerUsing = false;
+    S.streakT = Math.max(0, (S.streakT || 0) - dt);
+    const busy = Math.max(S.use, S.streakT > 0 ? Math.sin(Math.PI * (1 - S.streakT / 0.9)) : 0);
+    if (busy > 0.01) { sw.y -= 0.2 * busy; sw.rx -= 0.45 * busy; sw.rz += 0.3 * busy; sw.x += 0.05 * busy; sw.z += 0.03 * busy; hand = Math.max(hand, busy * 0.8); handDy += Math.sin(t * 15) * 0.012 * S.use; handDz += Math.sin(t * 15 + 1.3) * 0.01 * S.use; }
     // sliding: gun canted and low; mantling: gun pushed down and out of the way while you climb
     if (S.slk > 0.01) { const f = S.slk * (1 - a * 0.8); x -= 0.035 * f; y -= 0.03 * f; rz += 0.3 * f; ry += 0.12 * f; rx += 0.05 * f; }
     if (S.mvk > 0.01) { y -= 0.1 * S.mvk; z += 0.03 * S.mvk; rx -= 0.35 * S.mvk; rz += 0.15 * S.mvk; }
@@ -1884,7 +1897,7 @@ export class Game {
     } else this.vmRoot.rotation.set(rx, ry, rz);
     vm.lh.position.set(vm.reach.x * hand, vm.reach.y * hand + handDy, vm.reach.z * hand + handDz + pumpBack * 0.08 * (vm.cls === 'shotgun' ? 1 : 0));
     if (vm.arms) {                                                                    // fingers: eased towards their targets so nothing snaps
-      const fa = S.fa || (S.fa = {}), tg = { hand, grab: fT.grab, slap: fT.slap, charge: fT.charge, magGrab: vm.mags.length && p.reloading ? hand : 0, release: fT.release, trigOff: Math.max(p.reloading ? 1 : 0, S.sprint, S.inspectT > 0 ? 1 : 0, this.swing ? 1 : 0, S.mvk, S.slk * 0.5), draw: p.switchT > 0 ? clamp(p.switchT / DRAW_T, 0, 1) : 0, sprint: S.sprint * (1 - a), insp: S.inspectT > 0 ? 1 : 0, kick };
+      const fa = S.fa || (S.fa = {}), tg = { hand, grab: fT.grab, slap: fT.slap, charge: fT.charge, magGrab: vm.mags.length && p.reloading ? hand : 0, release: fT.release, trigOff: Math.max(p.reloading ? 1 : 0, busy > 0.1 ? 1 : 0, S.sprint, S.inspectT > 0 ? 1 : 0, this.swing ? 1 : 0, S.mvk, S.slk * 0.5), draw: p.switchT > 0 ? clamp(p.switchT / DRAW_T, 0, 1) : 0, sprint: S.sprint * (1 - a), insp: S.inspectT > 0 ? 1 : 0, kick };
       const kf = Math.min(1, dt * 16); for (const k in tg) fa[k] = (fa[k] || 0) + (tg[k] - (fa[k] || 0)) * kf;
       fa.t = this.time; vm.arms.update(vm.arms.u, vm.lh.position, clamp(kick * 4, 0, 1), fa);
     }
